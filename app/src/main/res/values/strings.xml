@@ -1,0 +1,64 @@
+<resources>
+    <string name="app_name">Enet Fiber Tecnico</string>
+
+    <string name="nav_abrir">Abrir menú</string>
+    <string name="nav_cerrar">Cerrar menú</string>
+
+    <string name="_2026_enet_fiber_per_lkrv">© 2026 Enet Fiber Perú • Lkrv</string>
+    <string name="enet_fiber_per">ENET FIBER PERÚ</string>
+
+    <string name="enet_fiber_peru">ENET FIBER PERU</string>
+    <string name="logo_enet">Logo_enet</string>
+    <string name="iniciando_sistema">Iniciando sistema...</string>
+    <string name="desarrollado_por_lkrv">Desarrollado por Lkrv</string>
+    <string name="_2026_lkrv">© 2026 • Lkrv</string>
+    <string name="powered_by_enet_fiber_per">Powered by Enet Fiber Perú</string>
+    <string name="cargando">Cargando...</string>
+    <string name="selecciona_un_equipo">Selecciona un equipo</string>
+    <string name="ingresa_los_datos_del_equipo">Ingresa los datos del equipo</string>
+    <string name="ip">IP:</string>
+    <string name="mascara_de_red">Mascara de red:</string>
+    <string name="gateway">Gateway:</string>
+    <string name="_8_8_4_4">8.8.4.4</string>
+    <string name="_8_8_8_8">8.8.8.8</string>
+    <string name="wifi_2_4g">Wifi 2.4G</string>
+    <string name="nombre_red_2_4g">Nombre red 2.4G</string>
+    <string name="contrase_a_2_4g">Contraseña 2.4G</string>
+    <string name="wifi_5g">Wifi 5G</string>
+    <string name="contrase_a_5g">Contraseña 5G</string>
+    <string name="nombre_red_5g">Nombre red 5G</string>
+    <string name="configurar_equipo">CONFIGURAR EQUIPO</string>
+    <string name="configuraci_n_de_equipos">Configuración de equipos</string>
+    <string name="ip_del_celular">IP DEL CELULAR</string>
+    <string name="_5_ghz">5 GHz</string>
+    <string name="_2_4_ghz">2.4 GHz</string>
+    <string name="configurar_wifi">CONFIGURAR WIFI</string>
+    <string name="dns_1">DNS 1</string>
+    <string name="dns_2">DNS 2</string>
+    <string name="servidores_dns">SERVIDORES DNS</string>
+    <string name="todo">TODO</string>
+    <string name="_10_xxx_xxx_xx">10.xxx.xxx.xx</string>
+    <string name="_255_255_255_0">255.255.255.0</string>
+    <string name="_10_xx_xx_xx">10.xx.xx.xx</string>
+
+
+    <!--  LAN editable -->
+    <string name="configurar_lan">Configurar LAN</string>
+    <string name="ip_lan">IP LAN (router)</string>
+    <string name="dhcp_inicio">DHCP inicio</string>
+    <string name="dhcp_fin">DHCP fin</string>
+    <string name="vlan_id">VLAN ID</string>
+    <string name="cargar_config">Cargar config actual del equipo</string>
+    <string name="cargando_config">Leyendo configuración...</string>
+    <string name="contrasena_5g_label">Contraseña 5G</string>
+    <string name="optic">OPTIC</string>
+    <string name="xpon_onu">XPON ONU</string>
+    <string name="lanly">LANLY</string>
+    <string name="boa_cgi">BOA CGI</string>
+    <string name="zte">ZTE</string>
+    <string name="f6201b">F6201B</string>
+
+    <string name="mct">MCT</string>
+    <string name="ax3000">AX3000</string>
+    <string name="benmundo">BENMUNDO</string>
+</resources>

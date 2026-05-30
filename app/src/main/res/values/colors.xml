@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="color_enet">#2151A1</color>
+    <color name="azul_primario">#1E4C8A</color>
+    <color name="azul_secundario">#3AA8D8</color>
+    <color name="azul_oscuro">#152F5C</color>
+    <color name="azul_claro">#EBF5FB</color>
+    <color name="bg">#F0F4F8</color>
+    <color name="bg_card">#FFFFFF</color>
+    <color name="txt_primario">#0D1B2A</color>
+    <color name="txt_secundario">#4A6080</color>
+    <color name="txt_hint">#9EB3C8</color>
+    <color name="verde">#27AE60</color>
+    <color name="verde_bg">#E8F8F0</color>
+    <color name="rojo">#E74C3C</color>
+    <color name="rojo_bg">#FDECEA</color>
+    <color name="naranja">#E67E22</color>
+    <color name="naranja_bg">#FEF5EC</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="divider">#DDE6F0</color>
+    <color name="morado">#8E44AD</color>
+
+</resources>

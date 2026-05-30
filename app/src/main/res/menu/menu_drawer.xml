@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/nav_dashboard"
+            android:title="Dashboard"
+            android:checked="true"/>
+        <item
+            android:id="@+id/nav_pendientes"
+            android:title="Internet"/>
+        <item
+            android:id="@+id/nav_cable"
+            android:title="Cable"/>
+        <item
+            android:id="@+id/nav_completadas"
+            android:title="Completadas"/>
+        <item
+            android:id="@+id/nav_perfil"
+            android:title="Mi Perfil"/>
+    </group>
+
+    <group>
+        <item
+            android:id="@+id/nav_salir"
+            android:title="Cerrar sesión"/>
+    </group>
+
+</menu>

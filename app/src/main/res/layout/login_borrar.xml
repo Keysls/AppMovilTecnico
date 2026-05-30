@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_gradient_login">
+
+    <!-- Glow círculo inferior izquierdo -->
+    <View
+        android:layout_width="220dp"
+        android:layout_height="220dp"
+        android:layout_gravity="bottom|start"
+        android:layout_marginBottom="-60dp"
+        android:layout_marginStart="-60dp"
+        android:background="@drawable/bg_glow_circle"
+        android:alpha="0.20"/>
+
+    <!-- Glow círculo inferior derecho -->
+    <View
+        android:layout_width="160dp"
+        android:layout_height="160dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginBottom="40dp"
+        android:layout_marginEnd="-40dp"
+        android:background="@drawable/bg_glow_circle"
+        android:alpha="0.14"/>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:overScrollMode="never">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            android:paddingTop="56dp"
+            android:paddingBottom="48dp">
+
+            <!-- Logo alineado a la izquierda con sombra -->
+            <ImageView
+                android:id="@+id/ivLogo"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:src="@drawable/logo_enet"
+                android:scaleType="fitCenter"
+                android:background="@drawable/bg_logo_card"
+                android:padding="8dp"
+                android:elevation="6dp"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"/>
+
+            <!-- Título "Bienvenido." — blanco, bold, 30sp -->
+            <TextView
+                android:id="@+id/tvTitulo"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="Bienvenido."
+                android:textSize="30sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:fontFamily="sans-serif"
+                android:letterSpacing="-0.01"
+                android:layout_marginTop="20dp"
+                app:layout_constraintTop_toBottomOf="@id/ivLogo"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"/>
+
+            <!-- Subtítulo — color muted #6C7B91 sobre fondo azul → usamos blanco semitransparente -->
+            <TextView
+                android:id="@+id/tvSubtitulo"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="Inicia sesión para continuar a tu cuenta."
+                android:textSize="14sp"
+                android:textColor="#99BAD6"
+                android:fontFamily="sans-serif"
+                android:layout_marginTop="6dp"
+                app:layout_constraintTop_toBottomOf="@id/tvTitulo"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"/>
+
+            <!-- Tarjeta del formulario -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardForm"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                app:cardBackgroundColor="#FFFFFF"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="12dp"
+                app:strokeWidth="0dp"
+                app:layout_constraintTop_toBottomOf="@id/tvSubtitulo"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <!-- Campo Email: borde #E3E9F2, radius 14dp, ícono #6C7B91 -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilEmail"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        app:startIconDrawable="@drawable/ic_email"
+                        app:startIconTint="#6C7B91"
+                        app:boxCornerRadiusTopStart="14dp"
+                        app:boxCornerRadiusTopEnd="14dp"
+                        app:boxCornerRadiusBottomStart="14dp"
+                        app:boxCornerRadiusBottomEnd="14dp"
+                        app:boxStrokeColor="#E3E9F2"
+                        app:boxStrokeWidth="1.5dp"
+                        app:boxBackgroundColor="#FFFFFF"
+                        app:hintEnabled="false"
+                        >
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etEmail"
+                            android:layout_width="match_parent"
+                            android:layout_height="56dp"
+                            android:hint="Correo electrónico"
+                            android:inputType="textEmailAddress"
+                            android:imeOptions="actionNext"
+                            android:textSize="15sp"
+                            android:textColor="#0E2545"
+                            android:fontFamily="sans-serif"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Campo Contraseña: mismos estilos, ícono lock -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilPassword"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        app:startIconDrawable="@drawable/ic_lock"
+                        app:startIconTint="#6C7B91"
+                        app:boxCornerRadiusTopStart="14dp"
+                        app:boxCornerRadiusTopEnd="14dp"
+                        app:boxCornerRadiusBottomStart="14dp"
+                        app:boxCornerRadiusBottomEnd="14dp"
+                        app:boxStrokeColor="#E3E9F2"
+                        app:boxStrokeWidth="1.5dp"
+                        app:boxBackgroundColor="#FFFFFF"
+                        app:hintEnabled="false"
+
+                        app:passwordToggleEnabled="true"
+                        app:passwordToggleTint="#6C7B91">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etPassword"
+                            android:layout_width="match_parent"
+                            android:layout_height="56dp"
+                            android:hint="Contraseña"
+                            android:inputType="textPassword"
+                            android:imeOptions="actionDone"
+                            android:textSize="15sp"
+                            android:textColor="#0E2545"
+                            android:fontFamily="sans-serif"/>
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Error -->
+                    <TextView
+                        android:id="@+id/tvError"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone"
+                        android:textColor="#E04A4A"
+                        android:textSize="12sp"
+                        android:background="@color/rojo_bg"
+                        android:padding="10dp"
+                        android:layout_marginTop="8dp"/>
+
+                    <!-- Fila: Recuérdame + ¿Olvidaste? -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginTop="14dp">
+
+                        <CheckBox
+                            android:id="@+id/cbRecuerdame"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Recuérdame"
+                            android:textSize="13sp"
+                            android:textColor="#6C7B91"
+                            android:buttonTint="#1F4E8C"
+                            android:fontFamily="sans-serif"
+                            android:checked="true"/>
+
+                        <TextView
+                            android:id="@+id/tvOlvidaste"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="¿Olvidaste tu contraseña?"
+                            android:textSize="12sp"
+                            android:textColor="#1F4E8C"
+                            android:textStyle="bold"
+                            android:fontFamily="sans-serif"/>
+
+                    </LinearLayout>
+
+                    <!-- Botón Iniciar sesión → navy #1F4E8C, radius 12dp -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnIngresar"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:text="Iniciar sesión →"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF"
+                        android:fontFamily="sans-serif"
+                        android:letterSpacing="0.02"
+                        android:layout_marginTop="20dp"
+                        app:backgroundTint="#1F4E8C"
+                        app:cornerRadius="12dp"
+                        app:elevation="2dp"/>
+
+                    <!-- Progress -->
+                    <ProgressBar
+                        android:id="@+id/progress"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:indeterminateTint="#1F4E8C"
+                        android:visibility="gone"
+                        android:layout_gravity="center"
+                        android:layout_marginTop="8dp"/>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </ScrollView>
+
+</FrameLayout>

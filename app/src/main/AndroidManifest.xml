@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+
+    <application
+        android:name=".App"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@drawable/icon_logo_e"
+        android:label="@string/app_name"
+        android:roundIcon="@drawable/icon_logo_e"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.EnetFiber"
+        android:usesCleartextTraffic="true"
+        tools:targetApi="31">
+        <!-- Splash -->
+        <activity
+            android:name=".ui.splash.SplashActivity"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.EnetFiber.Splash">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".ui.login.LoginActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" /> <!-- Principal con Drawer -->
+        <activity
+            android:name=".ui.main.MainActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.detalle.DetalleOrdenActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ui.instalacion.InstalacionActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" /> <!-- FileProvider para CameraX -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+        <!-- Deshabilita el auto-init de WorkManager para que use
+             el HiltWorkerFactory configurado en App.kt -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+    </application>
+
+</manifest>

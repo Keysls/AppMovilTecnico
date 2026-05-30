@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/color_enet"
+    android:paddingStart="20dp"
+    android:paddingEnd="20dp"
+    android:paddingTop="36dp"
+    android:paddingBottom="20dp">
+
+    <FrameLayout
+        android:layout_width="64dp"
+        android:layout_height="64dp">
+
+        <View
+            android:layout_width="64dp"
+            android:layout_height="64dp"
+            android:background="@drawable/circulo_iniciales"/>
+
+        <TextView
+            android:id="@+id/tvNavIniciales"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@color/color_enet"/>
+
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/tvNavNombre"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Técnico"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@color/white"
+        android:layout_marginTop="12dp"/>
+
+    <TextView
+        android:id="@+id/tvNavZona"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Sin zona asignada"
+        android:textSize="12sp"
+        android:textColor="#AACCE8"
+        android:layout_marginTop="2dp"/>
+
+</LinearLayout>

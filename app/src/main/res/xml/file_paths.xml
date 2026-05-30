@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Fotos de instalación (se guardan en cacheDir raíz: foto_xxx.jpg) -->
+    <cache-path name="cache" path="."/>
+
+    <!-- Capturas de configuración compartibles (cacheDir/images/) -->
+    <cache-path name="shared_images" path="images/"/>
+</paths>
