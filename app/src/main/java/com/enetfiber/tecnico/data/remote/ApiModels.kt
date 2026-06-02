@@ -39,7 +39,8 @@ data class TecnicoCountDto(
 data class ContratoRefDto(
     val numero:   String,
     val latitud:  Double?,
-    val longitud: Double?
+    val longitud: Double?,
+    val precinto: String? = null
 )
 
 data class OrdenDto(
@@ -186,4 +187,8 @@ data class AceptarRequest(
 data class UbicacionRequest(
     val latitud:  Double,
     val longitud: Double
+)
+
+data class PrecintoRequest(
+    val precinto: String?
 )

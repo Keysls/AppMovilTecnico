@@ -60,4 +60,10 @@ interface ApiService {
         @Body request: UbicacionRequest
     ): Response<Unit>
 
+    @PATCH("contratos/{numero}/precinto")
+    suspend fun actualizarPrecinto(
+        @Path("numero") numero: String,
+        @Body request: PrecintoRequest
+    ): Response<Unit>
+
 }

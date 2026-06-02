@@ -168,29 +168,66 @@ class UbicacionActivity : AppCompatActivity() {
 
     @SuppressLint("MissingPermission")
     private fun centrarEnMiPosicion() {
-        val locationManager = getSystemService(LOCATION_SERVICE) as android.location.LocationManager
-        val location = locationManager.getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)
-            ?: locationManager.getLastKnownLocation(android.location.LocationManager.NETWORK_PROVIDER)
+        val lm = getSystemService(LOCATION_SERVICE) as LocationManager
 
-        if (location != null) {
-            // Si no tiene GPS del contrato, poner el pin en la posición actual
-            if (!tieneGps) {
-                moverPin(location.latitude, location.longitude, centrar = true)
-            } else {
-                // Solo mostrar referencia visual de "mi posición"
-                val miPunto = GeoPoint(location.latitude, location.longitude)
-                val miMarker = Marker(binding.mapView).apply {
-                    position = miPunto
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                    title = "Mi posición"
-                    alpha = 0.6f
-                }
-                binding.mapView.overlays.add(miMarker)
-                binding.mapView.invalidate()
-                Toast.makeText(this, "Punto azul = tu posición actual", Toast.LENGTH_SHORT).show()
+        // 1. Intentar última ubicación conocida de cualquier proveedor
+        val ultimaUbicacion = listOf(
+            LocationManager.GPS_PROVIDER,
+            LocationManager.NETWORK_PROVIDER,
+            LocationManager.PASSIVE_PROVIDER
+        ).mapNotNull { proveedor ->
+            try { lm.getLastKnownLocation(proveedor) } catch (_: Exception) { null }
+        }.maxByOrNull { it.time }
+
+        if (ultimaUbicacion != null) {
+            usarUbicacion(ultimaUbicacion.latitude, ultimaUbicacion.longitude)
+            return
+        }
+
+        // 2. Si no hay última ubicación, pedir una actualización en tiempo real
+        Toast.makeText(this, "Obteniendo ubicación GPS...", Toast.LENGTH_SHORT).show()
+
+        val listener = object : android.location.LocationListener {
+            override fun onLocationChanged(location: android.location.Location) {
+                usarUbicacion(location.latitude, location.longitude)
+                try { lm.removeUpdates(this) } catch (_: Exception) {}
             }
+            @Deprecated("Deprecated in Java")
+            override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
+        }
+
+        var pedido = false
+        for (proveedor in listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER)) {
+            if (lm.isProviderEnabled(proveedor)) {
+                try {
+                    lm.requestLocationUpdates(proveedor, 0L, 0f, listener)
+                    pedido = true
+                } catch (_: Exception) {}
+            }
+        }
+
+        if (!pedido) {
+            Toast.makeText(this, "Activa el GPS del celular e intenta de nuevo", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun usarUbicacion(lat: Double, lng: Double) {
+        if (!tieneGps) {
+            // Sin GPS de contrato: poner pin en mi posición
+            moverPin(lat, lng, centrar = true)
         } else {
-            Toast.makeText(this, "No se pudo obtener tu ubicación", Toast.LENGTH_SHORT).show()
+            // Con GPS de contrato: mostrar mi posición como referencia (marcador secundario)
+            val miPunto = GeoPoint(lat, lng)
+            val miMarker = Marker(binding.mapView).apply {
+                position = miPunto
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                title = "Tu posición actual"
+                snippet = "Referencia — no es la ubicación del cliente"
+                alpha = 0.7f
+            }
+            binding.mapView.overlays.add(miMarker)
+            binding.mapView.invalidate()
+            // No mostrar toast — el título del marker ya lo explica
         }
     }
 

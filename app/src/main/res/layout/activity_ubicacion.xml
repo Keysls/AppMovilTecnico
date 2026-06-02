@@ -6,6 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:fitsSystemWindows="true"
     android:background="#F8FAFC">
 
     <!-- Toolbar -->
@@ -29,14 +30,14 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"/>
 
-        <!-- Banner "Arrastra el pin para reubicar" -->
+        <!-- Banner instrucción -->
         <TextView
             android:id="@+id/tvInstruccion"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|center_horizontal"
             android:layout_marginBottom="16dp"
-            android:text="Arrastra el pin para reubicar"
+            android:text="Pin rojo = casa del cliente · Muévelo para corregir"
             android:textSize="12sp"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
@@ -95,7 +96,10 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:background="#F8FAFC"
-        android:padding="14dp"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="32dp"
         android:elevation="8dp">
 
         <!-- Coordenadas GPS -->
@@ -244,32 +248,39 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnMiPosicion"
                 android:layout_width="0dp"
-                android:layout_height="46dp"
-                android:layout_marginEnd="8dp"
+                android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
+                android:layout_marginEnd="8dp"
                 android:text="Mi posición"
-                android:textColor="#475569"
                 android:textSize="13sp"
+                android:textColor="#475569"
+                android:insetTop="0dp"
+                android:layout_marginBottom="2dp"
+                android:insetBottom="0dp"
+                android:minHeight="48dp"
+                android:paddingVertical="12dp"
                 app:backgroundTint="#F1F5F9"
                 app:cornerRadius="12dp"
-                tools:ignore="HardcodedText,TouchTargetSizeCheck" />
+                tools:ignore="HardcodedText"/>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnConfirmar"
                 android:layout_width="0dp"
-                android:layout_height="46dp"
+                android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:text="Confirmar"
+                android:textSize="13sp"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:layout_marginBottom="2dp"
+
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
-                android:text="Confirmar"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
-                android:textStyle="bold"
+                android:minHeight="48dp"
+                android:paddingVertical="12dp"
                 app:backgroundTint="#1E3A8A"
                 app:cornerRadius="12dp"
-                tools:ignore="HardcodedText,TouchTargetSizeCheck" />
+                tools:ignore="HardcodedText"/>
 
         </LinearLayout>
 

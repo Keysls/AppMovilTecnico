@@ -17,8 +17,6 @@ import com.enetfiber.tecnico.ui.InstalacionState
 import com.enetfiber.tecnico.ui.InstalacionViewModel
 import com.enetfiber.tecnico.ui.instalacion.InstalacionActivity
 import dagger.hilt.android.AndroidEntryPoint
-import com.enetfiber.tecnico.ui.DashboardViewModel
-
 
 @AndroidEntryPoint
 class DetalleOrdenActivity : AppCompatActivity() {
@@ -39,7 +37,6 @@ class DetalleOrdenActivity : AppCompatActivity() {
         }
     }
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityDetalleOrdenBinding.inflate(layoutInflater)
@@ -59,32 +56,31 @@ class DetalleOrdenActivity : AppCompatActivity() {
             if (orden == null) return@observe
 
             supportActionBar?.title = "Orden #${orden.nServicio}"
-            binding.tvAbonado.text  = orden.abonado
-            binding.tvDni.text      = "${orden.dni ?: "—"}"
-            binding.tvContrato.text = "${orden.contrato ?: "—"}"
+            binding.tvAbonado.text   = orden.abonado
+            binding.tvDni.text       = orden.dni ?: "—"
+            binding.tvContrato.text  = orden.contrato ?: "—"
             binding.tvDireccion.text = orden.direccion
-            binding.tvSector.text   = orden.sector ?: ""
-
-            binding.tvTipo.text = TipoOrden.label(orden.tipoOrden)
+            binding.tvSector.text    = orden.sector ?: ""
+            binding.tvTipo.text      = TipoOrden.label(orden.tipoOrden)
 
             if (!orden.referencia.isNullOrEmpty() && orden.referencia != "0") {
-                binding.tvReferencia.text = "${orden.referencia}"
+                binding.tvReferencia.text       = orden.referencia
                 binding.tvReferencia.visibility = View.VISIBLE
             }
 
             if (!orden.observacion.isNullOrEmpty()) {
-                binding.tvObservacion.text = orden.observacion
-                binding.cardObservacion.visibility = View.VISIBLE
+                binding.tvObservacion.text          = orden.observacion
+                binding.cardObservacion.visibility  = View.VISIBLE
             }
 
             if (!orden.ipWan.isNullOrEmpty()) {
                 binding.cardWan.visibility = View.VISIBLE
-                binding.tvIpWan.text    = "${orden.ipWan}"
-                binding.tvMascara.text  = "${orden.mascara}"
-                binding.tvGateway.text  = "${orden.gateway}"
+                binding.tvIpWan.text       = orden.ipWan ?: ""
+                binding.tvMascara.text     = orden.mascara ?: ""
+                binding.tvGateway.text     = orden.gateway ?: ""
             }
 
-            binding.tvCelular.text = orden.celular
+            binding.tvCelular.text = orden.celular ?: ""
 
             if (soloVer) {
                 binding.btnAceptar.visibility   = View.GONE
@@ -127,23 +123,46 @@ class DetalleOrdenActivity : AppCompatActivity() {
             val abonado = vm.orden.value?.abonado ?: ""
             val nombre   = intent.getStringExtra("tecnico_nombre") ?: ""
             val apellido = intent.getStringExtra("tecnico_apellido") ?: ""
-            val tecnico = "${nombre.split(" ").firstOrNull() ?: ""} ${apellido.split(" ").firstOrNull() ?: ""}".trim().ifEmpty { "su técnico" }
+            val tecnico  = "${nombre.split(" ").firstOrNull() ?: ""} ${apellido.split(" ").firstOrNull() ?: ""}".trim().ifEmpty { "su técnico" }
             val msg = "Hola, $abonado. Mi nombre es $tecnico, técnico de Enet Fiber Perú. " +
                     "Estoy en camino a su domicilio para realizar su servicio. Estaré llegando en breve."
             try {
-                startActivity(Intent(Intent.ACTION_VIEW,
-                    Uri.parse("https://wa.me/51$cel?text=${Uri.encode(msg)}")))
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/51$cel?text=${Uri.encode(msg)}")))
             } catch (_: Exception) {
                 Toast.makeText(this, "WhatsApp no instalado", Toast.LENGTH_SHORT).show()
             }
         }
+
+        // ── Navegar: usa coordenadas GPS del contrato si existen ──
         binding.btnMapa.setOnClickListener {
-            val dir = vm.orden.value?.direccion ?: return@setOnClickListener
-            startActivity(Intent(Intent.ACTION_VIEW,
-                Uri.parse("geo:0,0?q=${Uri.encode(dir)}")))
+            val orden = vm.orden.value ?: return@setOnClickListener
+            val lat   = orden.contratoRef?.latitud
+            val lng   = orden.contratoRef?.longitud
+
+            val uri = if (lat != null && lng != null) {
+                // Coordenadas exactas → Google Maps con pin en la casa del cliente
+                Uri.parse("google.navigation:q=$lat,$lng&mode=d")
+            } else {
+                // Fallback: buscar por dirección de texto
+                Uri.parse("geo:0,0?q=${Uri.encode("${orden.direccion} ${orden.sector ?: ""}")}")
+            }
+
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                    setPackage("com.google.android.apps.maps")
+                }
+                startActivity(intent)
+            } catch (_: Exception) {
+                // Si no tiene Google Maps, abrir en navegador
+                val fallback = if (lat != null && lng != null) {
+                    Uri.parse("https://maps.google.com/?q=$lat,$lng")
+                } else {
+                    Uri.parse("https://maps.google.com/?q=${Uri.encode(orden.direccion)}")
+                }
+                startActivity(Intent(Intent.ACTION_VIEW, fallback))
+            }
         }
 
-        // Aceptar → obtiene GPS primero, luego acepta
         binding.btnAceptar.setOnClickListener {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
@@ -157,16 +176,15 @@ class DetalleOrdenActivity : AppCompatActivity() {
         }
 
         binding.btnContinuar.setOnClickListener {
-            // Tomar GPS al iniciar instalación si aún no lo tenemos
             if (vm.latitud == null) {
                 if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                     == PackageManager.PERMISSION_GRANTED) {
                     vm.obtenerGps(
                         onExito = { iniciarInstalacion() },
-                        onError = { iniciarInstalacion() } // continuar aunque GPS falle
+                        onError = { iniciarInstalacion() }
                     )
                 } else {
-                    iniciarInstalacion() // sin GPS
+                    iniciarInstalacion()
                 }
             } else {
                 iniciarInstalacion()
@@ -178,8 +196,6 @@ class DetalleOrdenActivity : AppCompatActivity() {
         vm.iniciarInstalacion(
             ordenId = ordenId,
             onExito = { instId ->
-                // Opción B: si no hay señal, la instalación se inició offline.
-                // Avisamos al técnico — igual puede trabajar normalmente.
                 if (!vm.isOnline) {
                     Toast.makeText(
                         this,
@@ -200,7 +216,6 @@ class DetalleOrdenActivity : AppCompatActivity() {
     }
 
     private fun aceptarConGps() {
-        // Obtener GPS en background y aceptar la orden
         vm.obtenerGps(
             onExito = { _ ->
                 vm.aceptarOrden(
@@ -216,7 +231,6 @@ class DetalleOrdenActivity : AppCompatActivity() {
                 )
             },
             onError = { _ ->
-                // Si GPS falla, aceptar igual sin coordenadas
                 vm.aceptarOrden(
                     ordenId = ordenId,
                     onExito = {

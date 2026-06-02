@@ -350,95 +350,81 @@
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
-                    <androidx.cardview.widget.CardView
+
+                    <!-- ── Número de Precinto ── -->
+                    <com.google.android.material.card.MaterialCardView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="16dp"
+                        android:layout_marginBottom="14dp"
                         app:cardBackgroundColor="#FFFFFF"
-                        app:cardCornerRadius="16dp"
-                        app:cardElevation="2dp">
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="#F1F5F9"
+                        app:strokeWidth="1dp">
 
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="vertical"
-                            android:padding="16dp">
+                            android:padding="14dp">
 
+                            <!-- Header -->
                             <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:orientation="horizontal"
                                 android:gravity="center_vertical"
-                                android:layout_marginBottom="16dp">
+                                android:layout_marginBottom="10dp">
+
+                                <ImageView
+                                    android:layout_width="16dp"
+                                    android:layout_height="16dp"
+                                    android:src="@drawable/ic_precinto"
+                                    app:tint="#1E3A8A"
+                                    android:layout_marginEnd="7dp"
+                                    android:contentDescription="@null"/>
 
                                 <TextView
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
-                                    android:text="Registro fotográfico"
-                                    android:textSize="15sp"
+                                    android:text="N° de Precinto"
+                                    android:textSize="13sp"
                                     android:textStyle="bold"
-                                    android:textColor="#0D1B2A"
+                                    android:textColor="#0F172A"
                                     tools:ignore="HardcodedText"/>
 
                                 <TextView
-                                    android:id="@+id/tvFotosProgreso"
+                                    android:id="@+id/tvPrecintoEstado"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="0 / 3"
-                                    android:textSize="13sp"
-                                    android:textColor="#3B9FD4"
-                                    android:textStyle="bold"
-                                    android:background="#E8F4FB"
-                                    android:paddingHorizontal="10dp"
-                                    android:paddingVertical="4dp"/>
+                                    android:text="Sin precinto"
+                                    android:textSize="10sp"
+                                    android:textColor="#94A3B8"
+                                    android:visibility="gone"/>
+
                             </LinearLayout>
 
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnFotoCajaNap"
+                            <!-- Campo de entrada -->
+                            <EditText
+                                android:id="@+id/etPrecinto"
                                 android:layout_width="match_parent"
-                                android:layout_height="52dp"
-                                android:text="📷  Foto 1"
-                                android:textColor="#1E3A8A"
+                                android:layout_height="48dp"
+                                android:hint="Ej: 045, A-12, NAP-07..."
+                                android:importantForAutofill="no"
                                 android:textSize="14sp"
-                                android:textStyle="bold"
-                                app:backgroundTint="#EEF4FF"
-                                app:cornerRadius="10dp"
-                                app:strokeColor="#C8DAEA"
-                                app:strokeWidth="1dp"
-                                android:layout_marginBottom="10dp"
+                                android:textColor="#0F172A"
+                                android:textColorHint="#CBD5E1"
+                                android:paddingHorizontal="12dp"
+                                android:inputType="text"
+                                android:maxLength="30"
+                                android:singleLine="true"
+                                android:background="@drawable/input_bg"
+                                android:fontFamily="monospace"
                                 tools:ignore="HardcodedText"/>
 
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnFotoPotencia"
-                                android:layout_width="match_parent"
-                                android:layout_height="52dp"
-                                android:text="📷  Foto 2"
-                                android:textColor="#1E3A8A"
-                                android:textSize="14sp"
-                                android:textStyle="bold"
-                                app:backgroundTint="#EEF4FF"
-                                app:cornerRadius="10dp"
-                                app:strokeColor="#C8DAEA"
-                                app:strokeWidth="1dp"
-                                android:layout_marginBottom="10dp"
-                                tools:ignore="HardcodedText"/>
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnFotoInstalacion"
-                                android:layout_width="match_parent"
-                                android:layout_height="52dp"
-                                android:text="📷  Foto 3"
-                                android:textColor="#1E3A8A"
-                                android:textSize="14sp"
-                                android:textStyle="bold"
-                                app:backgroundTint="#EEF4FF"
-                                app:cornerRadius="10dp"
-                                app:strokeColor="#C8DAEA"
-                                app:strokeWidth="1dp"
-                                tools:ignore="HardcodedText"/>
                         </LinearLayout>
-                    </androidx.cardview.widget.CardView>
+                    </com.google.android.material.card.MaterialCardView>
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnSiguienteConfig"
@@ -1427,6 +1413,296 @@
                                 android:textColor="#14532D" android:fontFamily="monospace"/>
                         </LinearLayout>
                     </androidx.cardview.widget.CardView>
+
+                    <!-- ── Card Registro Fotográfico ── -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="14dp"
+                        app:cardBackgroundColor="#FFFFFF"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="#F1F5F9"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:padding="14dp">
+
+                                <!-- Header: ícono + título + contador -->
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical"
+                                    android:layout_marginBottom="12dp">
+
+                                    <ImageView
+                                        android:layout_width="18dp"
+                                        android:layout_height="18dp"
+                                        android:src="@drawable/ic_camera"
+                                        app:tint="#1E3A8A"
+                                        android:layout_marginEnd="7dp"
+                                        android:contentDescription="@null"/>
+
+                                    <TextView
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:text="Registro fotográfico"
+                                        android:textSize="13sp"
+                                        android:textStyle="bold"
+                                        android:textColor="#0F172A"
+                                        tools:ignore="HardcodedText"/>
+
+                                    <TextView
+                                        android:id="@+id/tvFotosProgreso"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="0 / 8"
+                                        android:textSize="10sp"
+                                        android:textColor="#16A34A"
+                                        android:textStyle="bold"
+                                        android:background="#DCFCE7"
+                                        android:paddingHorizontal="8dp"
+                                        android:paddingVertical="3dp"
+                                        tools:ignore="HardcodedText"/>
+                                </LinearLayout>
+
+                                <!-- Estado vacío -->
+                                <LinearLayout
+                                    android:id="@+id/layoutFotosVacio"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="vertical"
+                                    android:gravity="center"
+                                    android:background="#F8FAFC"
+                                    android:paddingVertical="20dp"
+                                    android:layout_marginBottom="12dp"
+                                    android:visibility="visible">
+
+                                    <ImageView
+                                        android:layout_width="28dp"
+                                        android:layout_height="28dp"
+                                        android:src="@drawable/ic_photo_off"
+                                        app:tint="#CBD5E1"
+                                        android:layout_marginBottom="7dp"
+                                        android:contentDescription="@null"/>
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Agrega al menos 1 foto para continuar"
+                                        android:textSize="11sp"
+                                        android:textColor="#94A3B8"
+                                        android:gravity="center"
+                                        tools:ignore="HardcodedText"/>
+                                </LinearLayout>
+
+                                <!-- Lista de fotos -->
+                                <LinearLayout
+                                    android:id="@+id/layoutListaFotos"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="vertical"
+                                    android:layout_marginBottom="12dp"
+                                    android:visibility="gone"/>
+
+                                <!-- Botones Cámara + Galería -->
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal">
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/btnAgregarFotoCamara"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:layout_marginEnd="7dp"
+                                        android:text="Cámara"
+                                        android:textSize="12sp"
+                                        android:textColor="#FFFFFF"
+                                        android:insetTop="0dp"
+                                        android:insetBottom="0dp"
+                                        android:paddingVertical="10dp"
+                                        app:backgroundTint="#1E3A8A"
+                                        app:cornerRadius="9dp"
+                                        app:icon="@drawable/ic_camera_plus"
+                                        app:iconTint="#FFFFFF"
+                                        app:iconSize="15dp"
+                                        app:iconGravity="textStart"
+                                        tools:ignore="HardcodedText"/>
+
+                                    <com.google.android.material.button.MaterialButton
+                                        android:id="@+id/btnAgregarFotoGaleria"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:layout_marginStart="7dp"
+                                        android:text="Galería"
+                                        android:textSize="12sp"
+                                        android:textColor="#475569"
+                                        android:insetTop="0dp"
+                                        android:insetBottom="0dp"
+                                        android:paddingVertical="10dp"
+                                        app:backgroundTint="#F8FAFC"
+                                        app:cornerRadius="9dp"
+                                        app:strokeColor="#E2E8F0"
+                                        app:strokeWidth="1dp"
+                                        app:icon="@drawable/ic_photo_up"
+                                        app:iconTint="#64748B"
+                                        app:iconSize="15dp"
+                                        app:iconGravity="textStart"
+                                        tools:ignore="HardcodedText"/>
+
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <!-- Barra de progreso -->
+                            <View
+                                android:id="@+id/viewFotosProgreso"
+                                android:layout_width="0dp"
+                                android:layout_height="3dp"
+                                android:background="#16A34A"/>
+
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- ── Card Materiales utilizados ── -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardMateriales"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        app:cardBackgroundColor="#FFFFFF"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="#F1F5F9"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <!-- Header -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical"
+                                android:layout_marginBottom="12dp">
+
+                                <ImageView
+                                    android:layout_width="16dp"
+                                    android:layout_height="16dp"
+                                    android:src="@drawable/ic_tool"
+                                    app:tint="#1E3A8A"
+                                    android:layout_marginEnd="7dp"
+                                    android:contentDescription="@null"/>
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Materiales utilizados"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#0F172A"
+                                    tools:ignore="HardcodedText"/>
+
+                                <TextView
+                                    android:id="@+id/tvMaterialesContador"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:visibility="gone"
+                                    android:textSize="10sp"
+                                    android:textColor="#16A34A"
+                                    android:textStyle="bold"
+                                    android:background="#DCFCE7"
+                                    android:paddingHorizontal="8dp"
+                                    android:paddingVertical="3dp"/>
+                            </LinearLayout>
+
+                            <!-- Estado vacío -->
+                            <LinearLayout
+                                android:id="@+id/layoutMaterialesVacio"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:gravity="center"
+                                android:paddingVertical="14dp"
+                                android:layout_marginBottom="10dp"
+                                android:visibility="visible">
+
+                                <ImageView
+                                    android:layout_width="24dp"
+                                    android:layout_height="24dp"
+                                    android:src="@drawable/ic_package_off"
+                                    app:tint="#CBD5E1"
+                                    android:layout_marginBottom="6dp"
+                                    android:contentDescription="@null"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Sin materiales agregados"
+                                    android:textSize="11sp"
+                                    android:textColor="#94A3B8"
+                                    tools:ignore="HardcodedText"/>
+                            </LinearLayout>
+
+                            <!-- Lista materiales (se llena dinámicamente) -->
+                            <LinearLayout
+                                android:id="@+id/layoutListaMateriales"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:layout_marginBottom="10dp"
+                                android:visibility="gone"/>
+
+                            <!-- Botón agregar material -->
+                            <LinearLayout
+                                android:id="@+id/btnAgregarMaterial"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center"
+                                android:background="#EFF6FF"
+                                android:paddingVertical="10dp"
+                                android:clickable="true"
+                                android:focusable="true">
+
+                                <ImageView
+                                    android:layout_width="14dp"
+                                    android:layout_height="14dp"
+                                    android:src="@drawable/ic_plus"
+                                    app:tint="#1D4ED8"
+                                    android:layout_marginEnd="6dp"
+                                    android:contentDescription="@null"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Agregar material del inventario"
+                                    android:textSize="12sp"
+                                    android:textColor="#1D4ED8"
+                                    android:textStyle="bold"
+                                    tools:ignore="HardcodedText"/>
+
+                            </LinearLayout>
+
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
 
                     <androidx.cardview.widget.CardView
                         android:id="@+id/cardDatosEquipo"

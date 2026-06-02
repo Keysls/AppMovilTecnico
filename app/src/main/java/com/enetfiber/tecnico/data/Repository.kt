@@ -332,6 +332,17 @@ class Repository @Inject constructor(
         programarSync()
     }
 
+    // Precinto del contrato
+    suspend fun actualizarPrecinto(numero: String, precinto: String?): Resultado<Unit> {
+        return try {
+            val res = api.actualizarPrecinto(numero, com.enetfiber.tecnico.data.remote.PrecintoRequest(precinto))
+            if (res.isSuccessful) Resultado.Exito(Unit)
+            else Resultado.Error("Error al guardar precinto: ${res.code()}")
+        } catch (e: Exception) {
+            Resultado.Error("Sin conexion: ${e.message}")
+        }
+    }
+
     // ── Ubicación GPS del contrato ────────────────────────────
     suspend fun actualizarUbicacionContrato(
         numero:   String,
@@ -378,6 +389,9 @@ class Repository @Inject constructor(
         }
         return ordenDao.getCompletadasFiltradas(filtrar, tipos, busqueda, limit, offset)
     }
+
+
+
 }
 
 // ── Mappers ───────────────────────────────────────────────────

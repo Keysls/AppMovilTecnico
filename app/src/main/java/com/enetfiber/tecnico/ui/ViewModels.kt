@@ -216,9 +216,14 @@ sealed class InstalacionState {
     data class Error(val msg: String) : InstalacionState()
 }
 
+const val MAX_FOTOS = 8
+
 data class FotoTomada(
     val tipo:      String,
     val rutaLocal: String,
+    val nombre:    String  = "",
+    val tamanoMb:  String  = "",
+    val origen:    String  = "CAMARA",   // CAMARA | GALERIA
     var subida:    Boolean = false
 )
 
@@ -400,16 +405,25 @@ class InstalacionViewModel @Inject constructor(
     }
 
     // ── Fotos ─────────────────────────────────────────────────
-    fun agregarFoto(tipo: String, ruta: String) {
+    fun agregarFoto(tipo: String, ruta: String, nombre: String = "", tamano: String = "", origen: String = "CAMARA") {
         val lista = _fotos.value?.toMutableList() ?: mutableListOf()
         lista.removeAll { it.tipo == tipo }
-        lista.add(FotoTomada(tipo, ruta, subida = false))
+        lista.add(FotoTomada(tipo, ruta, nombre, tamano, origen, subida = false))
         _fotos.value = lista
         // NO subir aquí — se suben al completar
     }
 
     fun cantidadFotos() = _fotos.value?.size ?: 0
     fun tieneFotos() = cantidadFotos() >= 1
+    fun puedeAgregarFoto() = cantidadFotos() < MAX_FOTOS
+
+    fun eliminarFoto(rutaLocal: String) {
+        val lista = _fotos.value?.toMutableList() ?: return
+        lista.removeAll { it.rutaLocal == rutaLocal }
+        _fotos.value = lista
+        // Borrar archivo local
+        try { java.io.File(rutaLocal).delete() } catch (_: Exception) {}
+    }
 
 
     // ── Config ONU ────────────────────────────────────────────
@@ -513,4 +527,7 @@ class InstalacionViewModel @Inject constructor(
         _fotos.value = fotosList
         return todasOk
     }
+
+
+
 }

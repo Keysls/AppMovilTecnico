@@ -17,7 +17,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
@@ -52,6 +51,7 @@ import com.enetfiber.tecnico.equipos.ZteModelo
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.net.Uri
+import androidx.activity.result.contract.ActivityResultContracts
 import com.enetfiber.tecnico.ui.ubicacion.UbicacionActivity
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -181,21 +181,35 @@ class InstalacionActivity : AppCompatActivity() {
     ) { ok ->
         val archivo = archivoFoto ?: return@registerForActivityResult
         if (archivo.exists() && archivo.length() > 0) {
-            vm.agregarFoto(tipoFotoActual, archivo.absolutePath)
-            // Subir de inmediato si hay internet
-            if (vm.isOnline) {
-                vm.subirFotoInmediata(tipoFotoActual, archivo.absolutePath)
-            }
-            // Si no hay internet, queda pendiente en _fotos con subida=false
+            val nombre = archivo.name
+            val tamano = "%.1f MB".format(archivo.length() / 1_000_000f)
+            val tipo   = "FOTO_${(vm.cantidadFotos() + 1)}"
+            vm.agregarFoto(tipo, archivo.absolutePath, nombre, tamano, "CAMARA")
+            if (vm.isOnline) vm.subirFotoInmediata(tipo, archivo.absolutePath)
+            actualizarListaFotos()
         } else {
             Toast.makeText(this, "No se pudo guardar la foto", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private val galeriaLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri ?: return@registerForActivityResult
+        copiarUriAArchivo(uri)?.let { archivo ->
+            val nombre = archivo.name
+            val tamano = "%.1f MB".format(archivo.length() / 1_000_000f)
+            val tipo   = "FOTO_${(vm.cantidadFotos() + 1)}"
+            vm.agregarFoto(tipo, archivo.absolutePath, nombre, tamano, "GALERIA")
+            if (vm.isOnline) vm.subirFotoInmediata(tipo, archivo.absolutePath)
+            actualizarListaFotos()
         }
     }
 
     private val permisoCamara = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { ok ->
-        if (ok) tomarFoto(tipoFotoActual)
+        if (ok) tomarFoto()
         else Toast.makeText(this, "Se necesita permiso de cámara", Toast.LENGTH_SHORT).show()
     }
 
@@ -235,6 +249,7 @@ class InstalacionActivity : AppCompatActivity() {
         observar()
         inicializarOsmdroid()
         setupCardUbicacion()
+        setupCardPrecinto()
     }
 
     // ═════════════════════════════════════════════════════════
@@ -388,16 +403,53 @@ class InstalacionActivity : AppCompatActivity() {
         }
     }
 
+    // ── Precinto ──────────────────────────────────────────────
+    private fun setupCardPrecinto() {
+        // Pre-cargar el precinto del contrato si existe
+        val orden = vm.orden.value
+        val precinto = orden?.contratoRef?.precinto
+        if (!precinto.isNullOrBlank()) {
+            binding.etPrecinto.setText(precinto)
+        }
+    }
+
+    private fun guardarPrecintoSiCambio() {
+        val orden = vm.orden.value ?: return
+        val numero = orden.contrato ?: return
+        val nuevo = binding.etPrecinto.text.toString().trim()
+        val actual = orden.contratoRef?.precinto ?: ""
+        if (nuevo == actual) return  // no cambió, no hacer nada
+
+        lifecycleScope.launch {
+            repo.actualizarPrecinto(numero, nuevo.ifEmpty { null })
+        }
+    }
+
     private fun botonesGenerales() {
-        binding.btnFotoCajaNap.setOnClickListener     { solicitarFoto("FOTO_1") }
-        binding.btnFotoPotencia.setOnClickListener    { solicitarFoto("FOTO_2") }
-        binding.btnFotoInstalacion.setOnClickListener { solicitarFoto("FOTO_3") }
+        // Cámara
+        binding.btnAgregarFotoCamara.setOnClickListener {
+            if (!vm.puedeAgregarFoto()) {
+                Toast.makeText(this, "Máximo 8 fotos por instalación", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            solicitarFoto()
+        }
+
+        // Galería
+        binding.btnAgregarFotoGaleria.setOnClickListener {
+            if (!vm.puedeAgregarFoto()) {
+                Toast.makeText(this, "Máximo 8 fotos por instalación", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            galeriaLauncher.launch("image/*")
+        }
 
         binding.btnSiguienteConfig.setOnClickListener {
             if (vm.cantidadFotos() == 0) {
                 Toast.makeText(this, "Debes tomar al menos una foto", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
+            guardarPrecintoSiCambio()
             if (esInternet()) {
                 androidx.appcompat.app.AlertDialog.Builder(this)
                     .setTitle("⚠ Atención")
@@ -409,6 +461,7 @@ class InstalacionActivity : AppCompatActivity() {
                     .setNegativeButton("Cancelar", null)
                     .show()
             } else {
+                guardarPrecintoSiCambio()
                 mostrarPaso(4)
             }
         }
@@ -1381,48 +1434,196 @@ class InstalacionActivity : AppCompatActivity() {
         vm.orden.observe(this) { orden ->
             if (orden == null) return@observe
             mostrarPaso(1)
-            actualizarTextosBotonesFotos(orden.tipoOrden)
             cargarUbicacionDesdeOrden()
+            setupCardPrecinto()
             if (!orden.ipWan.isNullOrEmpty()) {
                 binding.tvWanInfo.visibility = View.VISIBLE
                 binding.tvWanInfo.text = "WAN: ${orden.ipWan} / ${orden.mascara} → ${orden.gateway}"
             }
         }
-        vm.fotos.observe(this) { fotos ->
-            val tipos = fotos.map { it.tipo }
-            binding.btnFotoCajaNap.text     = if ("FOTO_1" in tipos) "✓ Foto 1" else "📷 Foto 1"
-            binding.btnFotoPotencia.text    = if ("FOTO_2" in tipos) "✓ Foto 2" else "📷 Foto 2"
-            binding.btnFotoInstalacion.text = if ("FOTO_3" in tipos) "✓ Foto 3" else "📷 Foto 3"
-            binding.tvFotosProgreso.text    = "${tipos.size.coerceAtMost(3)}/3 fotos"
-            binding.btnSiguienteConfig.isEnabled = fotos.isNotEmpty()
+        vm.fotos.observe(this) { _ ->
+            actualizarListaFotos()
         }
         vm.state.observe(this) { state ->
             if (state is InstalacionState.Guardando) binding.progressCompletar.visibility = View.VISIBLE
         }
     }
 
-    private fun actualizarTextosBotonesFotos(tipoOrden: String) {
-        if (TipoOrden.esInternet(tipoOrden)) {
-            binding.btnFotoCajaNap.text = "📷 Caja NAP"; binding.btnFotoPotencia.text = "📷 Potencia"; binding.btnFotoInstalacion.text = "📷 Instalación final"
-        } else {
-            binding.btnFotoCajaNap.text = "📷 Foto 1"; binding.btnFotoPotencia.text = "📷 Foto 2"; binding.btnFotoInstalacion.text = "📷 Foto 3"
-        }
-    }
+    // actualizarTextosBotonesFotos eliminada — fotos libres
 
     // ═════════════════════════════════════════════════════════
     //  CÁMARA / WIFI / BACK
     // ═════════════════════════════════════════════════════════
-    private fun solicitarFoto(tipo: String) {
-        tipoFotoActual = tipo
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) tomarFoto(tipo)
+    private fun solicitarFoto() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) tomarFoto()
         else permisoCamara.launch(Manifest.permission.CAMERA)
     }
 
-    private fun tomarFoto(tipo: String) {
-        val archivo = File(cacheDir, "foto_${tipo}_${System.currentTimeMillis()}.jpg")
+    private fun tomarFoto() {
+        val archivo = File(cacheDir, "foto_${System.currentTimeMillis()}.jpg")
         archivoFoto = archivo
         camaraLauncher.launch(FileProvider.getUriForFile(this, "$packageName.provider", archivo))
     }
+
+    private fun copiarUriAArchivo(uri: android.net.Uri): File? {
+        return try {
+            val archivo = File(cacheDir, "galeria_${System.currentTimeMillis()}.jpg")
+            contentResolver.openInputStream(uri)?.use { input ->
+                archivo.outputStream().use { output -> input.copyTo(output) }
+            }
+            if (archivo.exists() && archivo.length() > 0) archivo else null
+        } catch (_: Exception) { null }
+    }
+
+    private fun actualizarListaFotos() {
+        val fotos   = vm.fotos.value ?: emptyList()
+        val layout  = findViewById<android.widget.LinearLayout>(R.id.layoutListaFotos) ?: return
+        val vacio   = findViewById<android.widget.LinearLayout>(R.id.layoutFotosVacio) ?: return
+        val barProg = findViewById<android.view.View>(R.id.viewFotosProgreso) ?: return
+
+        vacio.visibility  = if (fotos.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
+        layout.visibility = if (fotos.isEmpty()) android.view.View.GONE    else android.view.View.VISIBLE
+
+        // Barra de progreso
+        val maxFotos = com.enetfiber.tecnico.ui.MAX_FOTOS
+        val pct = fotos.size.toFloat() / maxFotos
+        val params = barProg.layoutParams
+        val parentWidth = (barProg.parent as? android.view.View)?.width ?: 0
+        params.width = (parentWidth * pct).toInt().coerceAtLeast(0)
+        barProg.layoutParams = params
+
+        // Contador
+        binding.tvFotosProgreso.text = "${fotos.size} / $maxFotos"
+        val colorBg = if (fotos.isEmpty()) "#E8F4FB" else "#DCFCE7"
+        val colorTx = if (fotos.isEmpty()) "#3B9FD4" else "#16A34A"
+        binding.tvFotosProgreso.setBackgroundColor(android.graphics.Color.parseColor(colorBg))
+        binding.tvFotosProgreso.setTextColor(android.graphics.Color.parseColor(colorTx))
+
+        // Limpiar y rellenar lista
+        layout.removeAllViews()
+        fotos.forEachIndexed { idx, foto ->
+            val item = crearItemFoto(idx, foto, layout)
+            layout.addView(item)
+        }
+
+        binding.btnSiguienteConfig.isEnabled = fotos.isNotEmpty()
+    }
+
+    private fun crearItemFoto(idx: Int, foto: com.enetfiber.tecnico.ui.FotoTomada, parent: android.view.ViewGroup): android.view.View {
+        // Construir el item programáticamente para evitar problemas de R.id con layouts inflados
+        val ctx = this
+
+        val root = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setBackgroundColor(android.graphics.Color.parseColor("#F8FAFC"))
+            setPadding(dpToPx(8), dpToPx(8), dpToPx(8), dpToPx(8))
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dpToPx(6) }
+        }
+
+        // ── Ícono origen ──────────────────────────────────────
+        val iconBg = android.graphics.Color.parseColor(if (foto.origen == "GALERIA") "#EDE9FE" else "#DBEAFE")
+        val iconColor = android.graphics.Color.parseColor(if (foto.origen == "GALERIA") "#7C3AED" else "#1D4ED8")
+
+        val iconLayout = android.widget.LinearLayout(ctx).apply {
+            setBackgroundColor(iconBg)
+            gravity = android.view.Gravity.CENTER
+            layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(40), dpToPx(40)).apply {
+                marginEnd = dpToPx(10)
+            }
+        }
+        val iconView = android.widget.ImageView(ctx).apply {
+            setImageResource(R.drawable.ic_photo)
+            setColorFilter(iconColor)
+            layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(20), dpToPx(20))
+        }
+        iconLayout.addView(iconView)
+        root.addView(iconLayout)
+
+        // ── Nombre y origen ───────────────────────────────────
+        val textos = android.widget.LinearLayout(ctx).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            layoutParams = android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val tvNombre = android.widget.TextView(ctx).apply {
+            text = foto.nombre.ifEmpty { "foto_${String.format("%03d", idx + 1)}.jpg" }
+            textSize = 11f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(android.graphics.Color.parseColor("#0F172A"))
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+        }
+        val tvInfo = android.widget.TextView(ctx).apply {
+            text = "${if (foto.origen == "GALERIA") "Galería" else "Cámara"} · ${foto.tamanoMb}"
+            textSize = 10f
+            setTextColor(android.graphics.Color.parseColor("#94A3B8"))
+        }
+        textos.addView(tvNombre)
+        textos.addView(tvInfo)
+        root.addView(textos)
+
+        // ── Botón ver ─────────────────────────────────────────
+        val btnVer = android.widget.LinearLayout(ctx).apply {
+            setBackgroundColor(android.graphics.Color.WHITE)
+            gravity = android.view.Gravity.CENTER
+            isClickable = true; isFocusable = true
+            layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(28), dpToPx(28)).apply {
+                marginEnd = dpToPx(6)
+            }
+        }
+        val ivVer = android.widget.ImageView(ctx).apply {
+            setImageResource(R.drawable.ic_eye)
+            setColorFilter(android.graphics.Color.parseColor("#64748B"))
+            layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(14), dpToPx(14))
+        }
+        btnVer.addView(ivVer)
+        btnVer.setOnClickListener {
+            try {
+                val uri = androidx.core.content.FileProvider.getUriForFile(ctx, "$packageName.provider", File(foto.rutaLocal))
+                startActivity(Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "image/*")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                })
+            } catch (_: Exception) {
+                Toast.makeText(ctx, "No se puede abrir la foto", Toast.LENGTH_SHORT).show()
+            }
+        }
+        root.addView(btnVer)
+
+        // ── Botón borrar ──────────────────────────────────────
+        val btnBorrar = android.widget.LinearLayout(ctx).apply {
+            setBackgroundColor(android.graphics.Color.parseColor("#FEF2F2"))
+            gravity = android.view.Gravity.CENTER
+            isClickable = true; isFocusable = true
+            layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(28), dpToPx(28))
+        }
+        val ivBorrar = android.widget.ImageView(ctx).apply {
+            setImageResource(R.drawable.ic_trash)
+            setColorFilter(android.graphics.Color.parseColor("#DC2626"))
+            layoutParams = android.widget.LinearLayout.LayoutParams(dpToPx(14), dpToPx(14))
+        }
+        btnBorrar.addView(ivBorrar)
+        btnBorrar.setOnClickListener {
+            androidx.appcompat.app.AlertDialog.Builder(ctx)
+                .setTitle("Borrar foto")
+                .setMessage("¿Eliminar esta foto?")
+                .setPositiveButton("Borrar") { _, _ ->
+                    vm.eliminarFoto(foto.rutaLocal)
+                    actualizarListaFotos()
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
+        }
+        root.addView(btnBorrar)
+
+        return root
+    }
+
+    private fun dpToPx(dp: Int): Int =
+        (dp * resources.displayMetrics.density).toInt()
 
     @SuppressLint("SetTextI18n")
     private fun obtenerInfoRed() {
