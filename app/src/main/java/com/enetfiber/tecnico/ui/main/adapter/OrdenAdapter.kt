@@ -34,22 +34,39 @@ class OrdenAdapter(
             b.tvNServicio.text = "#${orden.nServicio}"
             b.tvAbonado.text   = orden.abonado
             b.tvDireccion.text = orden.direccion
-            b.tvCelular.text   = orden.celular
             b.tvSector.text    = orden.sector ?: ""
             b.tvSector.visibility = if (orden.sector.isNullOrEmpty()) View.GONE else View.VISIBLE
 
             b.tvTipo.text = com.enetfiber.tecnico.TipoOrden.label(orden.tipoOrden)
 
-            val (estadoTexto, estadoColor, estadoBg) = when (orden.estado) {
-                "PENDIENTE_TECNICO" -> Triple("Pendiente",  R.color.naranja, R.drawable.bg_estado_pendiente)
-                "ACEPTADA"          -> Triple("Aceptada",   R.color.morado,  R.drawable.bg_estado_proceso)
-                "EN_PROCESO"        -> Triple("En proceso", R.color.azul_secundario, R.drawable.bg_estado_proceso)
-                "COMPLETADA"        -> Triple("Completada", R.color.verde,   R.drawable.bg_estado_completado)
-                else                -> Triple(orden.estado, R.color.txt_secundario, R.drawable.bg_estado_pendiente)
+            val ctx = b.root.context
+            when (orden.estado) {
+                "PENDIENTE_TECNICO" -> {
+                    b.tvEstado.text = "Para técnico"
+                    b.tvEstado.setTextColor(android.graphics.Color.parseColor("#1D4ED8"))
+                    b.tvEstado.setBackgroundResource(R.drawable.bg_estado_pendiente)
+                }
+                "ACEPTADA" -> {
+                    b.tvEstado.text = "Aceptada"
+                    b.tvEstado.setTextColor(android.graphics.Color.parseColor("#6D28D9"))
+                    b.tvEstado.setBackgroundResource(R.drawable.bg_estado_proceso)
+                }
+                "EN_PROCESO" -> {
+                    b.tvEstado.text = "En proceso"
+                    b.tvEstado.setTextColor(android.graphics.Color.parseColor("#166534"))
+                    b.tvEstado.setBackgroundResource(R.drawable.bg_estado_proceso)
+                }
+                "COMPLETADA" -> {
+                    b.tvEstado.text = "Completada"
+                    b.tvEstado.setTextColor(android.graphics.Color.parseColor("#166534"))
+                    b.tvEstado.setBackgroundResource(R.drawable.bg_estado_completado)
+                }
+                else -> {
+                    b.tvEstado.text = orden.estado
+                    b.tvEstado.setTextColor(ctx.getColor(R.color.txt_secundario))
+                    b.tvEstado.setBackgroundResource(R.drawable.bg_estado_pendiente)
+                }
             }
-            b.tvEstado.text = estadoTexto
-            b.tvEstado.setTextColor(b.root.context.getColor(estadoColor))
-            b.tvEstado.setBackgroundResource(estadoBg)
 
             b.tvWanLista.visibility = if (!orden.ipWan.isNullOrEmpty()) View.VISIBLE else View.GONE
 

@@ -40,14 +40,22 @@ class PendientesFragment : Fragment() {
 
         binding.layoutFiltros.visibility = View.GONE
 
-        if (categoria == "internet") {
-            binding.tvEmptyIcon.text      = "📡"
-            binding.tvEmptyTitulo.text    = "Sin órdenes de Internet"
-            binding.tvEmptySubtitulo.text = "Desliza para actualizar"
-        } else {
-            binding.tvEmptyIcon.text      = "📺"
-            binding.tvEmptyTitulo.text    = "Sin órdenes de Cable"
-            binding.tvEmptySubtitulo.text = "Desliza para actualizar"
+        when (categoria) {
+            "internet" -> {
+                binding.tvEmptyIcon.text      = "📡"
+                binding.tvEmptyTitulo.text    = "Sin órdenes de Internet"
+                binding.tvEmptySubtitulo.text = "Desliza para actualizar"
+            }
+            "cable" -> {
+                binding.tvEmptyIcon.text      = "📺"
+                binding.tvEmptyTitulo.text    = "Sin órdenes de Cable"
+                binding.tvEmptySubtitulo.text = "Desliza para actualizar"
+            }
+            "duo" -> {
+                binding.tvEmptyIcon.text      = "📡📺"
+                binding.tvEmptyTitulo.text    = "Sin órdenes Dúo"
+                binding.tvEmptySubtitulo.text = "Desliza para actualizar"
+            }
         }
 
         adapter = OrdenAdapter(
@@ -82,7 +90,11 @@ class PendientesFragment : Fragment() {
         binding.recycler.layoutManager = LinearLayoutManager(requireContext())
         binding.recycler.adapter = adapter
 
-        val liveData = if (categoria == "internet") vm.pendientesInternet else vm.pendientesCable
+        val liveData = when (categoria) {
+            "internet" -> vm.pendientesInternet
+            "cable"    -> vm.pendientesCable
+            else       -> vm.pendientesDuo
+        }
 
         liveData.observe(viewLifecycleOwner) { lista ->
             adapter.submitList(lista)

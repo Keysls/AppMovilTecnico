@@ -4,19 +4,20 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@color/color_enet"
+    android:background="#1E3A8A"
     android:paddingStart="20dp"
     android:paddingEnd="20dp"
-    android:paddingTop="36dp"
+    android:paddingTop="48dp"
     android:paddingBottom="20dp">
 
+    <!-- Avatar con iniciales -->
     <FrameLayout
-        android:layout_width="64dp"
-        android:layout_height="64dp">
+        android:layout_width="52dp"
+        android:layout_height="52dp">
 
         <View
-            android:layout_width="64dp"
-            android:layout_height="64dp"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
             android:background="@drawable/circulo_iniciales"/>
 
         <TextView
@@ -24,29 +25,37 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:gravity="center"
-            android:textSize="22sp"
+            android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="@color/color_enet"/>
-
     </FrameLayout>
 
+    <!-- Nombre -->
     <TextView
         android:id="@+id/tvNavNombre"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Técnico"
-        android:textSize="16sp"
+        android:textSize="15sp"
         android:textStyle="bold"
-        android:textColor="@color/white"
-        android:layout_marginTop="12dp"/>
+        android:textColor="#FFFF"
+        android:layout_marginTop="10dp"/>
 
+    <!-- Zona -->
     <TextView
         android:id="@+id/tvNavZona"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Sin zona asignada"
         android:textSize="12sp"
-        android:textColor="#AACCE8"
+        android:textColor="#94A3B8"
         android:layout_marginTop="2dp"/>
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#F1F5F9"
+        android:layout_marginTop="16dp"/>
 
 </LinearLayout>

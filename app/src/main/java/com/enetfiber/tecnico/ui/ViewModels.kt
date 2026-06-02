@@ -58,6 +58,7 @@ class LoginViewModel @Inject constructor(
 data class DashboardEstado(
     val pendientesInternet: Int = 0,
     val pendientesCable:    Int = 0,
+    val pendientesDuo:      Int = 0,
     val completadas:        Int = 0,
     val cargando:           Boolean = true
 )
@@ -102,9 +103,10 @@ class DashboardViewModel @Inject constructor(
             if (r is Resultado.Error) _mensaje.value = r.mensaje
             val counts = repo.countPorCategoria()
             _estado.value = DashboardEstado(
-                pendientesInternet = counts.first,
-                pendientesCable    = counts.second,
-                completadas        = counts.third,
+                pendientesInternet = counts.internet,
+                pendientesCable    = counts.cable,
+                pendientesDuo      = counts.duo,
+                completadas        = counts.completadas,
                 cargando           = false
             )
             _refresco.value = false
@@ -125,6 +127,7 @@ class OrdenesViewModel @Inject constructor(
 
     val pendientesInternet = repo.getPendientesInternet()
     val pendientesCable    = repo.getPendientesCable()
+    val pendientesDuo      = repo.getPendientesDuo()
 
     companion object {
         const val PAGE_SIZE = 30
@@ -510,8 +513,4 @@ class InstalacionViewModel @Inject constructor(
         _fotos.value = fotosList
         return todasOk
     }
-
-
-
 }
-

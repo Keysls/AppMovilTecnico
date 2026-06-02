@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8FAFC">
+
+    <!-- Toolbar -->
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="#1E3A8A"
+        app:title="Ubicación del cliente"
+        app:titleTextColor="@color/white"
+        app:navigationIconTint="@color/white"/>
+
+    <!-- Mapa grande — ocupa la mayor parte de la pantalla -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <org.osmdroid.views.MapView
+            android:id="@+id/mapView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+
+        <!-- Banner "Arrastra el pin para reubicar" -->
+        <TextView
+            android:id="@+id/tvInstruccion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:layout_marginBottom="16dp"
+            android:text="Arrastra el pin para reubicar"
+            android:textSize="12sp"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:background="#CC1E3A8A"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="8dp"
+            tools:ignore="HardcodedText"/>
+
+        <!-- Botones zoom -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_margin="12dp"
+            android:orientation="vertical"
+            android:elevation="4dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnZoomIn"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:layout_marginBottom="4dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:text="+"
+                android:textColor="#1E3A8A"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                app:backgroundTint="#FFFFFF"
+                app:cornerRadius="8dp"
+                tools:ignore="TouchTargetSizeCheck" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnZoomOut"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:text="−"
+                android:textColor="#1E3A8A"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                app:backgroundTint="#FFFFFF"
+                app:cornerRadius="8dp"
+                tools:ignore="TouchTargetSizeCheck" />
+
+        </LinearLayout>
+
+    </FrameLayout>
+
+    <!-- Panel inferior -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#F8FAFC"
+        android:padding="14dp"
+        android:elevation="8dp">
+
+        <!-- Coordenadas GPS -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:cardBackgroundColor="#FFFFFF"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeColor="#F1F5F9"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="COORDENADAS GPS"
+                    android:textSize="10sp"
+                    android:textColor="#CBD5E1"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.07"
+                    android:layout_marginBottom="8dp"
+                    tools:ignore="HardcodedText"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Latitud"
+                            android:textSize="10sp"
+                            android:textColor="#94A3B8"
+                            tools:ignore="HardcodedText"/>
+                        <TextView
+                            android:id="@+id/tvLatitud"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="13sp"
+                            android:textColor="#1E3A8A"
+                            android:fontFamily="monospace"
+                            android:textStyle="bold"
+                            tools:text="-6.7724831"/>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Longitud"
+                            android:textSize="10sp"
+                            android:textColor="#94A3B8"
+                            tools:ignore="HardcodedText"/>
+                        <TextView
+                            android:id="@+id/tvLongitud"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="13sp"
+                            android:textColor="#1E3A8A"
+                            android:fontFamily="monospace"
+                            android:textStyle="bold"
+                            tools:text="-79.8427142"/>
+                    </LinearLayout>
+
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Dirección detectada -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardBackgroundColor="#FFFFFF"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeColor="#F1F5F9"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="12dp"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_map_pin"
+                    app:tint="#94A3B8"
+                    android:layout_marginEnd="10dp"
+                    android:contentDescription="@null"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvDireccionDetectada"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="12sp"
+                        android:textColor="#0F172A"
+                        android:textStyle="bold"
+                        tools:text="SEC. BARRIO 07 MZ. Y LT. 12"/>
+
+                    <TextView
+                        android:id="@+id/tvCiudadDetectada"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="11sp"
+                        android:textColor="#94A3B8"
+                        android:layout_marginTop="2dp"
+                        tools:text="ZONA 11 · Nueva Cajamarca"/>
+
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Botones acción -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnMiPosicion"
+                android:layout_width="0dp"
+                android:layout_height="46dp"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="Mi posición"
+                android:textColor="#475569"
+                android:textSize="13sp"
+                app:backgroundTint="#F1F5F9"
+                app:cornerRadius="12dp"
+                tools:ignore="HardcodedText,TouchTargetSizeCheck" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnConfirmar"
+                android:layout_width="0dp"
+                android:layout_height="46dp"
+                android:layout_weight="1"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="Confirmar"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                app:backgroundTint="#1E3A8A"
+                app:cornerRadius="12dp"
+                tools:ignore="HardcodedText,TouchTargetSizeCheck" />
+
+        </LinearLayout>
+
+        <!-- Link editar ubicación -->
+        <TextView
+            android:id="@+id/tvEditarUbicacion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Editar ubicación"
+            android:textSize="12sp"
+            android:textColor="#2563EB"
+            android:gravity="center"
+            android:paddingVertical="4dp"
+            android:visibility="gone"
+            tools:ignore="HardcodedText"/>
+
+    </LinearLayout>
+
+</LinearLayout>

@@ -35,6 +35,13 @@ data class TecnicoCountDto(
     val ordenes: Int
 )
 
+// Ubicación GPS del contrato (casa del cliente)
+data class ContratoRefDto(
+    val numero:   String,
+    val latitud:  Double?,
+    val longitud: Double?
+)
+
 data class OrdenDto(
     val id:               String,
     val nServicio:        String,
@@ -57,7 +64,8 @@ data class OrdenDto(
     val fechaFin:         String?,
     val tiempoInstalacion:Int?,
     val tecnico:          TecnicoOrdenDto?,
-    val instalacion:      InstalacionResumenDto?
+    val instalacion:      InstalacionResumenDto?,
+    val contratoRef:      ContratoRefDto? = null
 )
 
 data class TecnicoOrdenDto(
@@ -174,4 +182,8 @@ data class MaterialUsado(
 
 data class AceptarRequest(
     val fechaAceptacion: String?   // ISO-8601, null = el backend usa "ahora"
+)
+data class UbicacionRequest(
+    val latitud:  Double,
+    val longitud: Double
 )

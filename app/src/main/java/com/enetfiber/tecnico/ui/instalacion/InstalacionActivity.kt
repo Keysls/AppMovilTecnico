@@ -51,6 +51,14 @@ import com.enetfiber.tecnico.equipos.QualTekConfigurator
 import com.enetfiber.tecnico.equipos.ZteModelo
 import android.net.wifi.WifiManager
 import android.os.Build
+import android.net.Uri
+import com.enetfiber.tecnico.ui.ubicacion.UbicacionActivity
+import org.osmdroid.config.Configuration
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.overlay.Marker
+import javax.inject.Inject
+import com.enetfiber.tecnico.data.Repository
 @AndroidEntryPoint
 class InstalacionActivity : AppCompatActivity() {
 
@@ -127,6 +135,26 @@ class InstalacionActivity : AppCompatActivity() {
 
     // ── Botón continuar paso 4 ────────────────────────────────
     private lateinit var btnContinuarPaso4 : MaterialButton
+
+    // ── GPS / Ubicación ──────────────────────────────────────────
+    @Inject lateinit var repo: Repository
+    private var latContrato: Double? = null
+    private var lngContrato: Double? = null
+    private var mapaPreviewMarker: org.osmdroid.views.overlay.Marker? = null
+
+    private val ubicacionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val lat = result.data?.getDoubleExtra(UbicacionActivity.RESULT_LAT, 0.0) ?: 0.0
+            val lng = result.data?.getDoubleExtra(UbicacionActivity.RESULT_LNG, 0.0) ?: 0.0
+            if (lat != 0.0 && lng != 0.0) {
+                latContrato = lat
+                lngContrato = lng
+                actualizarCardUbicacion()
+            }
+        }
+    }
 
     // ── Cards equipos paso 2 ──────────────────────────────────
     private lateinit var cardOptic       : CardView
@@ -205,6 +233,8 @@ class InstalacionActivity : AppCompatActivity() {
         setupBotonCargarConfig()
         botonesGenerales()
         observar()
+        inicializarOsmdroid()
+        setupCardUbicacion()
     }
 
     // ═════════════════════════════════════════════════════════
@@ -247,6 +277,117 @@ class InstalacionActivity : AppCompatActivity() {
     // ═════════════════════════════════════════════════════════
     //  BOTONES GENERALES
     // ═════════════════════════════════════════════════════════
+    // ═════════════════════════════════════════════════════════
+    //  UBICACIÓN GPS — PASO 1
+    // ═════════════════════════════════════════════════════════
+    private fun inicializarOsmdroid() {
+        Configuration.getInstance().userAgentValue = packageName
+    }
+
+    private fun setupCardUbicacion() {
+        // Botón capturar (sin GPS)
+        val btnCapturar = findViewById<com.google.android.material.button.MaterialButton>(R.id.btnCapturarUbicacion)
+        // Botón editar pin (con GPS)
+        val btnEditar   = findViewById<com.google.android.material.button.MaterialButton>(R.id.btnEditarUbicacion)
+        // Botón navegar
+        val btnNavegar  = findViewById<com.google.android.material.button.MaterialButton>(R.id.btnVerEnMapa)
+
+        btnCapturar?.setOnClickListener { abrirEditorUbicacion() }
+        btnEditar?.setOnClickListener   { abrirEditorUbicacion() }
+
+        btnNavegar?.setOnClickListener {
+            val orden = vm.orden.value ?: return@setOnClickListener
+            val uri = if (latContrato != null && lngContrato != null) {
+                Uri.parse("geo:${'$'}latContrato,${'$'}lngContrato?q=${'$'}latContrato,${'$'}lngContrato(${'$'}{orden.abonado})")
+            } else {
+                Uri.parse("geo:0,0?q=${'$'}{Uri.encode(orden.direccion)}")
+            }
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, uri))
+            } catch (_: Exception) {
+                Toast.makeText(this, "No se encontró app de mapas", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun abrirEditorUbicacion() {
+        val orden = vm.orden.value ?: return
+        ubicacionLauncher.launch(
+            Intent(this, UbicacionActivity::class.java).apply {
+                putExtra(UbicacionActivity.EXTRA_CONTRATO, orden.contrato ?: "")
+                putExtra(UbicacionActivity.EXTRA_DIRECCION, orden.direccion)
+                putExtra(UbicacionActivity.EXTRA_SECTOR,   orden.sector ?: "")
+                latContrato?.let { putExtra(UbicacionActivity.EXTRA_LAT, it) }
+                lngContrato?.let { putExtra(UbicacionActivity.EXTRA_LNG, it) }
+            }
+        )
+    }
+
+    private fun actualizarCardUbicacion() {
+        val lat = latContrato ?: return
+        val lng = lngContrato ?: return
+        val orden = vm.orden.value ?: return
+
+        val badge      = findViewById<android.widget.TextView>(R.id.tvUbicacionBadge)
+        val mapPreview = findViewById<org.osmdroid.views.MapView>(R.id.mapPreview)
+        val tvDir      = findViewById<android.widget.TextView>(R.id.tvUbicacionDir)
+        val layoutBtns = findViewById<android.widget.LinearLayout>(R.id.layoutBotonesGps)
+        val btnCapturar = findViewById<com.google.android.material.button.MaterialButton>(R.id.btnCapturarUbicacion)
+
+        // Badge verde
+        badge?.text = "✓ GPS"
+        badge?.setTextColor(android.graphics.Color.parseColor("#16A34A"))
+        badge?.setBackgroundColor(android.graphics.Color.parseColor("#DCFCE7"))
+
+        // Dirección
+        tvDir?.text       = orden.direccion
+        tvDir?.visibility = android.view.View.VISIBLE
+
+        // Botones: mostrar editar/navegar, ocultar capturar
+        layoutBtns?.visibility  = android.view.View.VISIBLE
+        btnCapturar?.visibility = android.view.View.GONE
+
+        // Mapa pequeño
+        mapPreview?.let { map ->
+            map.visibility = android.view.View.VISIBLE
+            map.setTileSource(TileSourceFactory.MAPNIK)
+            map.setMultiTouchControls(false)
+            map.isClickable = false
+            map.controller.setZoom(16.0)
+            val punto = GeoPoint(lat, lng)
+            map.controller.setCenter(punto)
+
+            if (mapaPreviewMarker == null) {
+                mapaPreviewMarker = Marker(map).apply {
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    isDraggable = false
+                }
+                map.overlays.add(mapaPreviewMarker)
+            }
+            mapaPreviewMarker?.position = punto
+            map.invalidate()
+
+            // Tap en el mapa pequeño → abrir editor
+            map.setOnClickListener { abrirEditorUbicacion() }
+        }
+    }
+
+    private fun cargarUbicacionDesdeOrden() {
+        val orden = vm.orden.value ?: return
+        // contratoRef viene del backend con la ubicación guardada
+        val lat = orden.contratoRef?.latitud
+        val lng = orden.contratoRef?.longitud
+        if (lat != null && lng != null) {
+            latContrato = lat
+            lngContrato = lng
+            actualizarCardUbicacion()
+        } else {
+            // Sin GPS: mostrar botón capturar
+            val btnCapturar = findViewById<com.google.android.material.button.MaterialButton>(R.id.btnCapturarUbicacion)
+            btnCapturar?.visibility = android.view.View.VISIBLE
+        }
+    }
+
     private fun botonesGenerales() {
         binding.btnFotoCajaNap.setOnClickListener     { solicitarFoto("FOTO_1") }
         binding.btnFotoPotencia.setOnClickListener    { solicitarFoto("FOTO_2") }
@@ -1241,6 +1382,7 @@ class InstalacionActivity : AppCompatActivity() {
             if (orden == null) return@observe
             mostrarPaso(1)
             actualizarTextosBotonesFotos(orden.tipoOrden)
+            cargarUbicacionDesdeOrden()
             if (!orden.ipWan.isNullOrEmpty()) {
                 binding.tvWanInfo.visibility = View.VISIBLE
                 binding.tvWanInfo.text = "WAN: ${orden.ipWan} / ${orden.mascara} → ${orden.gateway}"
@@ -1365,6 +1507,16 @@ class InstalacionActivity : AppCompatActivity() {
             edit.setSelection(cursor.coerceAtMost(edit.text.length))
             btn.alpha = if (visible) 1f else 0.4f
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        findViewById<org.osmdroid.views.MapView>(R.id.mapPreview)?.onResume()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        findViewById<org.osmdroid.views.MapView>(R.id.mapPreview)?.onPause()
     }
 
     override fun onDestroy() {

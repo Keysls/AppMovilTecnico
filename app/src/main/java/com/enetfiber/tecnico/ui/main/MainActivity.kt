@@ -19,6 +19,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import com.enetfiber.tecnico.data.local.SessionEvents
 import android.widget.Toast
+
 @Suppress("DEPRECATION")
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
@@ -33,6 +34,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         setContentView(binding.root)
 
         setSupportActionBar(binding.toolbar)
+        supportActionBar?.setDisplayShowTitleEnabled(true)
 
         toggle = ActionBarDrawerToggle(
             this, binding.drawerLayout, binding.toolbar,
@@ -40,12 +42,13 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         )
         binding.drawerLayout.addDrawerListener(toggle)
         toggle.syncState()
+        // Ícono hamburguesa en color oscuro (toolbar blanco)
         toggle.drawerArrowDrawable.color = getColor(android.R.color.white)
-        binding.navView.setNavigationItemSelectedListener(this)
 
+        binding.navView.setNavigationItemSelectedListener(this)
         actualizarHeader()
 
-        // C3 FIX: si el backend devuelve 401 en cualquier momento, cerrar sesión
+        // Sesión expirada → logout automático
         lifecycleScope.launch {
             SessionEvents.unauthorized.collect {
                 Toast.makeText(
@@ -79,7 +82,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val tvZona      = header.findViewById<TextView>(R.id.tvNavZona)
         val tvIniciales = header.findViewById<TextView>(R.id.tvNavIniciales)
 
-        // G4: un solo collector combinado para nombre + apellido
         lifecycleScope.launch {
             kotlinx.coroutines.flow.combine(vm.nombre, vm.apellido) { nombre, apellido ->
                 nombre to apellido
@@ -104,15 +106,12 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
-            R.id.nav_dashboard   -> cargarFragment(DashboardFragment(),   "Dashboard")
-            R.id.nav_pendientes  -> {
-                cargarFragment(PendientesFragment.newInstance("internet"), "Pendientes Internet")
-            }
-            R.id.nav_completadas -> cargarFragment(CompletadasFragment(), "Completadas")
-            R.id.nav_cable -> {
-                cargarFragment(PendientesFragment.newInstance("cable"), "Pendientes Cable")
-            }
-            R.id.nav_perfil      -> cargarFragment(PerfilFragment(),       "Mi Perfil")
+            R.id.nav_dashboard   -> cargarFragment(DashboardFragment(),                    "Dashboard")
+            R.id.nav_pendientes  -> cargarFragment(PendientesFragment.newInstance("internet"), "Pendientes Internet")
+            R.id.nav_cable       -> cargarFragment(PendientesFragment.newInstance("cable"),    "Pendientes Cable")
+            R.id.nav_duo         -> cargarFragment(PendientesFragment.newInstance("duo"),      "Pendientes Dúo")
+            R.id.nav_completadas -> cargarFragment(CompletadasFragment(),                   "Completadas")
+            R.id.nav_perfil      -> cargarFragment(PerfilFragment(),                        "Mi Perfil")
             R.id.nav_salir       -> logout()
         }
         binding.drawerLayout.closeDrawer(GravityCompat.START)

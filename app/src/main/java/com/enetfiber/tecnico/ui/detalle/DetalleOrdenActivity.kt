@@ -60,15 +60,15 @@ class DetalleOrdenActivity : AppCompatActivity() {
 
             supportActionBar?.title = "Orden #${orden.nServicio}"
             binding.tvAbonado.text  = orden.abonado
-            binding.tvDni.text      = "DNI: ${orden.dni ?: "—"}"
-            binding.tvContrato.text = "Contrato: ${orden.contrato ?: "—"}"
+            binding.tvDni.text      = "${orden.dni ?: "—"}"
+            binding.tvContrato.text = "${orden.contrato ?: "—"}"
             binding.tvDireccion.text = orden.direccion
             binding.tvSector.text   = orden.sector ?: ""
 
             binding.tvTipo.text = TipoOrden.label(orden.tipoOrden)
 
             if (!orden.referencia.isNullOrEmpty() && orden.referencia != "0") {
-                binding.tvReferencia.text = "Ref: ${orden.referencia}"
+                binding.tvReferencia.text = "${orden.referencia}"
                 binding.tvReferencia.visibility = View.VISIBLE
             }
 
@@ -79,9 +79,9 @@ class DetalleOrdenActivity : AppCompatActivity() {
 
             if (!orden.ipWan.isNullOrEmpty()) {
                 binding.cardWan.visibility = View.VISIBLE
-                binding.tvIpWan.text    = "IP:      ${orden.ipWan}"
-                binding.tvMascara.text  = "Máscara: ${orden.mascara}"
-                binding.tvGateway.text  = "Gateway: ${orden.gateway}"
+                binding.tvIpWan.text    = "${orden.ipWan}"
+                binding.tvMascara.text  = "${orden.mascara}"
+                binding.tvGateway.text  = "${orden.gateway}"
             }
 
             binding.tvCelular.text = orden.celular

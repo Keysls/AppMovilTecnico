@@ -19,9 +19,13 @@ import com.enetfiber.tecnico.data.local.CompletarPendienteDao
 import com.enetfiber.tecnico.data.local.CompletarPendienteEntity
 import java.util.concurrent.TimeUnit
 import java.util.UUID
+
 sealed class Resultado<out T> {
     data class Exito<T>(val data: T) : Resultado<T>()
     data class Error(val mensaje: String) : Resultado<Nothing>()
+
+    fun isExito() = this is Exito
+    fun isError() = this is Error
 }
 
 // Convierte un timestamp (millis) a ISO-8601 UTC, como espera el backend
@@ -55,6 +59,7 @@ class Repository @Inject constructor(
         val cap = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
         return cap.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
+
     // ── Auth ──────────────────────────────────────────────────
     suspend fun login(email: String, password: String): Resultado<LoginResponse> {
         return try {
@@ -62,16 +67,13 @@ class Repository @Inject constructor(
             if (res.isSuccessful) {
                 val body = res.body()!!
 
-                // I1 FIX: solo los TÉCNICOS pueden usar esta app
                 if (body.usuario.rol != "TECNICO") {
                     return Resultado.Error("Esta aplicación es solo para técnicos")
                 }
 
-                // I2 FIX: un TECNICO sin registro de técnico no puede operar
                 val tecnico = body.usuario.tecnico
                     ?: return Resultado.Error("Tu usuario no tiene perfil de técnico asignado. Contactá al administrador.")
 
-                // Validar que el usuario esté activo
                 if (body.usuario.activo == false) {
                     return Resultado.Error("Tu cuenta está desactivada. Contactá al administrador.")
                 }
@@ -108,6 +110,7 @@ class Repository @Inject constructor(
     // ── Órdenes ───────────────────────────────────────────────
     fun getPendientesInternet() = ordenDao.getPendientesInternet(TipoOrden.INTERNET)
     fun getPendientesCable()    = ordenDao.getPendientesCable(TipoOrden.CABLE)
+    fun getPendientesDuo()      = ordenDao.getPendientesCable(TipoOrden.DUO)
     fun getCompletadas()        = ordenDao.getCompletadas()
 
     suspend fun sincronizarOrdenes(): Resultado<Unit> {
@@ -117,16 +120,12 @@ class Repository @Inject constructor(
                 val lista = res.body()?.data ?: emptyList()
                 val idsRemotos = lista.map { it.id }
 
-                // instalacionIds con trabajo offline sin sincronizar
                 val idsProtegidos = (
                         configDao.instalacionIdsPendientes() +
                                 fotoDao.instalacionIdsPendientes() +
                                 completarDao.getPendientes().map { it.instalacionId }
                         ).distinct()
 
-                // FIX: ordenIds con completar pendiente → NO pisar su estado local.
-                // Mantienen su COMPLETADA local hasta que el SyncWorker confirme
-                // la instalación en el backend.
                 val ordenIdsProtegidos = ordenDao.ordenIdsConCompletarPendiente()
                 val listaParaInsertar = lista.filter { it.id !in ordenIdsProtegidos }
 
@@ -140,11 +139,14 @@ class Repository @Inject constructor(
         }
     }
 
-    suspend fun countPorCategoria(): Triple<Int, Int, Int> {
-        return Triple(
-            ordenDao.countPendientesInternet(TipoOrden.INTERNET),
-            ordenDao.countPendientesCable(TipoOrden.CABLE),
-            ordenDao.countCompletadas()
+    data class ConteoOrdenes(val internet: Int, val cable: Int, val duo: Int, val completadas: Int)
+
+    suspend fun countPorCategoria(): ConteoOrdenes {
+        return ConteoOrdenes(
+            internet    = ordenDao.countPendientesInternet(TipoOrden.INTERNET),
+            cable       = ordenDao.countPendientesCable(TipoOrden.CABLE),
+            duo         = ordenDao.countPendientesCable(TipoOrden.DUO),
+            completadas = ordenDao.countCompletadas()
         )
     }
 
@@ -163,12 +165,6 @@ class Repository @Inject constructor(
         }
     }
 
-    /**
-     * Aceptar con respaldo offline.
-     * - Marca la orden ACEPTADA local siempre (el técnico puede seguir).
-     * - Si hay señal → lo confirma en el backend.
-     * - Si no → encola en aceptar_pendiente; el SyncWorker lo reintenta.
-     */
     suspend fun aceptarOrden(id: String): Resultado<Unit> {
         ordenDao.updateEstado(id, "ACEPTADA")
         val ahoraIso = System.currentTimeMillis().aIso8601()
@@ -188,26 +184,16 @@ class Repository @Inject constructor(
             Resultado.Exito(Unit)
         }
     }
-    /**
-     * Opción B: iniciar con respaldo offline.
-     * - La app SIEMPRE genera el instalacionId (UUID) ella misma.
-     * - Si hay señal → lo manda al backend, que lo usa como id.
-     * - Si NO hay señal → encola en iniciar_pendiente; el SyncWorker
-     *   lo registrará en el backend cuando vuelva la red.
-     * Devuelve el instalacionId — la app trabaja con él en ambos casos.
-     */
+
     suspend fun iniciarInstalacion(
         ordenId: String, lat: Double?, lng: Double?, dir: String?
     ): Resultado<String> {
-        // Si la orden ya tenía instalacionId (reabierta), lo reusamos. Si no, generamos uno.
         val existente = ordenDao.getById(ordenId)?.instalacionId
         val instId = existente ?: UUID.randomUUID().toString()
 
-        // Marcar la orden EN_PROCESO local + asociar el id (haya o no señal)
         ordenDao.updateEstado(ordenId, "EN_PROCESO")
         ordenDao.updateInstalacionId(ordenId, instId)
 
-        // Función interna para encolar el inicio offline
         suspend fun encolar() {
             iniciarDao.insert(IniciarPendienteEntity(
                 instalacionId = instId,
@@ -227,19 +213,20 @@ class Repository @Inject constructor(
         return try {
             val res = api.iniciarInstalacion(
                 ordenId,
-                IniciarInstalacionRequest(lat, lng, dir, instId)   // ← manda el uuid
+                IniciarInstalacionRequest(lat, lng, dir, instId)
             )
             if (res.isSuccessful) {
                 Resultado.Exito(instId)
             } else {
-                encolar()                  // backend falló → el Worker reintenta
+                encolar()
                 Resultado.Exito(instId)
             }
         } catch (e: Exception) {
-            encolar()                      // sin conexión real → el Worker reintenta
+            encolar()
             Resultado.Exito(instId)
         }
     }
+
     suspend fun subirFoto(instalacionId: String, ruta: String, tipo: String): Resultado<Unit> {
         return try {
             val file = File(ruta)
@@ -247,11 +234,10 @@ class Repository @Inject constructor(
                 return Resultado.Error("Archivo no encontrado o vacío")
             }
             val part = MultipartBody.Part.createFormData(
-                "fotos",        // ← plural, igual que el backend: .array('fotos', 10)
+                "fotos",
                 file.name,
                 file.asRequestBody("image/jpeg".toMediaType())
             )
-            // ← "tipos" en plural, como espera el backend
             val tipoPart = tipo.toRequestBody("text/plain".toMediaType())
             val res = api.subirFoto(instalacionId, part, tipoPart)
             if (res.isSuccessful) Resultado.Exito(Unit)
@@ -266,6 +252,7 @@ class Repository @Inject constructor(
             Resultado.Error("Sin conexión — foto guardada offline")
         }
     }
+
     suspend fun guardarConfigOnu(instalacionId: String, config: ConfigOnuRequest): Resultado<Unit> {
         if (!isOnline()) {
             configDao.insert(ConfigOfflineEntity(
@@ -281,7 +268,8 @@ class Repository @Inject constructor(
                 pppoeUser        = config.pppoeUser,
                 pppoePassword    = config.pppoePassword
             ))
-            return Resultado.Error(MsgResultado.GUARDADO_OFFLINE)        }
+            return Resultado.Error(MsgResultado.GUARDADO_OFFLINE)
+        }
         return try {
             val res = api.guardarConfigOnu(instalacionId, config)
             if (res.isSuccessful) Resultado.Exito(Unit)
@@ -304,15 +292,9 @@ class Repository @Inject constructor(
         }
     }
 
-    /**
-     * C10 + C11 FIX: completar con respaldo offline.
-     * - Si hay señal y el backend confirma → completa directo.
-     * - Si no hay señal o el backend falla → encola en completar_pendiente
-     *   y programa el SyncWorker para reintentar cuando vuelva la red.
-     */
     suspend fun completarInstalacion(
         instalacionId: String,
-        ordenId: String,                    // ← NUEVO
+        ordenId: String,
         obs: String?,
         fotosOk: Boolean
     ): Resultado<Unit> {
@@ -326,7 +308,7 @@ class Repository @Inject constructor(
                 CompletarRequest(obs, System.currentTimeMillis().aIso8601())
             )
             if (res.isSuccessful) {
-                ordenDao.updateEstado(ordenId, "COMPLETADA")   // ← marcar local
+                ordenDao.updateEstado(ordenId, "COMPLETADA")
                 Resultado.Exito(Unit)
             } else {
                 encolarCompletar(instalacionId, ordenId, obs)
@@ -343,14 +325,31 @@ class Repository @Inject constructor(
             CompletarPendienteEntity(
                 instalacionId = instalacionId,
                 observaciones = obs,
-                fechaFin      = System.currentTimeMillis()   // ← momento real de completado
+                fechaFin      = System.currentTimeMillis()
             )
         )
         ordenDao.updateEstado(ordenId, "COMPLETADA")
         programarSync()
     }
 
-    /** Programa el SyncWorker para que corra apenas haya red. */
+    // ── Ubicación GPS del contrato ────────────────────────────
+    suspend fun actualizarUbicacionContrato(
+        numero:   String,
+        latitud:  Double,
+        longitud: Double
+    ): Resultado<Unit> {
+        return try {
+            val res = api.actualizarUbicacionContrato(
+                numero,
+                UbicacionRequest(latitud, longitud)
+            )
+            if (res.isSuccessful) Resultado.Exito(Unit)
+            else Resultado.Error("Error al guardar ubicación: ${res.code()}")
+        } catch (e: Exception) {
+            Resultado.Error("Sin conexión: ${e.message}")
+        }
+    }
+
     fun programarSync() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -374,7 +373,8 @@ class Repository @Inject constructor(
         val (filtrar, tipos) = when (tipo) {
             "INTERNET" -> true  to TipoOrden.INTERNET
             "CABLE"    -> true  to TipoOrden.CABLE
-            else       -> false to emptyList()      // "TODOS"
+            "DUO"      -> true  to TipoOrden.DUO
+            else       -> false to emptyList()
         }
         return ordenDao.getCompletadasFiltradas(filtrar, tipos, busqueda, limit, offset)
     }

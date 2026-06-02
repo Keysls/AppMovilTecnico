@@ -53,4 +53,11 @@ interface ApiService {
         @Body request: CompletarRequest
     ): Response<InstalacionDto>
 
+
+    @PATCH("contratos/{numero}/ubicacion")
+    suspend fun actualizarUbicacionContrato(
+        @Path("numero") numero: String,
+        @Body request: UbicacionRequest
+    ): Response<Unit>
+
 }

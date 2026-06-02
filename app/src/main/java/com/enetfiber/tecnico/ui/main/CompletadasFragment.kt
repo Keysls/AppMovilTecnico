@@ -108,6 +108,7 @@ class CompletadasFragment : Fragment() {
             val filtro = when (checkedId) {
                 R.id.chipInternet -> "INTERNET"
                 R.id.chipCable    -> "CABLE"
+                R.id.chipDuo      -> "DUO"
                 else              -> "TODOS"
             }
             vm.setTipoFiltro(filtro)

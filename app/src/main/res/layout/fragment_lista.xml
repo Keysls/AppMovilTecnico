@@ -86,6 +86,20 @@
                         android:textSize="13sp"
                         tools:ignore="TouchTargetSizeCheck" />
 
+                    <RadioButton
+                        android:id="@+id/chipDuo"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/bg_chip_selector"
+                        android:button="@null"
+                        android:gravity="center"
+                        android:paddingHorizontal="16dp"
+                        android:text="Dúo"
+                        android:textColor="@drawable/txt_chip_selector"
+                        android:textSize="13sp"
+                        tools:ignore="TouchTargetSizeCheck" />
+
                 </RadioGroup>
             </HorizontalScrollView>
 

@@ -220,6 +220,136 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
 
+                    <!-- ── Ubicación del cliente ── -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardUbicacion"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="14dp"
+                        app:cardBackgroundColor="#FFFFFF"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="#F1F5F9"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <!-- Header -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical"
+                                android:layout_marginBottom="12dp">
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Ubicación del cliente"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#0F172A"
+                                    tools:ignore="HardcodedText"/>
+                                <TextView
+                                    android:id="@+id/tvUbicacionBadge"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Sin GPS"
+                                    android:textSize="10sp"
+                                    android:textColor="#D97706"
+                                    android:textStyle="bold"
+                                    android:background="#FEF3C7"
+                                    android:paddingHorizontal="8dp"
+                                    android:paddingVertical="3dp"
+                                    tools:ignore="HardcodedText"/>
+                            </LinearLayout>
+
+                            <!-- Mapa pequeño (visible si tiene GPS) -->
+                            <org.osmdroid.views.MapView
+                                android:id="@+id/mapPreview"
+                                android:layout_width="match_parent"
+                                android:layout_height="140dp"
+                                android:visibility="gone"
+                                android:layout_marginBottom="10dp"/>
+
+                            <!-- Dirección de texto -->
+                            <TextView
+                                android:id="@+id/tvUbicacionDir"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textSize="12sp"
+                                android:textColor="#475569"
+                                android:layout_marginBottom="10dp"
+                                android:visibility="gone"/>
+
+                            <!-- Botones cuando YA tiene GPS -->
+                            <LinearLayout
+                                android:id="@+id/layoutBotonesGps"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:visibility="gone">
+
+                                <com.google.android.material.button.MaterialButton
+                                    android:id="@+id/btnEditarUbicacion"
+                                    android:layout_width="0dp"
+                                    android:layout_height="38dp"
+                                    android:layout_weight="1"
+                                    android:layout_marginEnd="6dp"
+                                    android:text="Editar pin"
+                                    android:textSize="12sp"
+                                    android:textColor="#1D4ED8"
+                                    android:insetTop="0dp"
+                                    android:insetBottom="0dp"
+                                    app:backgroundTint="#EFF6FF"
+                                    app:cornerRadius="9dp"
+                                    app:strokeColor="#BFDBFE"
+                                    app:strokeWidth="1dp"
+                                    tools:ignore="HardcodedText"/>
+
+                                <com.google.android.material.button.MaterialButton
+                                    android:id="@+id/btnVerEnMapa"
+                                    android:layout_width="0dp"
+                                    android:layout_height="38dp"
+                                    android:layout_weight="1"
+                                    android:layout_marginStart="6dp"
+                                    android:text="Navegar"
+                                    android:textSize="12sp"
+                                    android:textColor="#475569"
+                                    android:insetTop="0dp"
+                                    android:insetBottom="0dp"
+                                    app:backgroundTint="#F8FAFC"
+                                    app:cornerRadius="9dp"
+                                    app:strokeColor="#E2E8F0"
+                                    app:strokeWidth="1dp"
+                                    tools:ignore="HardcodedText"/>
+
+                            </LinearLayout>
+
+                            <!-- Botón cuando NO tiene GPS -->
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnCapturarUbicacion"
+                                android:layout_width="match_parent"
+                                android:layout_height="40dp"
+                                android:text="Capturar ubicación del cliente"
+                                android:textSize="12sp"
+                                android:textColor="#1D4ED8"
+                                android:insetTop="0dp"
+                                android:insetBottom="0dp"
+                                app:backgroundTint="#EFF6FF"
+                                app:cornerRadius="9dp"
+                                app:strokeColor="#BFDBFE"
+                                app:strokeWidth="1dp"
+                                android:visibility="gone"
+                                tools:ignore="HardcodedText"/>
+
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
                     <androidx.cardview.widget.CardView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"

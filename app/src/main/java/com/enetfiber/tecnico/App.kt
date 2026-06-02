@@ -18,14 +18,12 @@ class App : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
-        // Red de seguridad: sincronizar cada 1h si quedó algo pendiente
         val constraints = androidx.work.Constraints.Builder()
             .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
             .build()
         val periodico = androidx.work.PeriodicWorkRequestBuilder<com.enetfiber.tecnico.data.SyncWorker>(
             1, java.util.concurrent.TimeUnit.HOURS
         ).setConstraints(constraints).build()
-
         androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             com.enetfiber.tecnico.data.SyncWorker.NOMBRE_PERIODICO,
             androidx.work.ExistingPeriodicWorkPolicy.KEEP,
@@ -69,6 +67,21 @@ object TipoOrden {
     const val SUPERVISION_C       = "SUPERVISION_C"
     const val TRASLADO_C          = "TRASLADO_C"
 
+    // Dúo (Internet + Cable)
+    const val INSTALACION_D       = "INSTALACION_D"
+    const val ALTA_SERVICIO_D     = "ALTA_SERVICIO_D"
+    const val AVERIA_D            = "AVERIA_D"
+    const val BAJA_SERVICIO_D     = "BAJA_SERVICIO_D"
+    const val CAMBIO_DOMICILIO_D  = "CAMBIO_DOMICILIO_D"
+    const val CAMBIO_EQUIPO_D     = "CAMBIO_EQUIPO_D"
+    const val CAMBIO_PLAN_D       = "CAMBIO_PLAN_D"
+    const val CAMBIO_TITULAR_D    = "CAMBIO_TITULAR_D"
+    const val CORTE_SOLICITUD_D   = "CORTE_SOLICITUD_D"
+    const val CORTE_DEUDA_D       = "CORTE_DEUDA_D"
+    const val RECONEXION_D        = "RECONEXION_D"
+    const val RETIRO_EQUIPO_D     = "RETIRO_EQUIPO_D"
+    const val TRASLADO_D          = "TRASLADO_D"
+
     val INTERNET = listOf(
         INSTALACION_I, ALTA_SERVICIO_I, ATENCION_NOC_I, AVERIA_I,
         BAJA_SERVICIO_I, CAMBIO_CONTRASENA_I, CAMBIO_DOMICILIO_I,
@@ -82,6 +95,13 @@ object TipoOrden {
         CAMBIO_PLAN_C, CAMBIO_TITULAR_C, CORTE_SOLICITUD_C, CORTE_DEUDA_C,
         INSTALACION_ANEXO_C, MIGRACION_FTTH_C, RECONEXION_C,
         RETIRO_EQUIPO_C, SUPERVISION_C, TRASLADO_C
+    )
+
+    val DUO = listOf(
+        INSTALACION_D, ALTA_SERVICIO_D, AVERIA_D, BAJA_SERVICIO_D,
+        CAMBIO_DOMICILIO_D, CAMBIO_EQUIPO_D, CAMBIO_PLAN_D, CAMBIO_TITULAR_D,
+        CORTE_SOLICITUD_D, CORTE_DEUDA_D, RECONEXION_D,
+        RETIRO_EQUIPO_D, TRASLADO_D
     )
 
     fun label(tipo: String) = when (tipo) {
@@ -114,21 +134,41 @@ object TipoOrden {
         RETIRO_EQUIPO_C     -> "Retiro de Equipo Cable"
         SUPERVISION_C       -> "Supervisión Cable"
         TRASLADO_C          -> "Traslado Cable"
+        // Dúo
+        INSTALACION_D       -> "Instalación Dúo"
+        ALTA_SERVICIO_D     -> "Alta de Servicio Dúo"
+        AVERIA_D            -> "Avería Dúo"
+        BAJA_SERVICIO_D     -> "Baja de Servicio Dúo"
+        CAMBIO_DOMICILIO_D  -> "Cambio de Domicilio Dúo"
+        CAMBIO_EQUIPO_D     -> "Cambio de Equipo Dúo"
+        CAMBIO_PLAN_D       -> "Cambio de Plan Dúo"
+        CAMBIO_TITULAR_D    -> "Cambio de Titular Dúo"
+        CORTE_SOLICITUD_D   -> "Corte a Solicitud Dúo"
+        CORTE_DEUDA_D       -> "Corte por Deuda Dúo"
+        RECONEXION_D        -> "Reconexión Dúo"
+        RETIRO_EQUIPO_D     -> "Retiro de Equipo Dúo"
+        TRASLADO_D          -> "Traslado Dúo"
         else                -> tipo
     }
 
-    fun esInternet(tipo: String) = tipo in INTERNET
-    fun esCable(tipo: String)    = tipo in CABLE
+    fun esInternet(tipo: String) = tipo in INTERNET || tipo in DUO
+    fun esCable(tipo: String)    = tipo in CABLE    || tipo in DUO
+    fun esDuo(tipo: String)      = tipo in DUO
 
     // Tipos que van directo a completar sin configurar ONU
     val SIN_CONFIG_ONU = listOf(
-        RETIRO_EQUIPO_I, RETIRO_EQUIPO_C,
+        RETIRO_EQUIPO_I, RETIRO_EQUIPO_C, RETIRO_EQUIPO_D,
         CORTE_SOLICITUD_I, CORTE_DEUDA_I,
+        CORTE_SOLICITUD_C, CORTE_DEUDA_C,
+        CORTE_SOLICITUD_D, CORTE_DEUDA_D,
         CAMBIO_TITULAR_I, CAMBIO_PLAN_I,
         CAMBIO_CONTRASENA_I, ALTA_SERVICIO_I,
-        BAJA_SERVICIO_I, ATENCION_NOC_I
+        BAJA_SERVICIO_I, ATENCION_NOC_I,
+        CAMBIO_TITULAR_D, CAMBIO_PLAN_D,
+        ALTA_SERVICIO_D, BAJA_SERVICIO_D
     )
 
+    // Requiere configurar ONU: tipos que tienen componente Internet y no son solo-admin
     fun requiereConfigOnu(tipo: String) = tipo !in SIN_CONFIG_ONU && esInternet(tipo)
 }
 
@@ -151,7 +191,6 @@ object TipoFoto {
     const val INSTALACION_FINAL = "INSTALACION_FINAL"
     const val OTROS             = "OTROS"
 
-    // Lista de tipos válidos — coincide con TIPOS_FOTO_VALIDOS del backend
     val VALIDOS = listOf(
         FOTO_1, FOTO_2, FOTO_3, CAJA_NAP, POTENCIA, INSTALACION_FINAL, OTROS
     )

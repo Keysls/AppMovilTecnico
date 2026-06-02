@@ -7,6 +7,7 @@
     android:layout_height="match_parent"
     android:background="@color/bg">
 
+    <!-- Contenido principal -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -16,9 +17,11 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/color_enet"
-            app:titleTextColor="@color/white"
-            app:navigationIconTint="@color/white"/>
+            android:background="#1E3A8A"
+            android:elevation="2dp"
+            app:titleTextColor="#FFFF"
+            app:titleTextAppearance="@style/ToolbarTitleStyle"
+            app:navigationIconTint="#FFFFFF"/>
 
         <FrameLayout
             android:id="@+id/contenedor"
@@ -28,15 +31,22 @@
 
     </LinearLayout>
 
+    <!-- Drawer -->
     <com.google.android.material.navigation.NavigationView
         android:id="@+id/navView"
-        android:layout_width="280dp"
+        android:layout_width="270dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
-        android:background="@color/white"
+        android:background="#FFFFFF"
+        android:elevation="8dp"
         app:headerLayout="@layout/nav_header"
         app:menu="@menu/menu_drawer"
-        app:itemTextColor="@color/txt_primario"
-        app:itemIconTint="@color/color_enet"/>
+        app:itemTextColor="@color/nav_item_text_color"
+        app:itemIconTint="@color/nav_item_icon_color"
+        app:itemBackground="@drawable/nav_item_bg"
+        app:itemTextAppearance="@style/NavItemTextStyle"
+        app:itemIconSize="20dp"
+        app:itemHorizontalPadding="12dp"
+        app:itemShapeFillColor="@color/nav_item_fill_color"/>
 
 </androidx.drawerlayout.widget.DrawerLayout>

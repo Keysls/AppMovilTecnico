@@ -53,6 +53,10 @@
             android:name=".ui.detalle.DetalleOrdenActivity"
             android:exported="false" />
         <activity
+            android:name=".ui.ubicacion.UbicacionActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
             android:name=".ui.instalacion.InstalacionActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" /> <!-- FileProvider para CameraX -->

@@ -1,29 +1,48 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <group android:checkableBehavior="single">
+    <group
+        android:id="@+id/group_operaciones"
+        android:checkableBehavior="single">
+
         <item
             android:id="@+id/nav_dashboard"
             android:title="Dashboard"
+            android:icon="@drawable/ic_nav_dashboard"
             android:checked="true"/>
+
         <item
             android:id="@+id/nav_pendientes"
-            android:title="Internet"/>
+            android:title="Internet"
+            android:icon="@drawable/ic_nav_internet"/>
+
         <item
             android:id="@+id/nav_cable"
-            android:title="Cable"/>
+            android:title="Cable"
+            android:icon="@drawable/ic_nav_cable"/>
+
+        <item
+            android:id="@+id/nav_duo"
+            android:title="Dúo"
+            android:icon="@drawable/ic_nav_duo"/>
+
         <item
             android:id="@+id/nav_completadas"
-            android:title="Completadas"/>
-        <item
-            android:id="@+id/nav_perfil"
-            android:title="Mi Perfil"/>
+            android:title="Completadas"
+            android:icon="@drawable/ic_nav_completadas"/>
+
     </group>
 
-    <group>
+    <group android:id="@+id/group_cuenta">
+        <item
+            android:id="@+id/nav_perfil"
+            android:title="Mi Perfil"
+            android:icon="@drawable/ic_nav_perfil"/>
+
         <item
             android:id="@+id/nav_salir"
-            android:title="Cerrar sesión"/>
+            android:title="Cerrar sesión"
+            android:icon="@drawable/ic_nav_salir"/>
     </group>
 
 </menu>
