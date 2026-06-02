@@ -445,18 +445,12 @@ class InstalacionActivity : AppCompatActivity() {
         }
 
         binding.btnSiguienteConfig.setOnClickListener {
-            if (vm.cantidadFotos() == 0) {
-                Toast.makeText(this, "Debes tomar al menos una foto", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
+            // Quitar el bloque del cantidadFotos == 0
             guardarPrecintoSiCambio()
             if (esInternet()) {
                 androidx.appcompat.app.AlertDialog.Builder(this)
                     .setTitle("⚠ Atención")
-                    .setMessage(
-                        "Para continuar deberás conectarte al WiFi del equipo ONU.\n\n" +
-                                "Durante la configuración perderás la conexión a internet."
-                    )
+                    .setMessage("Para continuar deberás conectarte al WiFi del equipo ONU.\n\nDurante la configuración perderás la conexión a internet.")
                     .setPositiveButton("Entendido, continuar") { _, _ -> mostrarPaso(2) }
                     .setNegativeButton("Cancelar", null)
                     .show()
@@ -465,7 +459,6 @@ class InstalacionActivity : AppCompatActivity() {
                 mostrarPaso(4)
             }
         }
-
         binding.btnCompletar.setOnClickListener { completar() }
 
         btnContinuarPaso4.setOnClickListener {
@@ -1506,7 +1499,7 @@ class InstalacionActivity : AppCompatActivity() {
             layout.addView(item)
         }
 
-        binding.btnSiguienteConfig.isEnabled = fotos.isNotEmpty()
+        binding.btnSiguienteConfig.isEnabled = true
     }
 
     private fun crearItemFoto(idx: Int, foto: com.enetfiber.tecnico.ui.FotoTomada, parent: android.view.ViewGroup): android.view.View {
