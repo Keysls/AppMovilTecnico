@@ -102,6 +102,17 @@ class Repository @Inject constructor(
         }
     }
 
+    suspend fun cambiarPassword(actual: String, nueva: String): Resultado<Unit> {
+        return try {
+            val res = api.cambiarPassword(CambiarPasswordRequest(actual, nueva))
+            if (res.isSuccessful) Resultado.Exito(Unit)
+            else if (res.code() == 401) Resultado.Error("Contraseña actual incorrecta")
+            else Resultado.Error("No se pudo cambiar la contraseña")
+        } catch (e: Exception) {
+            Resultado.Error("Sin conexión al servidor")
+        }
+    }
+
     suspend fun logout() {
         try { api.logout() } catch (_: Exception) {}
         session.cerrarSesion()

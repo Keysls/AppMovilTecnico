@@ -278,3 +278,8 @@ data class RegistrarRetiroResponse(
     val ok:          Boolean,
     val registrados: Int
 )
+
+data class CambiarPasswordRequest(
+    val passwordActual: String,
+    val passwordNueva:  String
+)

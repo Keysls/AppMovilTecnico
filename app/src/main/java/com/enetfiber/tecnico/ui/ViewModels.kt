@@ -115,6 +115,14 @@ class DashboardViewModel @Inject constructor(
 
     fun logout() { viewModelScope.launch { repo.logout() } }
     fun limpiarMensaje() { _mensaje.value = null }
+
+    fun cambiarPassword(actual: String, nueva: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            val r = repo.cambiarPassword(actual, nueva)
+            if (r is Resultado.Exito) onResult(true, "Contraseña actualizada correctamente")
+            else onResult(false, (r as Resultado.Error).mensaje)
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════

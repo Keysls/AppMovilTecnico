@@ -39,8 +39,13 @@ class DashboardFragment : Fragment() {
         vm.estado.observe(viewLifecycleOwner) { estado ->
             binding.tvPendientesInternet.text = estado.pendientesInternet.toString()
             binding.tvPendientesCable.text    = estado.pendientesCable.toString()
+            binding.tvPendientesDuo.text      = estado.pendientesDuo.toString()
             binding.tvCompletadas.text        = estado.completadas.toString()
             binding.progress.visibility       = if (estado.cargando) View.VISIBLE else View.GONE
+            // Subtítulos dinámicos
+            binding.tvSubInternet.text = "${estado.pendientesInternet} órdenes sin atender"
+            binding.tvSubCable.text    = "${estado.pendientesCable} órdenes sin atender"
+            binding.tvSubDuo.text      = "${estado.pendientesDuo} órdenes sin atender"
         }
 
         lifecycleScope.launch {
@@ -58,6 +63,9 @@ class DashboardFragment : Fragment() {
         }
         binding.cardCable.setOnClickListener {
             (activity as? MainActivity)?.cargarFragment(PendientesFragment.newInstance("cable"), "Pendientes Cable")
+        }
+        binding.cardDuo.setOnClickListener {
+            (activity as? MainActivity)?.cargarFragment(PendientesFragment.newInstance("duo"), "Pendientes Dúo")
         }
         binding.cardCompletadas.setOnClickListener {
             (activity as? MainActivity)?.cargarFragment(CompletadasFragment(), "Completadas")

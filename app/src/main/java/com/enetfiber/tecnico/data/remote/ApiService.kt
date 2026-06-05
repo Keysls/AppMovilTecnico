@@ -13,6 +13,9 @@ interface ApiService {
     @POST("auth/logout")
     suspend fun logout(): Response<Unit>
 
+    @PATCH("auth/cambiar-password")
+    suspend fun cambiarPassword(@Body request: CambiarPasswordRequest): Response<Unit>
+
     @GET("ordenes")
     suspend fun getOrdenes(
         @Query("limit") limit: Int = 50
