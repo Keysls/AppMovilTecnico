@@ -256,6 +256,9 @@ class InstalacionActivity : AppCompatActivity() {
         inicializarOsmdroid()
         setupCardUbicacion()
         setupCardPrecinto()
+
+        // Cargar inventario del técnico al iniciar la activity
+        inventarioVm.cargarMetricas(sincronizar = true)
     }
 
     // ═════════════════════════════════════════════════════════
@@ -1475,11 +1478,30 @@ class InstalacionActivity : AppCompatActivity() {
 
     /** Muestra el diálogo para seleccionar un item del inventario y su cantidad */
     private fun mostrarDialogMateriales() {
-        val items = inventarioVm.items.value?.filter { it.disponible > 0 }
-        if (items.isNullOrEmpty()) {
-            Toast.makeText(this, "No tienes items disponibles en tu inventario", Toast.LENGTH_SHORT).show()
+        // Intentar con datos en memoria primero
+        val itemsEnMemoria = inventarioVm.items.value?.filter { it.disponible > 0 }
+
+        if (!itemsEnMemoria.isNullOrEmpty()) {
+            mostrarDialogSeleccionMaterial(itemsEnMemoria)
             return
         }
+
+        // Si no hay datos en memoria, esperar a que Room los emita
+        Toast.makeText(this, "Cargando inventario...", Toast.LENGTH_SHORT).show()
+        inventarioVm.items.observe(this) { items ->
+            val disponibles = items?.filter { it.disponible > 0 }
+            if (!disponibles.isNullOrEmpty()) {
+                inventarioVm.items.removeObservers(this)
+                mostrarDialogSeleccionMaterial(disponibles)
+            } else if (items != null) {
+                // Ya cargó pero está vacío
+                inventarioVm.items.removeObservers(this)
+                Toast.makeText(this, "No tienes items disponibles en tu inventario", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun mostrarDialogSeleccionMaterial(items: List<com.enetfiber.tecnico.data.local.InventarioItemEntity>) {
 
         val opciones = items.map { "${it.nombre} — disp: ${it.disponible.toInt()} ${it.unidad}" }
             .toTypedArray()

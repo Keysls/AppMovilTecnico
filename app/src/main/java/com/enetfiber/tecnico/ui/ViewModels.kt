@@ -137,6 +137,20 @@ class OrdenesViewModel @Inject constructor(
     val pendientesCable    = repo.getPendientesCable()
     val pendientesDuo      = repo.getPendientesDuo()
 
+    // "Todos" combina los tres tipos
+    val pendientesTodas: androidx.lifecycle.LiveData<List<com.enetfiber.tecnico.data.local.OrdenEntity>> =
+        androidx.lifecycle.MediatorLiveData<List<com.enetfiber.tecnico.data.local.OrdenEntity>>().also { mediator ->
+            val combine = {
+                val internet = pendientesInternet.value ?: emptyList()
+                val cable    = pendientesCable.value    ?: emptyList()
+                val duo      = pendientesDuo.value      ?: emptyList()
+                mediator.value = (internet + cable + duo).sortedByDescending { it.cachedAt }
+            }
+            mediator.addSource(pendientesInternet) { combine() }
+            mediator.addSource(pendientesCable)    { combine() }
+            mediator.addSource(pendientesDuo)      { combine() }
+        }
+
     companion object {
         const val PAGE_SIZE = 30
     }

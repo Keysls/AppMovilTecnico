@@ -3,29 +3,29 @@ package com.enetfiber.tecnico.ui.main
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
-import android.view.MenuItem
+import android.view.Gravity
+import android.view.LayoutInflater
+import android.widget.PopupMenu
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.viewModels
-import androidx.appcompat.app.ActionBarDrawerToggle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.GravityCompat
 import androidx.lifecycle.lifecycleScope
 import com.enetfiber.tecnico.R
 import com.enetfiber.tecnico.databinding.ActivityMainBinding
 import com.enetfiber.tecnico.ui.DashboardViewModel
 import com.enetfiber.tecnico.ui.login.LoginActivity
-import com.google.android.material.navigation.NavigationView
-import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 import com.enetfiber.tecnico.data.local.SessionEvents
-import android.widget.Toast
+import dagger.hilt.android.AndroidEntryPoint
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 
-@Suppress("DEPRECATION")
 @AndroidEntryPoint
-class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
+class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var toggle: ActionBarDrawerToggle
     val vm: DashboardViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,22 +33,75 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Barra navegación sistema — blanca con iconos oscuros
+        window.navigationBarColor = android.graphics.Color.WHITE
+        WindowInsetsControllerCompat(window, window.decorView)
+            .isAppearanceLightNavigationBars = true
+
         setSupportActionBar(binding.toolbar)
-        supportActionBar?.setDisplayShowTitleEnabled(true)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
 
-        toggle = ActionBarDrawerToggle(
-            this, binding.drawerLayout, binding.toolbar,
-            R.string.nav_abrir, R.string.nav_cerrar
-        )
-        binding.drawerLayout.addDrawerListener(toggle)
-        toggle.syncState()
-        // Ícono hamburguesa en color oscuro (toolbar blanco)
-        toggle.drawerArrowDrawable.color = getColor(android.R.color.white)
+        // Inflar toolbar custom con título + avatar
+        val toolbarView = LayoutInflater.from(this)
+            .inflate(R.layout.toolbar_custom, binding.toolbar, false)
+        binding.toolbar.addView(toolbarView)
 
-        binding.navView.setNavigationItemSelectedListener(this)
-        actualizarHeader()
+        setupAvatar(toolbarView)
+        setupBottomNav()
+        observarSesion()
 
-        // Sesión expirada → logout automático
+        if (savedInstanceState == null) {
+            cargarFragment(DashboardFragment(), "Inicio")
+            binding.bottomNav.selectedItemId = R.id.nav_dashboard
+        }
+    }
+
+    @SuppressLint("SetTextI18n")
+    private fun setupAvatar(toolbarView: android.view.View) {
+        val tvAvatar = toolbarView.findViewById<TextView>(R.id.tvToolbarAvatar)
+
+        lifecycleScope.launch {
+            combine(vm.nombre, vm.apellido) { n, a -> Pair(n, a) }
+                .collect { (nombre, apellido) ->
+                    val iniciales = buildString {
+                        nombre?.firstOrNull()?.let { append(it.uppercaseChar()) }
+                        apellido?.firstOrNull()?.let { append(it.uppercaseChar()) }
+                    }.ifEmpty { "?" }
+                    tvAvatar.text = iniciales
+                }
+        }
+
+        tvAvatar.setOnClickListener { view ->
+            val popup = PopupMenu(this, view, Gravity.END)
+            popup.menu.add(0, 1, 0, "👤  Ver mi perfil")
+            popup.menu.add(0, 2, 1, "🚪  Cerrar sesión")
+            popup.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    1 -> {
+                        cargarFragment(PerfilFragment(), "Mi Perfil")
+                        // No cambiar el bottom nav seleccionado
+                    }
+                    2 -> logout()
+                }
+                true
+            }
+            popup.show()
+        }
+    }
+
+    private fun setupBottomNav() {
+        binding.bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_dashboard   -> { cargarFragment(DashboardFragment(),          "Inicio");     true }
+                R.id.nav_pendientes  -> { cargarFragment(PendientesTabsFragment(),     "Pendientes"); true }
+                R.id.nav_inventario  -> { cargarFragment(InventarioFragment.newInstance(), "Mi Inventario"); true }
+                R.id.nav_completadas -> { cargarFragment(CompletadasFragment(),        "Historial");  true }
+                else -> false
+            }
+        }
+    }
+
+    private fun observarSesion() {
         lifecycleScope.launch {
             SessionEvents.unauthorized.collect {
                 Toast.makeText(
@@ -63,38 +116,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 finish()
             }
         }
-
-        if (savedInstanceState == null) {
-            cargarFragment(DashboardFragment(), "Dashboard")
-            binding.navView.setCheckedItem(R.id.nav_dashboard)
-        }
-    }
-
-    private fun iniciales(nombre: String?, apellido: String?) = buildString {
-        nombre?.firstOrNull()?.let { append(it.uppercaseChar()) }
-        apellido?.firstOrNull()?.let { append(it.uppercaseChar()) }
-    }
-
-    @SuppressLint("SetTextI18n")
-    private fun actualizarHeader() {
-        val header      = binding.navView.getHeaderView(0)
-        val tvNombre    = header.findViewById<TextView>(R.id.tvNavNombre)
-        val tvZona      = header.findViewById<TextView>(R.id.tvNavZona)
-        val tvIniciales = header.findViewById<TextView>(R.id.tvNavIniciales)
-
-        lifecycleScope.launch {
-            kotlinx.coroutines.flow.combine(vm.nombre, vm.apellido) { nombre, apellido ->
-                nombre to apellido
-            }.collect { (nombre, apellido) ->
-                tvNombre.text    = "${nombre ?: ""} ${apellido ?: ""}".trim()
-                tvIniciales.text = iniciales(nombre, apellido)
-            }
-        }
-        lifecycleScope.launch {
-            vm.zona.collect { zona ->
-                tvZona.text = zona?.ifEmpty { "Sin zona asignada" } ?: "Sin zona asignada"
-            }
-        }
     }
 
     fun cargarFragment(fragment: androidx.fragment.app.Fragment, titulo: String) {
@@ -102,22 +123,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             .replace(R.id.contenedor, fragment)
             .commit()
         supportActionBar?.title = titulo
-    }
-
-    override fun onNavigationItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
-            R.id.nav_dashboard   -> cargarFragment(DashboardFragment(),                    "Dashboard")
-            R.id.nav_pendientes  -> cargarFragment(PendientesFragment.newInstance("internet"), "Pendientes Internet")
-            R.id.nav_cable       -> cargarFragment(PendientesFragment.newInstance("cable"),    "Pendientes Cable")
-            R.id.nav_duo         -> cargarFragment(PendientesFragment.newInstance("duo"),      "Pendientes Dúo")
-            R.id.nav_inventario -> cargarFragment(InventarioFragment.newInstance(), "Mi Inventario")
-            R.id.nav_completadas -> cargarFragment(CompletadasFragment(),                   "Completadas")
-            R.id.nav_perfil      -> cargarFragment(PerfilFragment(),                        "Mi Perfil")
-            R.id.nav_salir       -> logout()
-
-        }
-        binding.drawerLayout.closeDrawer(GravityCompat.START)
-        return true
     }
 
     private fun logout() {
@@ -130,9 +135,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (binding.drawerLayout.isDrawerOpen(GravityCompat.START))
-            binding.drawerLayout.closeDrawer(GravityCompat.START)
-        else
-            super.onBackPressed()
+        @Suppress("DEPRECATION")
+        super.onBackPressed()
     }
 }

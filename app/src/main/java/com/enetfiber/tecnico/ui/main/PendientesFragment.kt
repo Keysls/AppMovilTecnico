@@ -41,6 +41,11 @@ class PendientesFragment : Fragment() {
         binding.layoutFiltros.visibility = View.GONE
 
         when (categoria) {
+            "todos" -> {
+                binding.tvEmptyIcon.text      = "📋"
+                binding.tvEmptyTitulo.text    = "Sin órdenes pendientes"
+                binding.tvEmptySubtitulo.text = "Desliza para actualizar"
+            }
             "internet" -> {
                 binding.tvEmptyIcon.text      = "📡"
                 binding.tvEmptyTitulo.text    = "Sin órdenes de Internet"
@@ -91,6 +96,7 @@ class PendientesFragment : Fragment() {
         binding.recycler.adapter = adapter
 
         val liveData = when (categoria) {
+            "todos"    -> vm.pendientesTodas
             "internet" -> vm.pendientesInternet
             "cable"    -> vm.pendientesCable
             else       -> vm.pendientesDuo

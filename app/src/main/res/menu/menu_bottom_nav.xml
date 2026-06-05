@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/nav_dashboard"
+        android:icon="@drawable/ic_nav_dashboard"
+        android:title="Inicio"/>
+
+    <item
+        android:id="@+id/nav_pendientes"
+        android:icon="@drawable/ic_nav_internet"
+        android:title="Pendientes"/>
+
+    <item
+        android:id="@+id/nav_inventario"
+        android:icon="@drawable/ic_nav_inventario"
+        android:title="Inventario"/>
+
+    <item
+        android:id="@+id/nav_completadas"
+        android:icon="@drawable/ic_nav_completadas"
+        android:title="Historial"/>
+
+</menu>

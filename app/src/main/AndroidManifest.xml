@@ -18,6 +18,10 @@
         android:name="android.hardware.camera"
         android:required="false" />
 
+    <meta-data
+        android:name="preloaded_fonts"
+        android:resource="@array/preloaded_fonts"/>
+
     <application
         android:name=".App"
         android:allowBackup="true"
