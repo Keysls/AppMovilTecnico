@@ -115,6 +115,9 @@ class Repository @Inject constructor(
 
     suspend fun logout() {
         try { api.logout() } catch (_: Exception) {}
+        consumoDao.deleteAll() // ← limpiar consumos locales al cerrar sesión
+        inventarioDao.clearItems()
+        inventarioDao.clearOnus()
         session.cerrarSesion()
     }
 
@@ -370,8 +373,7 @@ class Repository @Inject constructor(
     /** LiveData del inventario local (funciona offline) */
     fun getInventarioItems() = inventarioDao.getItems()
     fun getInventarioOnus()  = inventarioDao.getOnus()
-    fun getConsumosPendientes() = consumoDao.getTodos()
-
+    fun getConsumosPendientes(tecnicoId: String) = consumoDao.getTodos(tecnicoId)
     /** Métricas calculadas desde la caché local */
     suspend fun getMetricasInventario() = InventarioMetricas(
         totalAsignados   = inventarioDao.totalAsignado(),
@@ -390,18 +392,20 @@ class Repository @Inject constructor(
             val res = api.getMiInventario()
             if (res.isSuccessful) {
                 val body = res.body()!!
-                // Reemplazar caché
                 inventarioDao.clearItems()
                 inventarioDao.insertItems(body.items.map { it.toEntity() })
                 inventarioDao.clearOnus()
                 inventarioDao.insertOnus(body.onus.map { it.toEntity() })
+
+                // ← AGREGAR ESTO: limpiar consumos ya sincronizados
+                consumoDao.deleteSincronizados()
+
                 Resultado.Exito(Unit)
             } else Resultado.Error("Error al obtener inventario")
         } catch (e: Exception) {
             Resultado.Error("Sin internet — mostrando datos locales")
         }
     }
-
     /**
      * Registra material gastado.
      * Siempre guarda localmente primero; si hay internet también envía al servidor.

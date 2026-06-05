@@ -7,7 +7,6 @@ import androidx.lifecycle.*
 import com.enetfiber.tecnico.TipoOrden
 import com.enetfiber.tecnico.data.*
 import com.enetfiber.tecnico.data.local.OrdenEntity
-import com.enetfiber.tecnico.data.local.SessionDataStore
 import com.enetfiber.tecnico.data.remote.*
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -20,6 +19,10 @@ import java.util.Locale
 import javax.inject.Inject
 import androidx.lifecycle.SavedStateHandle
 import android.os.SystemClock
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
+import androidx.lifecycle.asLiveData
+import com.enetfiber.tecnico.data.local.SessionDataStore
 // ═══════════════════════════════════════════════════════════════
 // LOGIN
 // ═══════════════════════════════════════════════════════════════
@@ -576,13 +579,17 @@ sealed class ConsumoState {
 
 @HiltViewModel
 class InventarioViewModel @Inject constructor(
-    private val repo: Repository
+    private val repo: Repository,
+    private val session: SessionDataStore
 ) : ViewModel() {
 
     // LiveData de la BD local — funciona offline
     val items = repo.getInventarioItems()
     val onus  = repo.getInventarioOnus()
-    val consumosPendientes = repo.getConsumosPendientes()
+    val consumosPendientes = session.tecnicoId
+        .filterNotNull()
+        .flatMapLatest { id -> repo.getConsumosPendientes(id).asFlow() }
+        .asLiveData()
 
     private val _uiState = MutableLiveData(InventarioUiState())
     val uiState: LiveData<InventarioUiState> = _uiState

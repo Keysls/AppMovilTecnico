@@ -123,6 +123,7 @@ data class InventarioOnuEntity(
 data class ConsumoPendienteEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val productoId:  Int,
+    val tecnicoId:   String  = "",
     val nombre:      String,   // guardamos el nombre para mostrar offline
     val cantidad:    Double,
     val motivo:      String = "SERVICIO",
