@@ -4,58 +4,89 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="#1E3A8A"
+    android:background="@drawable/nav_header_bg"
     android:paddingStart="20dp"
     android:paddingEnd="20dp"
-    android:paddingTop="48dp"
+    android:paddingTop="44dp"
     android:paddingBottom="20dp">
 
-    <!-- Avatar con iniciales -->
-    <FrameLayout
-        android:layout_width="52dp"
-        android:layout_height="52dp">
+    <!-- Avatar + nombre -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="12dp">
 
-        <View
+        <FrameLayout
             android:layout_width="52dp"
             android:layout_height="52dp"
-            android:background="@drawable/circulo_iniciales"/>
+            android:layout_marginEnd="12dp">
+            <View
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:background="@drawable/circulo_iniciales_nav"/>
+            <TextView
+                android:id="@+id/tvNavIniciales"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="#1E3A8A"/>
+        </FrameLayout>
 
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/tvNavNombre"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Técnico"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:ellipsize="end"
+                android:maxLines="1"/>
+            <TextView
+                android:id="@+id/tvNavZona"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Sin zona asignada"
+                android:textSize="12sp"
+                android:textColor="#93C5FD"
+                android:layout_marginTop="2dp"/>
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Badge conexión -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@drawable/nav_badge_bg"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp">
+        <View
+            android:id="@+id/dotConexion"
+            android:layout_width="6dp"
+            android:layout_height="6dp"
+            android:background="@drawable/dot_verde"
+            android:layout_marginEnd="6dp"/>
         <TextView
-            android:id="@+id/tvNavIniciales"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="@color/color_enet"/>
-    </FrameLayout>
-
-    <!-- Nombre -->
-    <TextView
-        android:id="@+id/tvNavNombre"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Técnico"
-        android:textSize="15sp"
-        android:textStyle="bold"
-        android:textColor="#FFFF"
-        android:layout_marginTop="10dp"/>
-
-    <!-- Zona -->
-    <TextView
-        android:id="@+id/tvNavZona"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Sin zona asignada"
-        android:textSize="12sp"
-        android:textColor="#94A3B8"
-        android:layout_marginTop="2dp"/>
-
-    <!-- Divider -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#F1F5F9"
-        android:layout_marginTop="16dp"/>
+            android:id="@+id/tvNavConexion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="En línea"
+            android:textSize="11sp"
+            android:textColor="#FFFFFF"/>
+    </LinearLayout>
 
 </LinearLayout>

@@ -59,6 +59,12 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.overlay.Marker
 import javax.inject.Inject
 import com.enetfiber.tecnico.data.Repository
+import com.enetfiber.tecnico.data.remote.ConsumoItemRequest
+import com.enetfiber.tecnico.ui.InventarioViewModel
+import com.google.android.material.textfield.TextInputEditText as TIEditText
+import com.enetfiber.tecnico.data.remote.RetiroItemRequest
+import android.app.AlertDialog
+
 @AndroidEntryPoint
 class InstalacionActivity : AppCompatActivity() {
 
@@ -1346,9 +1352,259 @@ class InstalacionActivity : AppCompatActivity() {
                 tvSn?.text   = if (resultSn.isNotBlank()) "SN: $resultSn  ·  RX: $resultRx dBm" else ""
             }
         } else {
-            cardDatos?.visibility = View.GONE; cardResumen?.visibility = View.GONE
+            cardDatos?.visibility = View.GONE
+            cardResumen?.visibility = View.GONE
+        }
+
+        // ── Conectar botón de materiales ──────────────────────
+        val btnAgregarMaterial = findViewById<View>(R.id.btnAgregarMaterial)
+        btnAgregarMaterial?.setOnClickListener { mostrarDialogMateriales() }
+        // Si es retiro, mostrar sección de equipos recuperados
+        val ordenActual = vm.orden.value
+        if (ordenActual != null && esRetiro(ordenActual.tipoOrden)) {
+            mostrarSeccionRetiro()
+        }
+
+        // Refrescar lista visual si ya hay materiales
+        actualizarListaMateriales()
+    }
+
+    // ── Paso 4: materiales gastados ───────────────────────────
+    private val inventarioVm: InventarioViewModel by viewModels()
+    // Lista de pares (productoId, cantidad) que el técnico registró
+    private val materialesGastados = mutableListOf<Pair<Int, Double>>()
+    // Mapa id→nombre para mostrar offline
+    private val nombresProductos   = mutableMapOf<Int, String>()
+
+    private val equiposRetirados   = mutableListOf<Pair<Int, Double>>()
+    private val nombresEquipos     = mutableMapOf<Int, String>()
+
+    private fun esRetiro(tipoOrden: String) =
+        tipoOrden in listOf(
+            TipoOrden.RETIRO_EQUIPO_I,
+            TipoOrden.RETIRO_EQUIPO_C,
+            TipoOrden.RETIRO_EQUIPO_D,
+            TipoOrden.BAJA_SERVICIO_I,
+            TipoOrden.BAJA_SERVICIO_D
+        )
+
+    private fun mostrarSeccionRetiro() {
+        val cardMateriales = findViewById<com.google.android.material.card.MaterialCardView>(
+            R.id.cardMateriales
+        ) ?: return
+
+        // Cambiar el título del card a "Equipos recuperados"
+        val tvTitulo = cardMateriales.findViewById<TextView>(
+            R.id.tvMaterialesContador
+        )
+
+        // Cambiar el botón a "Registrar equipo recuperado"
+        val btnAgregar = findViewById<android.widget.LinearLayout>(R.id.btnAgregarMaterial)
+        val tvBtnTexto = btnAgregar?.getChildAt(1) as? TextView
+        tvBtnTexto?.text = "Registrar equipo recuperado"
+
+        btnAgregar?.setOnClickListener { mostrarDialogRetiro() }
+    }
+
+    private fun mostrarDialogRetiro() {
+        // Mostrar items del catálogo para seleccionar qué equipo se recuperó
+        // Usamos el inventario del técnico pero también puede ser algo nuevo
+        val items = inventarioVm.items.value ?: emptyList()
+
+        // Para retiro mostramos TODOS los items (incluso sin stock)
+        // porque el técnico puede traer algo que no tenía
+        if (items.isEmpty()) {
+            // Si no hay inventario cargado, pedir producto manualmente
+            pedirEquipoManual()
+            return
+        }
+
+        val opciones = items.map { it.nombre }.toTypedArray()
+
+        var seleccionIdx = -1
+        AlertDialog.Builder(this)
+            .setTitle("¿Qué equipo recuperaste?")
+            .setSingleChoiceItems(opciones, -1) { _, idx -> seleccionIdx = idx }
+            .setPositiveButton("Siguiente") { _, _ ->
+                if (seleccionIdx < 0) return@setPositiveButton
+                val item = items[seleccionIdx]
+                pedirCantidadRetiro(item.productoId, item.nombre)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun pedirEquipoManual() {
+        // Fallback: si no hay inventario local, solo mostrar un mensaje
+        Toast.makeText(
+            this,
+            "Sincroniza tu inventario para poder registrar equipos recuperados",
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    private fun pedirCantidadRetiro(productoId: Int, nombre: String) {
+        val etCantidad = android.widget.EditText(this).apply {
+            hint = "Cantidad recuperada"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setPadding(48, 24, 48, 24)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Cantidad de $nombre")
+            .setView(etCantidad)
+            .setPositiveButton("Agregar") { _, _ ->
+                val cantidad = etCantidad.text.toString().toDoubleOrNull() ?: 0.0
+                if (cantidad <= 0) {
+                    Toast.makeText(this, "Ingresa una cantidad válida", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                val idx = equiposRetirados.indexOfFirst { it.first == productoId }
+                if (idx >= 0) {
+                    equiposRetirados[idx] = Pair(productoId, equiposRetirados[idx].second + cantidad)
+                } else {
+                    equiposRetirados.add(Pair(productoId, cantidad))
+                    nombresEquipos[productoId] = nombre
+                }
+                actualizarListaMateriales() // reusa la misma función visual
+                Toast.makeText(this, "✅ $nombre x${cantidad.toInt()} agregado", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    /** Muestra el diálogo para seleccionar un item del inventario y su cantidad */
+    private fun mostrarDialogMateriales() {
+        val items = inventarioVm.items.value?.filter { it.disponible > 0 }
+        if (items.isNullOrEmpty()) {
+            Toast.makeText(this, "No tienes items disponibles en tu inventario", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val opciones = items.map { "${it.nombre} — disp: ${it.disponible.toInt()} ${it.unidad}" }
+            .toTypedArray()
+
+        var seleccionIdx = -1
+
+        AlertDialog.Builder(this)
+            .setTitle("Seleccionar material")
+            .setSingleChoiceItems(opciones, -1) { _, idx -> seleccionIdx = idx }
+            .setPositiveButton("Siguiente") { _, _ ->
+                if (seleccionIdx < 0) return@setPositiveButton
+                val item = items[seleccionIdx]
+                pedirCantidadMaterial(item.productoId, item.nombre, item.disponible)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun pedirCantidadMaterial(productoId: Int, nombre: String, maxDisponible: Double) {
+        val dialogView = layoutInflater.inflate(
+            android.R.layout.simple_list_item_1, null
+        )
+        // Crear un EditText programáticamente para la cantidad
+        val etCantidad = android.widget.EditText(this).apply {
+            hint = "Cantidad (máx ${maxDisponible.toInt()})"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                    android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setPadding(48, 24, 48, 24)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Cantidad de $nombre")
+            .setView(etCantidad)
+            .setPositiveButton("Agregar") { _, _ ->
+                val cantidad = etCantidad.text.toString().toDoubleOrNull() ?: 0.0
+                if (cantidad <= 0) {
+                    Toast.makeText(this, "Ingresa una cantidad válida", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                if (cantidad > maxDisponible) {
+                    Toast.makeText(this, "No puedes gastar más de lo disponible", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                // Agregar o acumular
+                val idx = materialesGastados.indexOfFirst { it.first == productoId }
+                if (idx >= 0) {
+                    materialesGastados[idx] = Pair(productoId, materialesGastados[idx].second + cantidad)
+                } else {
+                    materialesGastados.add(Pair(productoId, cantidad))
+                    nombresProductos[productoId] = nombre
+                }
+                actualizarListaMateriales()
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun actualizarListaMateriales() {
+        val layoutLista   = findViewById<android.widget.LinearLayout>(R.id.layoutListaMateriales) ?: return
+        val layoutVacio   = findViewById<android.widget.LinearLayout>(R.id.layoutMaterialesVacio) ?: return
+        val tvContador    = findViewById<TextView>(R.id.tvMaterialesContador) ?: return
+
+        layoutLista.removeAllViews()
+
+        if (materialesGastados.isEmpty()) {
+            layoutVacio.visibility = View.VISIBLE
+            layoutLista.visibility = View.GONE
+            tvContador.visibility  = View.GONE
+            return
+        }
+
+        layoutVacio.visibility = View.GONE
+        layoutLista.visibility = View.VISIBLE
+        tvContador.visibility  = View.VISIBLE
+        tvContador.text        = "${materialesGastados.size} items"
+
+        for ((productoId, cantidad) in materialesGastados) {
+            val nombre = nombresProductos[productoId] ?: "Producto #$productoId"
+            val row = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(0, 8, 0, 8)
+            }
+            val tvNombre = TextView(this).apply {
+                text = nombre
+                textSize = 13f
+                setTextColor(android.graphics.Color.parseColor("#0D1B2A"))
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+                )
+                maxLines = 2
+            }
+            val tvCantidad = TextView(this).apply {
+                text = "-${cantidad.toInt()}"
+                textSize = 14f
+                setTextColor(android.graphics.Color.parseColor("#E67E22"))
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+            }
+            val btnQuitar = android.widget.ImageButton(this).apply {
+                setImageResource(android.R.drawable.ic_delete)
+                setColorFilter(android.graphics.Color.parseColor("#E74C3C"))
+                background = null
+                setPadding(16, 0, 0, 0)
+                setOnClickListener {
+                    materialesGastados.removeAll { it.first == productoId }
+                    nombresProductos.remove(productoId)
+                    actualizarListaMateriales()
+                }
+            }
+            row.addView(tvNombre)
+            row.addView(tvCantidad)
+            row.addView(btnQuitar)
+
+            // Divisor
+            val divider = View(this).apply {
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1
+                )
+                setBackgroundColor(android.graphics.Color.parseColor("#DDE6F0"))
+            }
+            layoutLista.addView(row)
+            layoutLista.addView(divider)
         }
     }
+
 
     private fun completar() {
         if (vm.cantidadFotos() == 0) {
@@ -1361,8 +1617,7 @@ class InstalacionActivity : AppCompatActivity() {
         val obs = binding.etObservaciones.text.toString().ifBlank { null }
 
         lifecycleScope.launch {
-            // 1. Guardar config ONU PRIMERO y esperar a que termine
-            //    (así el SN/RX/TX quedan en config_offline antes de encolar)
+            // 1. Guardar config ONU
             if (esInternet()) {
                 val config = ConfigOnuRequest(
                     ssid             = binding.etSsid.text.toString().ifBlank { null },
@@ -1380,13 +1635,40 @@ class InstalacionActivity : AppCompatActivity() {
                     vlan             = resultVlan,
                     offline          = !vm.isOnline
                 )
-                vm.guardarConfigSuspend(config)   // ← suspende hasta terminar
+                vm.guardarConfigSuspend(config)
             }
 
-            // 2. Subir fotos (las que fallen quedan en fotos_pendientes)
+            // 2. Subir fotos
             val fotosOk = vm.subirFotosPendientesSuspend()
 
-            // 3. Completar
+            // 3. Registrar materiales gastados (offline-first — siempre)
+            if (materialesGastados.isNotEmpty()) {
+                val consumoItems = materialesGastados.map { (productoId, cantidad) ->
+                    ConsumoItemRequest(productoId, cantidad)
+                }
+                inventarioVm.registrarConsumo(
+                    items       = consumoItems,
+                    motivo      = "SERVICIO",
+                    descripcion = "Orden: $ordenId",
+                    ordenId     = ordenId,
+                    nombresMap  = nombresProductos
+                )
+                val ordenActual = vm.orden.value
+                if (ordenActual != null && esRetiro(ordenActual.tipoOrden) &&
+                    equiposRetirados.isNotEmpty()) {
+                    val retiroItems = equiposRetirados.map { (productoId, cantidad) ->
+                        RetiroItemRequest(productoId, cantidad)
+                    }
+                    inventarioVm.registrarRetiro(
+                        items       = retiroItems,
+                        ordenId     = ordenId,
+                        descripcion = "Retiro: ${TipoOrden.label(ordenActual.tipoOrden)}"
+                    )
+                }
+
+            }
+
+            // 4. Completar la instalación
             vm.completar(
                 observaciones = obs,
                 ordenId       = ordenId,

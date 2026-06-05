@@ -60,17 +60,12 @@ interface OrdenDao {
     @Query("DELETE FROM ordenes")
     suspend fun deleteAll()
 
-    /**
-     * C4 FIX: borra solo las órdenes obsoletas (que el backend ya no devuelve).
-     * Protege: órdenes EN_PROCESO y órdenes con trabajo offline sin sincronizar.
-     */
     @Query("""
         DELETE FROM ordenes 
         WHERE id NOT IN (:idsRemotos)
         AND estado != 'EN_PROCESO'
         AND (instalacionId IS NULL OR instalacionId NOT IN (:idsProtegidos))
     """)
-
     suspend fun deleteObsoletas(idsRemotos: List<String>, idsProtegidos: List<String>)
 
     @Query("""
@@ -107,17 +102,12 @@ interface OrdenDao {
         busqueda: String
     ): Int
 
-    /**
-     * ordenIds que tienen un completar pendiente sin sincronizar.
-     * Su estado local NO debe ser sobrescrito por sincronizarOrdenes.
-     */
     @Query("""
         SELECT id FROM ordenes WHERE instalacionId IN (
             SELECT instalacionId FROM completar_pendiente WHERE sincronizado = 0
         )
     """)
     suspend fun ordenIdsConCompletarPendiente(): List<String>
-
 }
 
 @Dao
@@ -156,7 +146,6 @@ interface FotoPendienteDao {
 
     @Query("SELECT * FROM fotos_pendientes WHERE sincronizado = 0")
     suspend fun getTodasPendientes(): List<FotoPendienteEntity>
-
 }
 
 @Dao
@@ -202,4 +191,71 @@ interface AceptarPendienteDao {
 
     @Query("UPDATE aceptar_pendiente SET sincronizado = 1 WHERE ordenId = :id")
     suspend fun marcarSincronizado(id: String)
+}
+
+// ── INVENTARIO DAOs ───────────────────────────────────────────
+
+@Dao
+interface InventarioDao {
+
+    // Items asignados
+    @Query("SELECT * FROM inventario_items ORDER BY nombre ASC")
+    fun getItems(): LiveData<List<InventarioItemEntity>>
+
+    @Query("SELECT * FROM inventario_items ORDER BY nombre ASC")
+    suspend fun getItemsOnce(): List<InventarioItemEntity>
+
+    @Query("SELECT * FROM inventario_items WHERE sinStock = 1")
+    suspend fun getSinStock(): List<InventarioItemEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertItems(items: List<InventarioItemEntity>)
+
+    @Query("DELETE FROM inventario_items")
+    suspend fun clearItems()
+
+    // ONUs
+    @Query("SELECT * FROM inventario_onus ORDER BY codigoPon ASC")
+    fun getOnus(): LiveData<List<InventarioOnuEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOnus(onus: List<InventarioOnuEntity>)
+
+    @Query("DELETE FROM inventario_onus")
+    suspend fun clearOnus()
+
+    // Métricas calculadas desde caché local
+    @Query("SELECT COALESCE(SUM(asignado), 0)   FROM inventario_items")
+    suspend fun totalAsignado(): Double
+
+    @Query("SELECT COALESCE(SUM(utilizado), 0)  FROM inventario_items")
+    suspend fun totalUtilizado(): Double
+
+    @Query("SELECT COALESCE(SUM(disponible), 0) FROM inventario_items")
+    suspend fun totalDisponible(): Double
+
+    @Query("SELECT COUNT(*) FROM inventario_items WHERE sinStock = 1")
+    suspend fun totalSinStock(): Int
+}
+
+@Dao
+interface ConsumoPendienteDao {
+
+    @Insert
+    suspend fun insert(consumo: ConsumoPendienteEntity)
+
+    @Query("SELECT * FROM consumo_pendiente WHERE sincronizado = 0 ORDER BY creadoEn ASC")
+    suspend fun getPendientes(): List<ConsumoPendienteEntity>
+
+    @Query("SELECT * FROM consumo_pendiente ORDER BY creadoEn DESC")
+    fun getTodos(): LiveData<List<ConsumoPendienteEntity>>
+
+    @Query("UPDATE consumo_pendiente SET sincronizado = 1 WHERE id = :id")
+    suspend fun marcarSincronizado(id: Int)
+
+    @Query("SELECT COUNT(*) FROM consumo_pendiente WHERE sincronizado = 0")
+    suspend fun countPendientes(): Int
+
+    @Query("SELECT * FROM consumo_pendiente WHERE sincronizado = 0 ORDER BY creadoEn ASC")
+    suspend fun getNoSincronizados(): List<ConsumoPendienteEntity>
 }

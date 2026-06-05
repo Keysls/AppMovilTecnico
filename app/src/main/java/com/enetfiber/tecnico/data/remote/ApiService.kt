@@ -66,4 +66,17 @@ interface ApiService {
         @Body request: PrecintoRequest
     ): Response<Unit>
 
+    @GET("stock/mi-inventario")
+    suspend fun getMiInventario(): Response<MiInventarioResponse>
+
+    @POST("stock/mi-consumo")
+    suspend fun registrarConsumo(
+        @Body request: RegistrarConsumoRequest
+    ): Response<RegistrarConsumoResponse>
+
+    @POST("stock/mi-retiro")
+    suspend fun registrarRetiro(
+        @Body request: RegistrarRetiroRequest
+    ): Response<RegistrarRetiroResponse>
+
 }

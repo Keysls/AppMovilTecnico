@@ -60,14 +60,14 @@ data class FotoPendienteEntity(
 data class CompletarPendienteEntity(
     @PrimaryKey val instalacionId: String,
     val observaciones: String?,
-    val fechaFin:      Long = System.currentTimeMillis(),   // ← NUEVO: momento real de completado
+    val fechaFin:      Long = System.currentTimeMillis(),
     val sincronizado:  Boolean = false,
     val creadoEn:      Long = System.currentTimeMillis()
 )
 
 @Entity(tableName = "iniciar_pendiente")
 data class IniciarPendienteEntity(
-    @PrimaryKey val instalacionId: String,   // el UUID que genera la app
+    @PrimaryKey val instalacionId: String,
     val ordenId:      String,
     val latitud:      Double?,
     val longitud:     Double?,
@@ -81,4 +81,53 @@ data class AceptarPendienteEntity(
     @PrimaryKey val ordenId: String,
     val sincronizado: Boolean = false,
     val creadoEn:     Long = System.currentTimeMillis()
+)
+
+// ── INVENTARIO ────────────────────────────────────────────────
+
+/**
+ * Caché local del inventario asignado al técnico.
+ * Se refresca desde GET /api/stock/mi-inventario cuando hay señal.
+ */
+@Entity(tableName = "inventario_items")
+data class InventarioItemEntity(
+    @PrimaryKey val productoId: Int,
+    val nombre:      String,
+    val codigo:      String,
+    val categoria:   String,
+    val unidad:      String,
+    val asignado:    Double,   // total asignado por el admin
+    val utilizado:   Double,   // consumido según el servidor
+    val disponible:  Double,   // asignado - utilizado
+    val sinStock:    Boolean,
+    val cachedAt:    Long = System.currentTimeMillis()
+)
+
+/**
+ * ONUs asignadas al técnico (caché local).
+ */
+@Entity(tableName = "inventario_onus")
+data class InventarioOnuEntity(
+    @PrimaryKey val id: Int,
+    val codigoPon: String?,
+    val producto:  String,
+    val codigo:    String?,
+    val cachedAt:  Long = System.currentTimeMillis()
+)
+
+/**
+ * Material gastado pendiente de sincronizar con el servidor.
+ * Permite registrar consumo sin conexión.
+ */
+@Entity(tableName = "consumo_pendiente")
+data class ConsumoPendienteEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val productoId:  Int,
+    val nombre:      String,   // guardamos el nombre para mostrar offline
+    val cantidad:    Double,
+    val motivo:      String = "SERVICIO",
+    val descripcion: String?,  // ej: "Orden: ORD-001" o texto libre
+    val ordenId:     String?,  // opcional, si viene de una orden
+    val sincronizado: Boolean = false,
+    val creadoEn:    Long = System.currentTimeMillis()
 )

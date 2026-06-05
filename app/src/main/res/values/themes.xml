@@ -62,9 +62,10 @@
     </style>
 
     <style name="NavItemTextStyle" parent="TextAppearance.MaterialComponents.Body2">
-        <item name="android:textSize">13sp</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:fontFamily">sans-serif-medium</item>
         <item name="android:letterSpacing">0.0</item>
+        <item name="android:textStyle">normal</item>
     </style>
 
     <!-- También actualizar android:statusBarColor en Theme.EnetFiber -->

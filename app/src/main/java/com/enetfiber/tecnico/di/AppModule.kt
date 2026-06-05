@@ -33,7 +33,8 @@ object AppModule {
                 AppDatabase.MIGRATION_1_2,
                 AppDatabase.MIGRATION_2_3,
                 AppDatabase.MIGRATION_3_4,
-                AppDatabase.MIGRATION_4_5
+                AppDatabase.MIGRATION_4_5,
+                AppDatabase.MIGRATION_5_6
             )
             .apply {
                 if (BuildConfig.DEBUG) fallbackToDestructiveMigration()
@@ -117,5 +118,8 @@ object AppModule {
     fun provideApiService(retrofit: Retrofit): ApiService =
         retrofit.create(ApiService::class.java)
 
+
+    @Provides fun provideInventarioDao(db: AppDatabase)       = db.inventarioDao()
+    @Provides fun provideConsumoPendienteDao(db: AppDatabase) = db.consumoPendienteDao()
 
 }

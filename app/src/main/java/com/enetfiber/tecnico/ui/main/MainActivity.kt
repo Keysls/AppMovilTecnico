@@ -110,9 +110,11 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             R.id.nav_pendientes  -> cargarFragment(PendientesFragment.newInstance("internet"), "Pendientes Internet")
             R.id.nav_cable       -> cargarFragment(PendientesFragment.newInstance("cable"),    "Pendientes Cable")
             R.id.nav_duo         -> cargarFragment(PendientesFragment.newInstance("duo"),      "Pendientes Dúo")
+            R.id.nav_inventario -> cargarFragment(InventarioFragment.newInstance(), "Mi Inventario")
             R.id.nav_completadas -> cargarFragment(CompletadasFragment(),                   "Completadas")
             R.id.nav_perfil      -> cargarFragment(PerfilFragment(),                        "Mi Perfil")
             R.id.nav_salir       -> logout()
+
         }
         binding.drawerLayout.closeDrawer(GravityCompat.START)
         return true

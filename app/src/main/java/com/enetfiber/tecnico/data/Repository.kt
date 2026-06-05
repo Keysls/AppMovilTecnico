@@ -28,14 +28,12 @@ sealed class Resultado<out T> {
     fun isError() = this is Error
 }
 
-// Convierte un timestamp (millis) a ISO-8601 UTC, como espera el backend
 fun Long.aIso8601(): String {
     val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
     sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
     return sdf.format(java.util.Date(this))
 }
 
-// Mensajes de resultado que la UI interpreta — centralizados para no desincronizar
 object MsgResultado {
     const val GUARDADO_OFFLINE  = "Guardado offline"
     const val PENDIENTE_OFFLINE = "PENDIENTE_OFFLINE"
@@ -43,14 +41,16 @@ object MsgResultado {
 
 @Singleton
 class Repository @Inject constructor(
-    private val api:       ApiService,
-    private val ordenDao:  OrdenDao,
-    private val configDao: ConfigOfflineDao,
-    private val fotoDao:   FotoPendienteDao,
-    private val completarDao: CompletarPendienteDao,
-    private val iniciarDao:   IniciarPendienteDao,
-    private val aceptarDao:   AceptarPendienteDao,
-    private val session:   SessionDataStore,
+    private val api:              ApiService,
+    private val ordenDao:         OrdenDao,
+    private val configDao:        ConfigOfflineDao,
+    private val fotoDao:          FotoPendienteDao,
+    private val completarDao:     CompletarPendienteDao,
+    private val iniciarDao:       IniciarPendienteDao,
+    private val aceptarDao:       AceptarPendienteDao,
+    private val inventarioDao:    InventarioDao,          // ← NUEVO
+    private val consumoDao:       ConsumoPendienteDao,    // ← NUEVO
+    private val session:          SessionDataStore,
     @ApplicationContext private val ctx: Context
 ) {
 
@@ -234,8 +234,7 @@ class Repository @Inject constructor(
                 return Resultado.Error("Archivo no encontrado o vacío")
             }
             val part = MultipartBody.Part.createFormData(
-                "fotos",
-                file.name,
+                "fotos", file.name,
                 file.asRequestBody("image/jpeg".toMediaType())
             )
             val tipoPart = tipo.toRequestBody("text/plain".toMediaType())
@@ -243,7 +242,6 @@ class Repository @Inject constructor(
             if (res.isSuccessful) Resultado.Exito(Unit)
             else {
                 val error = res.errorBody()?.string() ?: "Error desconocido"
-                android.util.Log.e("REPO", "Error subir foto: $error")
                 fotoDao.insert(FotoPendienteEntity(instalacionId = instalacionId, tipo = tipo, rutaLocal = ruta))
                 Resultado.Error("Foto guardada offline: $error")
             }
@@ -332,10 +330,9 @@ class Repository @Inject constructor(
         programarSync()
     }
 
-    // Precinto del contrato
     suspend fun actualizarPrecinto(numero: String, precinto: String?): Resultado<Unit> {
         return try {
-            val res = api.actualizarPrecinto(numero, com.enetfiber.tecnico.data.remote.PrecintoRequest(precinto))
+            val res = api.actualizarPrecinto(numero, PrecintoRequest(precinto))
             if (res.isSuccessful) Resultado.Exito(Unit)
             else Resultado.Error("Error al guardar precinto: ${res.code()}")
         } catch (e: Exception) {
@@ -343,22 +340,123 @@ class Repository @Inject constructor(
         }
     }
 
-    // ── Ubicación GPS del contrato ────────────────────────────
     suspend fun actualizarUbicacionContrato(
         numero:   String,
         latitud:  Double,
         longitud: Double
     ): Resultado<Unit> {
         return try {
-            val res = api.actualizarUbicacionContrato(
-                numero,
-                UbicacionRequest(latitud, longitud)
-            )
+            val res = api.actualizarUbicacionContrato(numero, UbicacionRequest(latitud, longitud))
             if (res.isSuccessful) Resultado.Exito(Unit)
             else Resultado.Error("Error al guardar ubicación: ${res.code()}")
         } catch (e: Exception) {
             Resultado.Error("Sin conexión: ${e.message}")
         }
+    }
+
+    // ── Inventario ────────────────────────────────────────────
+
+    /** LiveData del inventario local (funciona offline) */
+    fun getInventarioItems() = inventarioDao.getItems()
+    fun getInventarioOnus()  = inventarioDao.getOnus()
+    fun getConsumosPendientes() = consumoDao.getTodos()
+
+    /** Métricas calculadas desde la caché local */
+    suspend fun getMetricasInventario() = InventarioMetricas(
+        totalAsignados   = inventarioDao.totalAsignado(),
+        totalUtilizados  = inventarioDao.totalUtilizado(),
+        totalDisponibles = inventarioDao.totalDisponible(),
+        totalSinStock    = inventarioDao.totalSinStock()
+    )
+
+    /**
+     * Sincroniza inventario desde el servidor y actualiza la caché local.
+     * Si no hay internet devuelve los datos cacheados sin error.
+     */
+    suspend fun sincronizarInventario(): Resultado<Unit> {
+        if (!isOnline()) return Resultado.Error("Sin internet — mostrando datos locales")
+        return try {
+            val res = api.getMiInventario()
+            if (res.isSuccessful) {
+                val body = res.body()!!
+                // Reemplazar caché
+                inventarioDao.clearItems()
+                inventarioDao.insertItems(body.items.map { it.toEntity() })
+                inventarioDao.clearOnus()
+                inventarioDao.insertOnus(body.onus.map { it.toEntity() })
+                Resultado.Exito(Unit)
+            } else Resultado.Error("Error al obtener inventario")
+        } catch (e: Exception) {
+            Resultado.Error("Sin internet — mostrando datos locales")
+        }
+    }
+
+    /**
+     * Registra material gastado.
+     * Siempre guarda localmente primero; si hay internet también envía al servidor.
+     * Si no hay internet encola para sincronizar después.
+     */
+    suspend fun registrarConsumo(
+        items:       List<ConsumoItemRequest>,
+        motivo:      String = "SERVICIO",
+        descripcion: String? = null,
+        ordenId:     String? = null,
+        // Nombres para mostrar offline (el DAO los necesita)
+        nombresMap:  Map<Int, String> = emptyMap()
+    ): Resultado<Unit> {
+        // Guardar offline siempre
+        for (item in items) {
+            if (item.cantidad <= 0) continue
+            consumoDao.insert(ConsumoPendienteEntity(
+                productoId  = item.productoId,
+                nombre      = nombresMap[item.productoId] ?: "Producto #${item.productoId}",
+                cantidad    = item.cantidad,
+                motivo      = motivo,
+                descripcion = descripcion,
+                ordenId     = ordenId,
+            ))
+        }
+
+        // Actualizar caché local del inventario (descuento inmediato)
+        val itemsActuales = inventarioDao.getItemsOnce()
+        val actualizados = itemsActuales.map { inv ->
+            val gastado = items.filter { it.productoId == inv.productoId }
+                .sumOf { it.cantidad }
+            if (gastado > 0) {
+                val nuevoUtilizado  = inv.utilizado + gastado
+                val nuevoDisponible = maxOf(0.0, inv.asignado - nuevoUtilizado)
+                inv.copy(
+                    utilizado  = nuevoUtilizado,
+                    disponible = nuevoDisponible,
+                    sinStock   = nuevoDisponible == 0.0
+                )
+            } else inv
+        }
+        inventarioDao.insertItems(actualizados)
+
+        // Intentar sincronizar si hay internet
+        if (isOnline()) {
+            try {
+                val res = api.registrarConsumo(
+                    RegistrarConsumoRequest(items, motivo, descripcion, ordenId)
+                )
+                if (res.isSuccessful) {
+                    // Marcar todos como sincronizados
+                    val pendientes = consumoDao.getNoSincronizados()
+                    for (p in pendientes) consumoDao.marcarSincronizado(p.id)
+                    // Refrescar inventario desde servidor
+                    sincronizarInventario()
+                } else {
+                    programarSync()
+                }
+            } catch (e: Exception) {
+                programarSync()
+            }
+        } else {
+            programarSync()
+        }
+
+        return Resultado.Exito(Unit)
     }
 
     fun programarSync() {
@@ -390,7 +488,64 @@ class Repository @Inject constructor(
         return ordenDao.getCompletadasFiltradas(filtrar, tipos, busqueda, limit, offset)
     }
 
+    /**
+     * Registra equipos recuperados de una orden de retiro.
+     * El stock se suma al inventario del técnico.
+     * Offline-first: si no hay internet encola para sincronizar.
+     */
+    suspend fun registrarRetiro(
+        items:       List<RetiroItemRequest>,
+        ordenId:     String? = null,
+        descripcion: String? = null
+    ): Resultado<Unit> {
+        // Guardar offline como entrada pendiente
+        for (item in items) {
+            if (item.cantidad <= 0) continue
+            consumoDao.insert(ConsumoPendienteEntity(
+                productoId   = item.productoId,
+                nombre       = "Retiro #${item.productoId}",
+                cantidad     = -item.cantidad,  // negativo = entrada (distingue del gasto)
+                motivo       = "RETIRO",
+                descripcion  = descripcion ?: (ordenId?.let { "Orden: $it" }),
+                ordenId      = ordenId,
+            ))
+        }
 
+        // Actualizar caché local — sumar al disponible
+        val itemsActuales = inventarioDao.getItemsOnce()
+        val actualizados  = itemsActuales.map { inv ->
+            val recuperado = items.filter { it.productoId == inv.productoId }
+                .sumOf { it.cantidad }
+            if (recuperado > 0) {
+                val nuevoDisponible = inv.disponible + recuperado
+                inv.copy(
+                    disponible = nuevoDisponible,
+                    sinStock   = nuevoDisponible == 0.0
+                )
+            } else inv
+        }
+        inventarioDao.insertItems(actualizados)
+
+        // Intentar enviar al servidor
+        if (isOnline()) {
+            try {
+                val res = api.registrarRetiro(
+                    RegistrarRetiroRequest(items, ordenId, descripcion)
+                )
+                if (res.isSuccessful) {
+                    sincronizarInventario()
+                } else {
+                    programarSync()
+                }
+            } catch (e: Exception) {
+                programarSync()
+            }
+        } else {
+            programarSync()
+        }
+
+        return Resultado.Exito(Unit)
+    }
 
 }
 
@@ -415,4 +570,23 @@ fun OrdenEntity.toDto() = OrdenDto(
     fechaAceptacion = fechaAceptacion, fechaInicio = null, fechaFin = null,
     tiempoInstalacion = tiempoInstalacion, tecnico = null,
     instalacion = instalacionId?.let { InstalacionResumenDto(it, instalacionCompletada) }
+)
+
+fun InventarioItemDto.toEntity() = InventarioItemEntity(
+    productoId = productoId,
+    nombre     = nombre,
+    codigo     = codigo,
+    categoria  = categoria,
+    unidad     = unidad,
+    asignado   = asignado,
+    utilizado  = utilizado,
+    disponible = disponible,
+    sinStock   = sinStock
+)
+
+fun InventarioOnuDto.toEntity() = InventarioOnuEntity(
+    id        = id,
+    codigoPon = codigoPon,
+    producto  = producto,
+    codigo    = codigo
 )

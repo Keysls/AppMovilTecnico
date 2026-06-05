@@ -5,9 +5,7 @@ import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.enetfiber.tecnico.data.local.*
-import com.enetfiber.tecnico.data.remote.ApiService
-import com.enetfiber.tecnico.data.remote.CompletarRequest
-import com.enetfiber.tecnico.data.remote.ConfigOnuRequest
+import com.enetfiber.tecnico.data.remote.*
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import okhttp3.MediaType.Companion.toMediaType
@@ -15,98 +13,72 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
-import com.enetfiber.tecnico.data.remote.IniciarInstalacionRequest
-/**
- * Sincroniza el trabajo offline del técnico contra el backend.
- * Por cada instalación pendiente de completar, respeta el orden:
- *   1. config ONU  2. fotos  3. completar
- * Solo marca como sincronizado lo que el backend confirmó.
- */
+
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
     @Assisted ctx: Context,
     @Assisted params: WorkerParameters,
-    private val api:         ApiService,
-    private val configDao:   ConfigOfflineDao,
-    private val fotoDao:     FotoPendienteDao,
-    private val completarDao: CompletarPendienteDao,
-    private val iniciarDao:   IniciarPendienteDao,
-    private val aceptarDao:   AceptarPendienteDao
+    private val api:           ApiService,
+    private val configDao:     ConfigOfflineDao,
+    private val fotoDao:       FotoPendienteDao,
+    private val completarDao:  CompletarPendienteDao,
+    private val iniciarDao:    IniciarPendienteDao,
+    private val aceptarDao:    AceptarPendienteDao,
+    private val consumoDao:    ConsumoPendienteDao,
+    private val inventarioDao: InventarioDao,
 ) : CoroutineWorker(ctx, params) {
 
     override suspend fun doWork(): Result {
-        val TAG = "SyncWorker"
+        val tag = "SyncWorker"
         return try {
             var huboFallo = false
 
-            // ── PASO -1: confirmar las aceptaciones offline ──────────────
+            // ── PASO -1: aceptaciones offline ─────────────────────────
             val aceptacionesPendientes = aceptarDao.getPendientes()
-            android.util.Log.d(TAG, "${aceptacionesPendientes.size} aceptación(es) pendiente(s)")
+            android.util.Log.d(tag, "${aceptacionesPendientes.size} aceptación(es) pendiente(s)")
             for (acep in aceptacionesPendientes) {
-                val res = runCatching {
-                    api.aceptarOrden(
-                        acep.ordenId,
-                        com.enetfiber.tecnico.data.remote.AceptarRequest(acep.creadoEn.aIso8601())
-                    )
-                }.getOrNull()
-                if (res?.isSuccessful == true) {
-                    aceptarDao.marcarSincronizado(acep.ordenId)
-                    android.util.Log.d(TAG, "  ✓ aceptación confirmada: ${acep.ordenId}")
-                } else {
-                    // Puede fallar si la orden ya fue aceptada por el iniciar (red de seguridad).
-                    // En ese caso el backend devuelve error pero la orden YA está aceptada → la marcamos igual.
-                    android.util.Log.w(TAG, "  ⚠ aceptación ${acep.ordenId} — código ${res?.code()} (puede estar ya aceptada)")
-                    aceptarDao.marcarSincronizado(acep.ordenId)
+                runCatching {
+                    api.aceptarOrden(acep.ordenId, AceptarRequest(acep.creadoEn.aIso8601()))
                 }
+                aceptarDao.marcarSincronizado(acep.ordenId)
+                android.util.Log.d(tag, "  ✓ aceptación: ${acep.ordenId}")
             }
 
-            // ── PASO 0: registrar en el backend los inicios offline ──────
-            // Las instalaciones cuyo inicio NO se pudo registrar se saltan
-            // en esta pasada (subir fotos/config daría 404).
+            // ── PASO 0: inicios offline ───────────────────────────────
             val iniciosPendientes = iniciarDao.getPendientes()
-            android.util.Log.d(TAG, "${iniciosPendientes.size} inicio(s) pendiente(s)")
+            android.util.Log.d(tag, "${iniciosPendientes.size} inicio(s) pendiente(s)")
             val iniciosFallidos = mutableSetOf<String>()
             for (ini in iniciosPendientes) {
                 val res = runCatching {
                     api.iniciarInstalacion(
                         ini.ordenId,
                         IniciarInstalacionRequest(
-                            latitud       = ini.latitud,
-                            longitud      = ini.longitud,
-                            direccionGps  = ini.direccionGps,
-                            instalacionId = ini.instalacionId
+                            ini.latitud, ini.longitud, ini.direccionGps, ini.instalacionId
                         )
                     )
                 }.getOrNull()
                 if (res?.isSuccessful == true) {
                     iniciarDao.marcarSincronizado(ini.instalacionId)
-                    android.util.Log.d(TAG, "  ✓ inicio registrado: ${ini.instalacionId}")
+                    android.util.Log.d(tag, "  ✓ inicio: ${ini.instalacionId}")
                 } else {
                     iniciosFallidos.add(ini.instalacionId)
                     huboFallo = true
-                    android.util.Log.e(TAG, "  ✗ inicio falló — código ${res?.code()}")
+                    android.util.Log.e(tag, "  ✗ inicio falló — ${res?.code()}")
                 }
             }
 
+            // ── PASO 1-3: instalaciones ───────────────────────────────
             val pendientes = completarDao.getPendientes()
-            android.util.Log.d(TAG, "Procesando — ${pendientes.size} instalación(es) a completar")
+            android.util.Log.d(tag, "${pendientes.size} instalación(es) a completar")
 
             for (item in pendientes) {
                 val instId = item.instalacionId
-
-                // Si el inicio de esta instalación falló, saltarla (no existe en el backend)
-                if (instId in iniciosFallidos) {
-                    android.util.Log.w(TAG, "  ⏭ $instId — su inicio no se registró, se reintenta luego")
-                    continue
-                }
+                if (instId in iniciosFallidos) { huboFallo = true; continue }
 
                 var instalacionOk = true
-                android.util.Log.d(TAG, "Procesando instalación $instId")
 
-                // ── 1. Config ONU ─────────────────────────────────
-                val configs = configDao.getTodasPendientes().filter { it.instalacionId == instId }
-                android.util.Log.d(TAG, "  ${configs.size} config(s) pendiente(s)")
-                for (cfg in configs) {
+                // Config ONU
+                for (cfg in configDao.getTodasPendientes().filter { c -> c.instalacionId == instId }) {
                     val req = ConfigOnuRequest(
                         ssid             = cfg.ssid,
                         ssidPassword     = cfg.ssidPassword,
@@ -123,41 +95,26 @@ class SyncWorker @AssistedInject constructor(
                         offline          = false
                     )
                     val res = runCatching { api.guardarConfigOnu(instId, req) }.getOrNull()
-                    if (res?.isSuccessful == true) {
-                        configDao.marcarSincronizado(instId)
-                        android.util.Log.d(TAG, "  ✓ config subida")
-                    } else {
-                        instalacionOk = false
-                        android.util.Log.e(TAG, "  ✗ config falló — código ${res?.code()}")
-                    }
+                    if (res?.isSuccessful == true) configDao.marcarSincronizado(instId)
+                    else { instalacionOk = false; huboFallo = true }
                 }
 
-                // ── 2. Fotos ──────────────────────────────────────
-                val fotos = fotoDao.getTodasPendientes().filter { it.instalacionId == instId }
-                android.util.Log.d(TAG, "  ${fotos.size} foto(s) pendiente(s)")
-                for (foto in fotos) {
+                // Fotos
+                for (foto in fotoDao.getTodasPendientes().filter { f -> f.instalacionId == instId }) {
                     val file = File(foto.rutaLocal)
                     if (!file.exists() || file.length() == 0L) {
-                        fotoDao.marcarSincronizado(foto.id)
-                        android.util.Log.w(TAG, "  ⚠ foto perdida del cache: ${foto.rutaLocal}")
-                        continue
+                        fotoDao.marcarSincronizado(foto.id); continue
                     }
                     val part = MultipartBody.Part.createFormData(
-                        "fotos", file.name,
-                        file.asRequestBody("image/jpeg".toMediaType())
+                        "fotos", file.name, file.asRequestBody("image/jpeg".toMediaType())
                     )
                     val tipoPart = foto.tipo.toRequestBody("text/plain".toMediaType())
                     val res = runCatching { api.subirFoto(instId, part, tipoPart) }.getOrNull()
-                    if (res?.isSuccessful == true) {
-                        fotoDao.marcarSincronizado(foto.id)
-                        android.util.Log.d(TAG, "  ✓ foto subida (${foto.tipo})")
-                    } else {
-                        instalacionOk = false
-                        android.util.Log.e(TAG, "  ✗ foto falló — código ${res?.code()}")
-                    }
+                    if (res?.isSuccessful == true) fotoDao.marcarSincronizado(foto.id)
+                    else { instalacionOk = false; huboFallo = true }
                 }
 
-                // ── 3. Completar ──────────────────────────────────
+                // Completar
                 if (instalacionOk) {
                     val res = runCatching {
                         api.completarInstalacion(
@@ -165,35 +122,88 @@ class SyncWorker @AssistedInject constructor(
                             CompletarRequest(item.observaciones, item.fechaFin.aIso8601())
                         )
                     }.getOrNull()
-                    if (res?.isSuccessful == true) {
-                        completarDao.marcarSincronizado(instId)
-                        android.util.Log.d(TAG, "  ✓✓ instalación COMPLETADA en backend")
-                    } else {
-                        huboFallo = true
-                        android.util.Log.e(TAG, "  ✗ completar falló — código ${res?.code()}")
-                    }
+                    if (res?.isSuccessful == true) completarDao.marcarSincronizado(instId)
+                    else huboFallo = true
                 } else {
                     huboFallo = true
-                    android.util.Log.e(TAG, "  ✗ no se completa — config o fotos fallaron")
                 }
             }
 
-            if (huboFallo) {
-                android.util.Log.w(TAG, "Terminó con fallos — se reintentará")
-                Result.retry()
-            } else {
-                android.util.Log.d(TAG, "Terminó OK")
-                Result.success()
+            // ── PASO 4: consumos y retiros offline ────────────────────
+            val todosPendientes = consumoDao.getPendientes()
+            android.util.Log.d(tag, "${todosPendientes.size} consumo(s)/retiro(s) pendiente(s)")
+
+            if (todosPendientes.isNotEmpty()) {
+                val consumosNormales = todosPendientes.filter { c -> c.motivo != "RETIRO" }
+                val retirosLista     = todosPendientes.filter { r -> r.motivo == "RETIRO" }
+
+                // Enviar consumos normales
+                if (consumosNormales.isNotEmpty()) {
+                    val itemsConsumo = consumosNormales.map { c ->
+                        ConsumoItemRequest(productoId = c.productoId, cantidad = c.cantidad)
+                    }
+                    val res = runCatching {
+                        api.registrarConsumo(
+                            RegistrarConsumoRequest(
+                                items       = itemsConsumo,
+                                motivo      = "SERVICIO",
+                                descripcion = "Sincronización offline"
+                            )
+                        )
+                    }.getOrNull()
+                    if (res?.isSuccessful == true) {
+                        for (c in consumosNormales) consumoDao.marcarSincronizado(c.id)
+                        android.util.Log.d(tag, "  ✓ ${consumosNormales.size} consumo(s) sincronizados")
+                    } else {
+                        huboFallo = true
+                        android.util.Log.e(tag, "  ✗ consumos fallaron — ${res?.code()}")
+                    }
+                }
+
+                // Enviar retiros
+                if (retirosLista.isNotEmpty()) {
+                    val itemsRetiro = retirosLista.map { r ->
+                        RetiroItemRequest(productoId = r.productoId, cantidad = -r.cantidad)
+                    }
+                    val res = runCatching {
+                        api.registrarRetiro(
+                            RegistrarRetiroRequest(
+                                items       = itemsRetiro,
+                                descripcion = "Retiro sincronizado offline"
+                            )
+                        )
+                    }.getOrNull()
+                    if (res?.isSuccessful == true) {
+                        for (r in retirosLista) consumoDao.marcarSincronizado(r.id)
+                        android.util.Log.d(tag, "  ✓ ${retirosLista.size} retiro(s) sincronizados")
+                    } else {
+                        huboFallo = true
+                        android.util.Log.e(tag, "  ✗ retiros fallaron — ${res?.code()}")
+                    }
+                }
+
+                // Refrescar inventario desde servidor si todo fue bien
+                if (!huboFallo) {
+                    runCatching { api.getMiInventario() }.getOrNull()?.body()?.let { body ->
+                        inventarioDao.clearItems()
+                        inventarioDao.insertItems(body.items.map { item -> item.toEntity() })
+                        inventarioDao.clearOnus()
+                        inventarioDao.insertOnus(body.onus.map { onu -> onu.toEntity() })
+                        android.util.Log.d(tag, "  ✓ inventario actualizado")
+                    }
+                }
             }
+
+            if (huboFallo) Result.retry() else Result.success()
+
         } catch (e: Exception) {
-            android.util.Log.e(TAG, "Excepción: ${e.message}", e)
+            android.util.Log.e("SyncWorker", "Excepción: ${e.message}", e)
             Result.retry()
         }
     }
+
     companion object {
-        const val NOMBRE_UNICO    = "sync_instalaciones"
+        const val NOMBRE_UNICO     = "sync_instalaciones"
         const val NOMBRE_PERIODICO = "sync_instalaciones_periodico"
     }
-
-
 }

@@ -31,6 +31,11 @@
             android:title="Completadas"
             android:icon="@drawable/ic_nav_completadas"/>
 
+        <item
+            android:id="@+id/nav_inventario"
+            android:title="Mi Inventario"
+            android:icon="@drawable/ic_nav_inventario"/>
+
     </group>
 
     <group android:id="@+id/group_cuenta">

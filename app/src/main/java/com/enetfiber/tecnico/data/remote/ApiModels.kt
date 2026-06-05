@@ -192,3 +192,89 @@ data class UbicacionRequest(
 data class PrecintoRequest(
     val precinto: String?
 )
+
+data class InventarioMetricas(
+    val totalAsignados:   Double,
+    val totalUtilizados:  Double,
+    val totalDisponibles: Double,
+    val totalSinStock:    Int
+)
+
+data class InventarioItemDto(
+    val productoId:  Int,
+    val nombre:      String,
+    val codigo:      String,
+    val categoria:   String,
+    val unidad:      String,
+    val asignado:    Double,
+    val utilizado:   Double,
+    val disponible:  Double,
+    val sinStock:    Boolean,
+    val fecha:       String?
+)
+
+data class InventarioOnuDto(
+    val id:        Int,
+    val codigoPon: String?,
+    val producto:  String,
+    val codigo:    String?
+)
+
+data class ConsumoHistorialDto(
+    val productoId:  Int,
+    val nombre:      String,
+    val cantidad:    Double,
+    val motivo:      String?,
+    val descripcion: String?,
+    val fecha:       String?
+)
+
+data class EntregaHistorialDto(
+    val nombre:   String,
+    val codigo:   String?,
+    val cantidad: Int,
+    val fecha:    String?
+)
+
+data class MiInventarioResponse(
+    val tecnicoId:         String,
+    val metricas:          InventarioMetricas,
+    val items:             List<InventarioItemDto>,
+    val onus:              List<InventarioOnuDto>,
+    val historialConsumos: List<ConsumoHistorialDto>,
+    val historialEntregas: List<EntregaHistorialDto>
+)
+
+// Request para registrar material gastado
+data class ConsumoItemRequest(
+    val productoId: Int,
+    val cantidad:   Double
+)
+
+data class RegistrarConsumoRequest(
+    val items:       List<ConsumoItemRequest>,
+    val motivo:      String = "SERVICIO",
+    val descripcion: String? = null,
+    val ordenId:     String? = null
+)
+
+data class RegistrarConsumoResponse(
+    val ok:          Boolean,
+    val registrados: Int
+)
+
+data class RetiroItemRequest(
+    val productoId: Int,
+    val cantidad:   Double
+)
+
+data class RegistrarRetiroRequest(
+    val items:       List<RetiroItemRequest>,
+    val ordenId:     String? = null,
+    val descripcion: String? = null
+)
+
+data class RegistrarRetiroResponse(
+    val ok:          Boolean,
+    val registrados: Int
+)

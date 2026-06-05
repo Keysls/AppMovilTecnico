@@ -528,6 +528,136 @@ class InstalacionViewModel @Inject constructor(
         return todasOk
     }
 
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INVENTARIO
+// ═══════════════════════════════════════════════════════════════
+
+data class InventarioUiState(
+    val cargando:        Boolean = true,
+    val sincronizando:   Boolean = false,
+    val totalAsignados:  Double  = 0.0,
+    val totalUtilizados: Double  = 0.0,
+    val totalDisponibles:Double  = 0.0,
+    val totalSinStock:   Int     = 0,
+    val consumoPendiente:Int     = 0,   // items sin sincronizar
+    val mensaje:         String? = null
+)
+
+sealed class ConsumoState {
+    object Idle     : ConsumoState()
+    object Guardando: ConsumoState()
+    object Exito    : ConsumoState()
+    data class Error(val msg: String) : ConsumoState()
+}
+
+@HiltViewModel
+class InventarioViewModel @Inject constructor(
+    private val repo: Repository
+) : ViewModel() {
+
+    // LiveData de la BD local — funciona offline
+    val items = repo.getInventarioItems()
+    val onus  = repo.getInventarioOnus()
+    val consumosPendientes = repo.getConsumosPendientes()
+
+    private val _uiState = MutableLiveData(InventarioUiState())
+    val uiState: LiveData<InventarioUiState> = _uiState
+
+    private val _consumoState = MutableLiveData<ConsumoState>(ConsumoState.Idle)
+    val consumoState: LiveData<ConsumoState> = _consumoState
+
+    val isOnline get() = repo.isOnline()
+
+    init { cargarMetricas() }
+
+    /** Recalcula métricas desde Room y opcionalmente sincroniza con el servidor */
+    fun cargarMetricas(sincronizar: Boolean = true) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value?.copy(cargando = true)
+
+            // Siempre cargar métricas locales primero (offline-first)
+            val metricas = repo.getMetricasInventario()
+            _uiState.value = _uiState.value?.copy(
+                totalAsignados   = metricas.totalAsignados,
+                totalUtilizados  = metricas.totalUtilizados,
+                totalDisponibles = metricas.totalDisponibles,
+                totalSinStock    = metricas.totalSinStock,
+                cargando         = false
+            )
+
+            // Si hay internet, sincronizar con el servidor
+            if (sincronizar && repo.isOnline()) {
+                _uiState.value = _uiState.value?.copy(sincronizando = true)
+                val r = repo.sincronizarInventario()
+                if (r is Resultado.Exito) {
+                    // Recalcular con datos frescos
+                    val metricasFrescas = repo.getMetricasInventario()
+                    _uiState.value = _uiState.value?.copy(
+                        totalAsignados   = metricasFrescas.totalAsignados,
+                        totalUtilizados  = metricasFrescas.totalUtilizados,
+                        totalDisponibles = metricasFrescas.totalDisponibles,
+                        totalSinStock    = metricasFrescas.totalSinStock,
+                        sincronizando    = false
+                    )
+                } else {
+                    _uiState.value = _uiState.value?.copy(
+                        sincronizando = false,
+                        mensaje = if (!repo.isOnline()) "Sin conexión — datos locales" else null
+                    )
+                }
+            }
+        }
+    }
+
+    /** Registra material gastado — offline-first */
+    fun registrarConsumo(
+        items:       List<ConsumoItemRequest>,
+        motivo:      String = "SERVICIO",
+        descripcion: String? = null,
+        ordenId:     String? = null,
+        nombresMap:  Map<Int, String> = emptyMap()
+    ) {
+        if (items.isEmpty()) return
+        viewModelScope.launch {
+            _consumoState.value = ConsumoState.Guardando
+            val r = repo.registrarConsumo(items, motivo, descripcion, ordenId, nombresMap)
+            if (r is Resultado.Exito) {
+                // Refrescar métricas locales después del descuento
+                val metricas = repo.getMetricasInventario()
+                _uiState.value = _uiState.value?.copy(
+                    totalAsignados   = metricas.totalAsignados,
+                    totalUtilizados  = metricas.totalUtilizados,
+                    totalDisponibles = metricas.totalDisponibles,
+                    totalSinStock    = metricas.totalSinStock
+                )
+                _consumoState.value = ConsumoState.Exito
+            } else {
+                _consumoState.value = ConsumoState.Error((r as Resultado.Error).mensaje)
+            }
+        }
+    }
+
+    fun limpiarMensaje() { _uiState.value = _uiState.value?.copy(mensaje = null) }
+    fun resetConsumoState() { _consumoState.value = ConsumoState.Idle }
 
 
+    fun registrarRetiro(
+        items:       List<RetiroItemRequest>,
+        ordenId:     String? = null,
+        descripcion: String? = null
+    ) {
+        viewModelScope.launch {
+            repo.registrarRetiro(items, ordenId, descripcion)
+            // Refrescar métricas locales
+            val metricas = repo.getMetricasInventario()
+            _uiState.value = _uiState.value?.copy(
+                totalAsignados   = metricas.totalAsignados,
+                totalUtilizados  = metricas.totalUtilizados,
+                totalDisponibles = metricas.totalDisponibles,
+                totalSinStock    = metricas.totalSinStock
+            )
+        }
+    }
 }

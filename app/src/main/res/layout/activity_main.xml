@@ -34,19 +34,20 @@
     <!-- Drawer -->
     <com.google.android.material.navigation.NavigationView
         android:id="@+id/navView"
-        android:layout_width="270dp"
+        android:layout_width="285dp"
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:background="#FFFFFF"
-        android:elevation="8dp"
+        android:elevation="12dp"
         app:headerLayout="@layout/nav_header"
         app:menu="@menu/menu_drawer"
         app:itemTextColor="@color/nav_item_text_color"
         app:itemIconTint="@color/nav_item_icon_color"
         app:itemBackground="@drawable/nav_item_bg"
         app:itemTextAppearance="@style/NavItemTextStyle"
-        app:itemIconSize="20dp"
-        app:itemHorizontalPadding="12dp"
+        app:itemIconSize="22dp"
+        app:itemHorizontalPadding="16dp"
+        app:itemVerticalPadding="8dp"
         app:itemShapeFillColor="@color/nav_item_fill_color"/>
 
 </androidx.drawerlayout.widget.DrawerLayout>

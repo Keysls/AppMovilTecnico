@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="🔧 Registrar material gastado"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@color/txt_primario"
+        android:layout_marginBottom="16dp"/>
+
+    <!-- Lista dinámica de items se agrega por código -->
+    <LinearLayout
+        android:id="@+id/containerItems"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"/>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnAgregarItem"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="+ Agregar otro item"
+        android:textSize="13sp"
+        android:layout_marginTop="8dp"
+        app:backgroundTint="@android:color/transparent"
+        app:strokeColor="@color/azul_secundario"
+        app:strokeWidth="1dp"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        xmlns:app="http://schemas.android.com/apk/res-auto"/>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:hint="Descripción (opcional)"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etDescripcion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text"
+            android:maxLines="1"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+</LinearLayout>
