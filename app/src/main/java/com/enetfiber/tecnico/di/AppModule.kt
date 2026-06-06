@@ -36,6 +36,7 @@ object AppModule {
                 AppDatabase.MIGRATION_4_5,
                 AppDatabase.MIGRATION_5_6,
                 AppDatabase.MIGRATION_7_8,
+                AppDatabase.MIGRATION_8_9,
             )
             .apply {
                 if (BuildConfig.DEBUG) fallbackToDestructiveMigration()

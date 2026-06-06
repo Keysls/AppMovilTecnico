@@ -646,12 +646,14 @@ class InventarioViewModel @Inject constructor(
         motivo:      String = "SERVICIO",
         descripcion: String? = null,
         ordenId:     String? = null,
+        nServicio:   String? = null,
+        abonado:     String? = null,
         nombresMap:  Map<Int, String> = emptyMap()
     ) {
         if (items.isEmpty()) return
         viewModelScope.launch {
             _consumoState.value = ConsumoState.Guardando
-            val r = repo.registrarConsumo(items, motivo, descripcion, ordenId, nombresMap)
+            val r = repo.registrarConsumo(items, motivo, descripcion, ordenId, nServicio, abonado, nombresMap)
             if (r is Resultado.Exito) {
                 // Refrescar métricas locales después del descuento
                 val metricas = repo.getMetricasInventario()

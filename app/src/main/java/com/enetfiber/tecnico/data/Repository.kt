@@ -13,6 +13,7 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import javax.inject.Inject
+import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Singleton
 import androidx.work.*
 import com.enetfiber.tecnico.data.local.CompletarPendienteDao
@@ -397,8 +398,25 @@ class Repository @Inject constructor(
                 inventarioDao.clearOnus()
                 inventarioDao.insertOnus(body.onus.map { it.toEntity() })
 
-                // ← AGREGAR ESTO: limpiar consumos ya sincronizados
-                consumoDao.deleteSincronizados()
+                // Restaurar historial de consumos del servidor
+                // Estrategia: borrar todos los sincronizados y re-insertar desde servidor
+                // Los pendientes (sincronizado=false) NO se tocan — son los que aún no subieron
+                consumoDao.limpiarSincronizados()
+                val tecnicoId = session.tecnicoId.firstOrNull() ?: ""
+                for (c in body.historialConsumos) {
+                    consumoDao.insert(ConsumoPendienteEntity(
+                        productoId   = c.productoId,
+                        tecnicoId    = tecnicoId,
+                        nombre       = c.nombre,
+                        cantidad     = c.cantidad,
+                        motivo       = c.motivo ?: "SERVICIO",
+                        descripcion  = c.descripcion,
+                        ordenId      = null,
+                        nServicio    = c.nServicio,
+                        abonado      = c.abonado,
+                        sincronizado = true,
+                    ))
+                }
 
                 Resultado.Exito(Unit)
             } else Resultado.Error("Error al obtener inventario")
@@ -416,19 +434,25 @@ class Repository @Inject constructor(
         motivo:      String = "SERVICIO",
         descripcion: String? = null,
         ordenId:     String? = null,
+        nServicio:   String? = null,   // número legible de la orden
+        abonado:     String? = null,   // nombre del cliente
         // Nombres para mostrar offline (el DAO los necesita)
         nombresMap:  Map<Int, String> = emptyMap()
     ): Resultado<Unit> {
-        // Guardar offline siempre
+        // Guardar offline siempre — obtener tecnicoId de la sesión
+        val tecnicoIdActual = session.tecnicoId.firstOrNull() ?: ""
         for (item in items) {
             if (item.cantidad <= 0) continue
             consumoDao.insert(ConsumoPendienteEntity(
                 productoId  = item.productoId,
+                tecnicoId   = tecnicoIdActual,
                 nombre      = nombresMap[item.productoId] ?: "Producto #${item.productoId}",
                 cantidad    = item.cantidad,
                 motivo      = motivo,
                 descripcion = descripcion,
                 ordenId     = ordenId,
+                nServicio   = nServicio,
+                abonado     = abonado,
             ))
         }
 

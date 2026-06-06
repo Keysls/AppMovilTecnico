@@ -7,30 +7,31 @@
     android:gravity="center_vertical"
     android:paddingStart="16dp"
     android:paddingEnd="16dp"
-    android:paddingTop="12dp"
-    android:paddingBottom="12dp">
+    android:paddingTop="13dp"
+    android:paddingBottom="13dp">
 
+    <!-- Divisor top -->
     <View
-        android:id="@+id/indicadorStock"
-        android:layout_width="4dp"
-        android:layout_height="36dp"
-        android:layout_marginEnd="12dp"
-        android:background="#27AE60"/>
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:background="#E2E8F0"/>
 
+    <!-- Código -->
     <TextView
         android:id="@+id/tvCodigo"
-        android:layout_width="0dp"
+        android:layout_width="80dp"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
         android:text="—"
-        android:textSize="12sp"
-        android:textColor="@color/txt_secundario"
-        android:fontFamily="monospace"/>
+        android:textSize="11sp"
+        android:textColor="#64748B"
+        android:fontFamily="monospace"
+        android:lineSpacingExtra="2dp"/>
 
+    <!-- Nombre + categoría -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_weight="2"
+        android:layout_weight="1"
         android:orientation="vertical">
 
         <TextView
@@ -40,7 +41,7 @@
             android:text="Producto"
             android:textSize="13sp"
             android:textStyle="bold"
-            android:textColor="@color/txt_primario"
+            android:textColor="#0F172A"
             android:maxLines="2"
             android:ellipsize="end"/>
 
@@ -48,33 +49,42 @@
             android:id="@+id/tvCategoria"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text=""
             android:textSize="11sp"
-            android:textColor="@color/txt_hint"/>
+            android:textColor="#94A3B8"
+            android:layout_marginTop="1dp"/>
     </LinearLayout>
 
+    <!-- Disponible + unidad -->
     <LinearLayout
-        android:layout_width="60dp"
+        android:layout_width="80dp"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:gravity="end">
+        android:orientation="horizontal"
+        android:gravity="end|center_vertical"
+        android:layout_gravity="center_vertical">
 
         <TextView
             android:id="@+id/tvDisponible"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="0"
-            android:textSize="20sp"
+            android:textSize="16sp"
             android:textStyle="bold"
-            android:textColor="@color/verde"/>
+            android:textColor="#16A34A"/>
 
         <TextView
             android:id="@+id/tvUnidad"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="und"
-            android:textSize="10sp"
-            android:textColor="@color/txt_hint"/>
+            android:text=" und"
+            android:textSize="11sp"
+            android:textColor="#94A3B8"/>
     </LinearLayout>
+
+    <!-- Indicador de stock (barra lateral invisible — mantenemos el id por compatibilidad) -->
+    <View
+        android:id="@+id/indicadorStock"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"/>
 
 </LinearLayout>

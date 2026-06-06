@@ -226,7 +226,11 @@ data class ConsumoHistorialDto(
     val cantidad:    Double,
     val motivo:      String?,
     val descripcion: String?,
-    val fecha:       String?
+    val fecha:       String?,
+    // Datos de la orden asociada (null si fue consumo manual)
+    val nServicio:   String? = null,
+    val abonado:     String? = null,
+    val contrato:    String? = null
 )
 
 data class EntregaHistorialDto(

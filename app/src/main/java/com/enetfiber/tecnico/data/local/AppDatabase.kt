@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InventarioOnuEntity::class,     // ← NUEVO
         ConsumoPendienteEntity::class,  // ← NUEVO
     ],
-    version = 8,                        // ← era 5
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -126,6 +126,13 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "ALTER TABLE consumo_pendiente ADD COLUMN tecnicoId TEXT NOT NULL DEFAULT ''"
                 )
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE consumo_pendiente ADD COLUMN nServicio TEXT")
+                db.execSQL("ALTER TABLE consumo_pendiente ADD COLUMN abonado TEXT")
             }
         }
     }

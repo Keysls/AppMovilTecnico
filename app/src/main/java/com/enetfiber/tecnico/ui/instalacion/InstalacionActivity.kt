@@ -1668,11 +1668,14 @@ class InstalacionActivity : AppCompatActivity() {
                 val consumoItems = materialesGastados.map { (productoId, cantidad) ->
                     ConsumoItemRequest(productoId, cantidad)
                 }
+                val ordenInfo = vm.orden.value
                 inventarioVm.registrarConsumo(
                     items       = consumoItems,
                     motivo      = "SERVICIO",
                     descripcion = "Orden: $ordenId",
                     ordenId     = ordenId,
+                    nServicio   = ordenInfo?.nServicio,
+                    abonado     = ordenInfo?.abonado,
                     nombresMap  = nombresProductos
                 )
                 val ordenActual = vm.orden.value

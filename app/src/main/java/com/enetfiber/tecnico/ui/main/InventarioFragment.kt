@@ -45,6 +45,8 @@ class InventarioFragment : Fragment() {
         setupRecyclers()
         setupObservers()
         setupListeners()
+        // Siempre sincronizar al abrir el fragment
+        vm.cargarMetricas(sincronizar = true)
     }
 
     private fun setupRecyclers() {
@@ -65,15 +67,26 @@ class InventarioFragment : Fragment() {
 
     private fun setupObservers() {
         vm.uiState.observe(viewLifecycleOwner) { state ->
-            binding.tvAsignados.text   = state.totalAsignados.toInt().toString()
-            binding.tvUtilizados.text  = state.totalUtilizados.toInt().toString()
-            binding.tvDisponibles.text = state.totalDisponibles.toInt().toString()
-            binding.tvSinStock.text    = state.totalSinStock.toString()
+            val asignados   = state.totalAsignados.toInt()
+            val utilizados  = state.totalUtilizados.toInt()
+            val disponibles = state.totalDisponibles.toInt()
+            val sinStock    = state.totalSinStock
 
-            binding.tvSyncStatus.text = when {
-                state.sincronizando -> "Sincronizando..."
-                !vm.isOnline        -> "Sin conexión"
-                else                -> "Actualizado"
+            binding.tvAsignados.text  = asignados.toString()
+            binding.tvUtilizados.text = utilizados.toString()
+            binding.tvDisponibles.text = disponibles.toString()
+            binding.tvDisponiblesHeader.text = "$disponibles disponibles"
+
+            // Porcentaje utilizado
+            val pct = if (asignados > 0) (utilizados * 100 / asignados) else 0
+            binding.tvPorcentajeUtilizado.text = if (asignados > 0) "$pct% del total asignado" else ""
+
+            // Sin stock badge en card disponibles
+            if (sinStock > 0) {
+                binding.tvSinStock.text = "$sinStock ítem(s) sin stock"
+                binding.tvSinStock.visibility = View.VISIBLE
+            } else {
+                binding.tvSinStock.visibility = View.GONE
             }
 
             binding.bannerOffline.visibility =
@@ -87,8 +100,21 @@ class InventarioFragment : Fragment() {
 
         vm.items.observe(viewLifecycleOwner) { items ->
             itemsAdapter.submitList(items)
+            // Solo mostrar "sin items" si no está cargando/sincronizando
+            val estaCargando = vm.uiState.value?.cargando == true ||
+                    vm.uiState.value?.sincronizando == true
             binding.tvEmptyItems.visibility =
-                if (items.isEmpty()) View.VISIBLE else View.GONE
+                if (items.isEmpty() && !estaCargando) View.VISIBLE else View.GONE
+
+            // Banner sin stock — lista los productos agotados
+            val sinStock = items.filter { it.sinStock }
+            if (sinStock.isNotEmpty()) {
+                binding.bannerSinStock.visibility = View.VISIBLE
+                binding.tvListaSinStock.text = sinStock.joinToString(", ") { it.nombre } +
+                        ". Contactá a tu controlador."
+            } else {
+                binding.bannerSinStock.visibility = View.GONE
+            }
         }
 
         vm.consumosPendientes.observe(viewLifecycleOwner) { consumos ->
@@ -276,18 +302,25 @@ class InventarioItemAdapter :
         val item = getItem(position)
         holder.tvCodigo.text     = item.codigo.ifBlank { "—" }
         holder.tvNombre.text     = item.nombre
-        holder.tvCategoria.text  = item.categoria
-        holder.tvDisponible.text = item.disponible.toInt().toString()
-        holder.tvUnidad.text     = item.unidad
+        holder.tvCategoria.text  = item.categoria.ifBlank { "" }
+        holder.tvUnidad.text     = " ${item.unidad}"
 
+        val disponible = item.disponible.toInt()
         val color = when {
-            item.sinStock       -> Color.parseColor("#E74C3C")
-            item.disponible < 5 -> Color.parseColor("#E67E22")
-            else                -> Color.parseColor("#27AE60")
+            item.sinStock       -> Color.parseColor("#EF4444")
+            item.disponible < 5 -> Color.parseColor("#D97706")
+            else                -> Color.parseColor("#16A34A")
         }
-        holder.indicador.setBackgroundColor(color)
+        holder.tvDisponible.text = if (item.sinStock) "0" else disponible.toString()
         holder.tvDisponible.setTextColor(color)
-        holder.view.setBackgroundColor(Color.WHITE)
+
+        // Fondo sutil para items sin stock
+        holder.view.setBackgroundColor(
+            if (item.sinStock) Color.parseColor("#FFF9F9") else Color.WHITE
+        )
+
+        // Divisor entre filas
+        holder.view.tag = position
     }
 }
 
@@ -324,15 +357,30 @@ class ConsumoAdapter :
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val consumo = getItem(position)
-        holder.tvNombre.text      = consumo.nombre
-        holder.tvDescripcion.text = consumo.descripcion ?: consumo.motivo
-        holder.tvCantidad.text    = "-${consumo.cantidad.toInt()}"
-        holder.tvSync.text        = if (consumo.sincronizado) "✓ sync" else "⏳ pendiente"
+        holder.tvNombre.text   = consumo.nombre
+        holder.tvCantidad.text = "-${consumo.cantidad.toInt()}"
+        holder.tvSync.text     = if (consumo.sincronizado) "✓ sync" else "⏳ pendiente"
+
+        // Mostrar orden legible: "#4754 — GARCIA REYES, LUIS" o descripción genérica
+        holder.tvDescripcion.text = when {
+            consumo.nServicio != null -> buildString {
+                append("Orden #${consumo.nServicio}")
+                if (!consumo.abonado.isNullOrBlank()) append(" · ${consumo.abonado}")
+            }
+            !consumo.descripcion.isNullOrBlank() -> consumo.descripcion
+            else -> consumo.motivo
+        }
 
         val colorSync = if (consumo.sincronizado)
             Color.parseColor("#27AE60")
         else
             Color.parseColor("#E67E22")
         holder.tvSync.setTextColor(colorSync)
+
+        // Color de fondo sutil si viene de una orden
+        holder.view.setBackgroundColor(
+            if (consumo.nServicio != null) Color.parseColor("#F8FAFC")
+            else Color.WHITE
+        )
     }
 }

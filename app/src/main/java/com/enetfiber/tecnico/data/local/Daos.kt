@@ -247,7 +247,20 @@ interface ConsumoPendienteDao {
     @Query("SELECT * FROM consumo_pendiente WHERE sincronizado = 0 ORDER BY creadoEn ASC")
     suspend fun getPendientes(): List<ConsumoPendienteEntity>
 
-    @Query("SELECT * FROM consumo_pendiente WHERE tecnicoId = :tecnicoId ORDER BY creadoEn DESC")
+    @Query("""
+        SELECT * FROM consumo_pendiente 
+        WHERE (tecnicoId = :tecnicoId OR tecnicoId = '')
+        AND NOT (
+            sincronizado = 0 
+            AND EXISTS (
+                SELECT 1 FROM consumo_pendiente c2 
+                WHERE c2.productoId = consumo_pendiente.productoId 
+                AND c2.ordenId = consumo_pendiente.ordenId
+                AND c2.sincronizado = 1
+            )
+        )
+        ORDER BY creadoEn DESC
+    """)
     fun getTodos(tecnicoId: String): LiveData<List<ConsumoPendienteEntity>>
 
     @Query("UPDATE consumo_pendiente SET sincronizado = 1 WHERE id = :id")
@@ -264,4 +277,10 @@ interface ConsumoPendienteDao {
 
     @Query("DELETE FROM consumo_pendiente")
     suspend fun deleteAll()
+
+    @Query("SELECT COUNT(*) > 0 FROM consumo_pendiente WHERE productoId = :productoId AND descripcion = :descripcion AND sincronizado = 1")
+    suspend fun existePorDescripcionYProducto(productoId: Int, descripcion: String): Boolean
+
+    @Query("DELETE FROM consumo_pendiente WHERE sincronizado = 1")
+    suspend fun limpiarSincronizados()
 }

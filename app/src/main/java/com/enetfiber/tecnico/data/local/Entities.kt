@@ -124,11 +124,13 @@ data class ConsumoPendienteEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val productoId:  Int,
     val tecnicoId:   String  = "",
-    val nombre:      String,   // guardamos el nombre para mostrar offline
+    val nombre:      String,   // nombre del producto para mostrar offline
     val cantidad:    Double,
     val motivo:      String = "SERVICIO",
-    val descripcion: String?,  // ej: "Orden: ORD-001" o texto libre
-    val ordenId:     String?,  // opcional, si viene de una orden
+    val descripcion: String?,  // ej: "Orden: uuid"
+    val ordenId:     String?,  // uuid de la orden
+    val nServicio:   String? = null,  // número legible ej: "4754"
+    val abonado:     String? = null,  // nombre del cliente
     val sincronizado: Boolean = false,
     val creadoEn:    Long = System.currentTimeMillis()
 )
