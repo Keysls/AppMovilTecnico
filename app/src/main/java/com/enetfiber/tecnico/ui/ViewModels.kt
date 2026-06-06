@@ -19,8 +19,6 @@ import java.util.Locale
 import javax.inject.Inject
 import androidx.lifecycle.SavedStateHandle
 import android.os.SystemClock
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.flatMapLatest
 import androidx.lifecycle.asLiveData
 import com.enetfiber.tecnico.data.local.SessionDataStore
 // ═══════════════════════════════════════════════════════════════
@@ -588,7 +586,15 @@ class InventarioViewModel @Inject constructor(
     val onus  = repo.getInventarioOnus()
     val consumosPendientes = session.tecnicoId
         .filterNotNull()
-        .flatMapLatest { id -> repo.getConsumosPendientes(id).asFlow() }
+        .filter { it.isNotBlank() }
+        .flatMapLatest { id ->
+            kotlinx.coroutines.flow.flow {
+                // Primero corregir registros viejos con tecnicoId vacío
+                repo.corregirTecnicoIdVacios(id)
+                // Luego emitir el LiveData como Flow
+                emitAll(repo.getConsumosPendientes(id).asFlow())
+            }
+        }
         .asLiveData()
 
     private val _uiState = MutableLiveData(InventarioUiState())
@@ -598,6 +604,9 @@ class InventarioViewModel @Inject constructor(
     val consumoState: LiveData<ConsumoState> = _consumoState
 
     val isOnline get() = repo.isOnline()
+
+    private var ultimaSync: Long = 0L
+    private val MIN_INTERVALO_SYNC = 30_000L // 30 segundos mínimo entre syncs
 
     init { cargarMetricas() }
 
@@ -616,8 +625,10 @@ class InventarioViewModel @Inject constructor(
                 cargando         = false
             )
 
-            // Si hay internet, sincronizar con el servidor
-            if (sincronizar && repo.isOnline()) {
+            // Si hay internet, sincronizar con el servidor (máx cada 30 seg)
+            val ahora = System.currentTimeMillis()
+            if (sincronizar && repo.isOnline() && (ahora - ultimaSync) > MIN_INTERVALO_SYNC) {
+                ultimaSync = ahora
                 _uiState.value = _uiState.value?.copy(sincronizando = true)
                 android.util.Log.d("InventarioVM", "Iniciando sincronización...")
                 val r = repo.sincronizarInventario()
@@ -630,8 +641,7 @@ class InventarioViewModel @Inject constructor(
                         totalUtilizados  = metricasFrescas.totalUtilizados,
                         totalDisponibles = metricasFrescas.totalDisponibles,
                         totalSinStock    = metricasFrescas.totalSinStock,
-                        sincronizando    = false,
-                        mensaje          = "✓ Inventario actualizado (${metricasFrescas.totalAsignados.toInt()} items)"
+                        sincronizando    = false
                     )
                 } else {
                     android.util.Log.e("InventarioVM", "Error sync: ${(r as? Resultado.Error)?.mensaje}")

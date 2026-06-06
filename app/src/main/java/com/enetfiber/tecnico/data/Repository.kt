@@ -376,6 +376,10 @@ class Repository @Inject constructor(
     suspend fun contarItems() = inventarioDao.contarItems()
     fun getInventarioOnus()  = inventarioDao.getOnus()
     fun getConsumosPendientes(tecnicoId: String) = consumoDao.getTodos(tecnicoId)
+
+    suspend fun corregirTecnicoIdVacios(tecnicoId: String) {
+        if (tecnicoId.isNotBlank()) consumoDao.actualizarTecnicoIdVacios(tecnicoId)
+    }
     /** Métricas calculadas desde la caché local */
     suspend fun getMetricasInventario() = InventarioMetricas(
         totalAsignados   = inventarioDao.totalAsignado(),
@@ -405,8 +409,31 @@ class Repository @Inject constructor(
                     consumoDao.actualizarTecnicoIdVacios(tecnicoIdFix)
                 }
 
-                // Limpiar consumos ya sincronizados y re-insertar desde servidor
-                consumoDao.deleteSincronizados()
+                // Solo borrar sincronizados si el servidor devuelve historial
+                // Evita borrar consumos locales si el backend no los tiene aún
+                if (body.historialConsumos.isNotEmpty()) {
+                    // Borrar solo los sincronizados anteriores
+                    consumoDao.deleteSincronizados()
+                    // Obtener pendientes locales para no duplicar
+                    val pendientesLocales = consumoDao.getPendientes()
+                    val descPendientes = pendientesLocales.map { it.descripcion }.toSet()
+                    for (c in body.historialConsumos) {
+                        // Saltar si ya hay un pendiente local con la misma descripcion
+                        if (c.descripcion != null && c.descripcion in descPendientes) continue
+                        consumoDao.insert(ConsumoPendienteEntity(
+                            productoId   = c.productoId,
+                            tecnicoId    = tecnicoIdFix,
+                            nombre       = c.nombre,
+                            cantidad     = c.cantidad,
+                            motivo       = c.motivo ?: "SERVICIO",
+                            descripcion  = c.descripcion,
+                            ordenId      = null,
+                            nServicio    = c.nServicio,
+                            abonado      = c.abonado,
+                            sincronizado = true,
+                        ))
+                    }
+                }
 
                 Resultado.Exito(Unit)
             } else Resultado.Error("Error al obtener inventario")

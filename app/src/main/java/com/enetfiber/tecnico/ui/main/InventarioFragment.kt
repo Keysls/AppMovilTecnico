@@ -60,6 +60,7 @@ class InventarioFragment : Fragment() {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = consumosAdapter
             isNestedScrollingEnabled = false
+            setHasFixedSize(false)
         }
     }
 
@@ -101,6 +102,16 @@ class InventarioFragment : Fragment() {
             itemsAdapter.submitList(items)
             binding.tvEmptyItems.visibility =
                 if (items.isEmpty()) View.VISIBLE else View.GONE
+
+            // Banner sin stock — lista los productos agotados
+            val sinStock = items.filter { it.sinStock }
+            if (sinStock.isNotEmpty()) {
+                binding.bannerSinStock.visibility = View.VISIBLE
+                binding.tvListaSinStock.text = sinStock.joinToString(", ") { it.nombre } +
+                        ". Contactate con el administrador."
+            } else {
+                binding.bannerSinStock.visibility = View.GONE
+            }
         }
 
         vm.consumosPendientes.observe(viewLifecycleOwner) { consumos ->
@@ -312,12 +323,21 @@ class ConsumoAdapter :
             override fun areItemsTheSame(
                 oldItem: ConsumoPendienteEntity,
                 newItem: ConsumoPendienteEntity
-            ) = oldItem.id == newItem.id
+            ): Boolean {
+                // Usar productoId + descripcion como identidad estable
+                // (los ids cambian al re-insertar desde servidor)
+                return oldItem.productoId == newItem.productoId &&
+                        oldItem.descripcion == newItem.descripcion &&
+                        oldItem.creadoEn == newItem.creadoEn
+            }
 
             override fun areContentsTheSame(
                 oldItem: ConsumoPendienteEntity,
                 newItem: ConsumoPendienteEntity
-            ) = oldItem == newItem
+            ) = oldItem.nombre == newItem.nombre &&
+                    oldItem.cantidad == newItem.cantidad &&
+                    oldItem.sincronizado == newItem.sincronizado &&
+                    oldItem.nServicio == newItem.nServicio
         }
     }
 
@@ -336,10 +356,20 @@ class ConsumoAdapter :
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val consumo = getItem(position)
-        holder.tvNombre.text      = consumo.nombre
-        holder.tvDescripcion.text = consumo.descripcion ?: consumo.motivo
-        holder.tvCantidad.text    = "-${consumo.cantidad.toInt()}"
-        holder.tvSync.text        = if (consumo.sincronizado) "✓ sync" else "⏳ pendiente"
+        holder.tvNombre.text   = consumo.nombre
+        holder.tvCantidad.text = "-${consumo.cantidad.toInt()}"
+        holder.tvSync.text     = if (consumo.sincronizado) "✓ sync" else "⏳ pendiente"
+
+        // Mostrar contrato y cliente si están disponibles
+        holder.tvDescripcion.text = when {
+            consumo.nServicio != null -> buildString {
+                append("Contrato: #${consumo.nServicio}")
+                if (!consumo.abonado.isNullOrBlank()) append("  ·  ${consumo.abonado}")
+            }
+            !consumo.descripcion.isNullOrBlank() &&
+                    !consumo.descripcion.startsWith("Orden:") -> consumo.descripcion
+            else -> consumo.motivo
+        }
 
         val colorSync = if (consumo.sincronizado)
             Color.parseColor("#27AE60")
