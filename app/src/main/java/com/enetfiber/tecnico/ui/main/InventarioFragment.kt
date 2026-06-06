@@ -45,8 +45,6 @@ class InventarioFragment : Fragment() {
         setupRecyclers()
         setupObservers()
         setupListeners()
-        // Siempre sincronizar al abrir el fragment
-        vm.cargarMetricas(sincronizar = true)
     }
 
     private fun setupRecyclers() {
@@ -79,9 +77,10 @@ class InventarioFragment : Fragment() {
 
             // Porcentaje utilizado
             val pct = if (asignados > 0) (utilizados * 100 / asignados) else 0
-            binding.tvPorcentajeUtilizado.text = if (asignados > 0) "$pct% del total asignado" else ""
+            binding.tvPorcentajeUtilizado.text =
+                if (asignados > 0) "$pct% del total asignado" else ""
 
-            // Sin stock badge en card disponibles
+            // Sin stock badge
             if (sinStock > 0) {
                 binding.tvSinStock.text = "$sinStock ítem(s) sin stock"
                 binding.tvSinStock.visibility = View.VISIBLE
@@ -100,21 +99,8 @@ class InventarioFragment : Fragment() {
 
         vm.items.observe(viewLifecycleOwner) { items ->
             itemsAdapter.submitList(items)
-            // Solo mostrar "sin items" si no está cargando/sincronizando
-            val estaCargando = vm.uiState.value?.cargando == true ||
-                    vm.uiState.value?.sincronizando == true
             binding.tvEmptyItems.visibility =
-                if (items.isEmpty() && !estaCargando) View.VISIBLE else View.GONE
-
-            // Banner sin stock — lista los productos agotados
-            val sinStock = items.filter { it.sinStock }
-            if (sinStock.isNotEmpty()) {
-                binding.bannerSinStock.visibility = View.VISIBLE
-                binding.tvListaSinStock.text = sinStock.joinToString(", ") { it.nombre } +
-                        ". Contactá a tu controlador."
-            } else {
-                binding.bannerSinStock.visibility = View.GONE
-            }
+                if (items.isEmpty()) View.VISIBLE else View.GONE
         }
 
         vm.consumosPendientes.observe(viewLifecycleOwner) { consumos ->
@@ -289,7 +275,6 @@ class InventarioItemAdapter :
         val tvCategoria  : TextView = view.findViewById(R.id.tvCategoria)
         val tvDisponible : TextView = view.findViewById(R.id.tvDisponible)
         val tvUnidad     : TextView = view.findViewById(R.id.tvUnidad)
-        val indicador    : View     = view.findViewById(R.id.indicadorStock)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -305,22 +290,16 @@ class InventarioItemAdapter :
         holder.tvCategoria.text  = item.categoria.ifBlank { "" }
         holder.tvUnidad.text     = " ${item.unidad}"
 
-        val disponible = item.disponible.toInt()
         val color = when {
             item.sinStock       -> Color.parseColor("#EF4444")
             item.disponible < 5 -> Color.parseColor("#D97706")
             else                -> Color.parseColor("#16A34A")
         }
-        holder.tvDisponible.text = if (item.sinStock) "0" else disponible.toString()
+        holder.tvDisponible.text = item.disponible.toInt().toString()
         holder.tvDisponible.setTextColor(color)
 
-        // Fondo sutil para items sin stock
-        holder.view.setBackgroundColor(
-            if (item.sinStock) Color.parseColor("#FFF9F9") else Color.WHITE
-        )
-
-        // Divisor entre filas
-        holder.view.tag = position
+        // Divisor entre filas — fondo blanco siempre
+        holder.view.setBackgroundColor(Color.WHITE)
     }
 }
 
@@ -357,30 +336,15 @@ class ConsumoAdapter :
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val consumo = getItem(position)
-        holder.tvNombre.text   = consumo.nombre
-        holder.tvCantidad.text = "-${consumo.cantidad.toInt()}"
-        holder.tvSync.text     = if (consumo.sincronizado) "✓ sync" else "⏳ pendiente"
-
-        // Mostrar orden legible: "#4754 — GARCIA REYES, LUIS" o descripción genérica
-        holder.tvDescripcion.text = when {
-            consumo.nServicio != null -> buildString {
-                append("Orden #${consumo.nServicio}")
-                if (!consumo.abonado.isNullOrBlank()) append(" · ${consumo.abonado}")
-            }
-            !consumo.descripcion.isNullOrBlank() -> consumo.descripcion
-            else -> consumo.motivo
-        }
+        holder.tvNombre.text      = consumo.nombre
+        holder.tvDescripcion.text = consumo.descripcion ?: consumo.motivo
+        holder.tvCantidad.text    = "-${consumo.cantidad.toInt()}"
+        holder.tvSync.text        = if (consumo.sincronizado) "✓ sync" else "⏳ pendiente"
 
         val colorSync = if (consumo.sincronizado)
             Color.parseColor("#27AE60")
         else
             Color.parseColor("#E67E22")
         holder.tvSync.setTextColor(colorSync)
-
-        // Color de fondo sutil si viene de una orden
-        holder.view.setBackgroundColor(
-            if (consumo.nServicio != null) Color.parseColor("#F8FAFC")
-            else Color.WHITE
-        )
     }
 }

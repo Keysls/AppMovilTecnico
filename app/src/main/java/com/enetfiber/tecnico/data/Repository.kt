@@ -13,13 +13,13 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import javax.inject.Inject
-import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Singleton
 import androidx.work.*
 import com.enetfiber.tecnico.data.local.CompletarPendienteDao
 import com.enetfiber.tecnico.data.local.CompletarPendienteEntity
 import java.util.concurrent.TimeUnit
 import java.util.UUID
+import kotlinx.coroutines.flow.firstOrNull
 
 sealed class Resultado<out T> {
     data class Exito<T>(val data: T) : Resultado<T>()
@@ -373,6 +373,7 @@ class Repository @Inject constructor(
 
     /** LiveData del inventario local (funciona offline) */
     fun getInventarioItems() = inventarioDao.getItems()
+    suspend fun contarItems() = inventarioDao.contarItems()
     fun getInventarioOnus()  = inventarioDao.getOnus()
     fun getConsumosPendientes(tecnicoId: String) = consumoDao.getTodos(tecnicoId)
     /** Métricas calculadas desde la caché local */
@@ -398,25 +399,14 @@ class Repository @Inject constructor(
                 inventarioDao.clearOnus()
                 inventarioDao.insertOnus(body.onus.map { it.toEntity() })
 
-                // Restaurar historial de consumos del servidor
-                // Estrategia: borrar todos los sincronizados y re-insertar desde servidor
-                // Los pendientes (sincronizado=false) NO se tocan — son los que aún no subieron
-                consumoDao.limpiarSincronizados()
-                val tecnicoId = session.tecnicoId.firstOrNull() ?: ""
-                for (c in body.historialConsumos) {
-                    consumoDao.insert(ConsumoPendienteEntity(
-                        productoId   = c.productoId,
-                        tecnicoId    = tecnicoId,
-                        nombre       = c.nombre,
-                        cantidad     = c.cantidad,
-                        motivo       = c.motivo ?: "SERVICIO",
-                        descripcion  = c.descripcion,
-                        ordenId      = null,
-                        nServicio    = c.nServicio,
-                        abonado      = c.abonado,
-                        sincronizado = true,
-                    ))
+                // Corregir consumos con tecnicoId vacío (guardados antes del fix)
+                val tecnicoIdFix = session.tecnicoId.firstOrNull() ?: ""
+                if (tecnicoIdFix.isNotBlank()) {
+                    consumoDao.actualizarTecnicoIdVacios(tecnicoIdFix)
                 }
+
+                // Limpiar consumos ya sincronizados y re-insertar desde servidor
+                consumoDao.deleteSincronizados()
 
                 Resultado.Exito(Unit)
             } else Resultado.Error("Error al obtener inventario")
@@ -434,8 +424,8 @@ class Repository @Inject constructor(
         motivo:      String = "SERVICIO",
         descripcion: String? = null,
         ordenId:     String? = null,
-        nServicio:   String? = null,   // número legible de la orden
-        abonado:     String? = null,   // nombre del cliente
+        nServicio:   String? = null,
+        abonado:     String? = null,
         // Nombres para mostrar offline (el DAO los necesita)
         nombresMap:  Map<Int, String> = emptyMap()
     ): Resultado<Unit> {
@@ -444,15 +434,15 @@ class Repository @Inject constructor(
         for (item in items) {
             if (item.cantidad <= 0) continue
             consumoDao.insert(ConsumoPendienteEntity(
-                productoId  = item.productoId,
-                tecnicoId   = tecnicoIdActual,
-                nombre      = nombresMap[item.productoId] ?: "Producto #${item.productoId}",
-                cantidad    = item.cantidad,
-                motivo      = motivo,
-                descripcion = descripcion,
-                ordenId     = ordenId,
-                nServicio   = nServicio,
-                abonado     = abonado,
+                productoId   = item.productoId,
+                tecnicoId    = tecnicoIdActual,
+                nombre       = nombresMap[item.productoId] ?: "Producto #${item.productoId}",
+                cantidad     = item.cantidad,
+                motivo       = motivo,
+                descripcion  = descripcion,
+                ordenId      = ordenId,
+                nServicio    = nServicio,
+                abonado      = abonado,
             ))
         }
 

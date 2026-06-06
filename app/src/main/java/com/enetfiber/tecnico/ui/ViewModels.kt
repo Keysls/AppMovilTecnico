@@ -619,23 +619,29 @@ class InventarioViewModel @Inject constructor(
             // Si hay internet, sincronizar con el servidor
             if (sincronizar && repo.isOnline()) {
                 _uiState.value = _uiState.value?.copy(sincronizando = true)
+                android.util.Log.d("InventarioVM", "Iniciando sincronización...")
                 val r = repo.sincronizarInventario()
+                android.util.Log.d("InventarioVM", "Resultado sync: $r")
                 if (r is Resultado.Exito) {
-                    // Recalcular con datos frescos
                     val metricasFrescas = repo.getMetricasInventario()
+                    android.util.Log.d("InventarioVM", "Items en Room tras sync: ${repo.contarItems()}")
                     _uiState.value = _uiState.value?.copy(
                         totalAsignados   = metricasFrescas.totalAsignados,
                         totalUtilizados  = metricasFrescas.totalUtilizados,
                         totalDisponibles = metricasFrescas.totalDisponibles,
                         totalSinStock    = metricasFrescas.totalSinStock,
-                        sincronizando    = false
+                        sincronizando    = false,
+                        mensaje          = "✓ Inventario actualizado (${metricasFrescas.totalAsignados.toInt()} items)"
                     )
                 } else {
+                    android.util.Log.e("InventarioVM", "Error sync: ${(r as? Resultado.Error)?.mensaje}")
                     _uiState.value = _uiState.value?.copy(
                         sincronizando = false,
-                        mensaje = if (!repo.isOnline()) "Sin conexión — datos locales" else null
+                        mensaje = (r as? Resultado.Error)?.mensaje ?: "Error al sincronizar"
                     )
                 }
+            } else {
+                android.util.Log.d("InventarioVM", "Sin internet o sincronizar=false, online=${repo.isOnline()}")
             }
         }
     }

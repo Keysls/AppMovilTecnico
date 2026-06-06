@@ -3,88 +3,87 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:gravity="center_vertical"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp"
-    android:paddingTop="13dp"
-    android:paddingBottom="13dp">
+    android:orientation="vertical">
 
-    <!-- Divisor top -->
-    <View
+    <!-- Fila de datos -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:background="#E2E8F0"/>
-
-    <!-- Código -->
-    <TextView
-        android:id="@+id/tvCodigo"
-        android:layout_width="80dp"
-        android:layout_height="wrap_content"
-        android:text="—"
-        android:textSize="11sp"
-        android:textColor="#64748B"
-        android:fontFamily="monospace"
-        android:lineSpacingExtra="2dp"/>
-
-    <!-- Nombre + categoría -->
-    <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:orientation="vertical">
-
-        <TextView
-            android:id="@+id/tvNombre"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Producto"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:textColor="#0F172A"
-            android:maxLines="2"
-            android:ellipsize="end"/>
-
-        <TextView
-            android:id="@+id/tvCategoria"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="11sp"
-            android:textColor="#94A3B8"
-            android:layout_marginTop="1dp"/>
-    </LinearLayout>
-
-    <!-- Disponible + unidad -->
-    <LinearLayout
-        android:layout_width="80dp"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="end|center_vertical"
-        android:layout_gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="13dp"
+        android:paddingBottom="13dp">
 
+        <!-- Código -->
         <TextView
-            android:id="@+id/tvDisponible"
-            android:layout_width="wrap_content"
+            android:id="@+id/tvCodigo"
+            android:layout_width="80dp"
             android:layout_height="wrap_content"
-            android:text="0"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="#16A34A"/>
-
-        <TextView
-            android:id="@+id/tvUnidad"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text=" und"
+            android:text="—"
             android:textSize="11sp"
-            android:textColor="#94A3B8"/>
+            android:textColor="#64748B"
+            android:fontFamily="monospace"
+            android:lineSpacingExtra="2dp"/>
+
+        <!-- Nombre + categoría -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvNombre"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Producto"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:textColor="#0F172A"
+                android:maxLines="2"
+                android:ellipsize="end"/>
+
+            <TextView
+                android:id="@+id/tvCategoria"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textColor="#94A3B8"
+                android:layout_marginTop="1dp"/>
+        </LinearLayout>
+
+        <!-- Disponible + unidad alineados a la derecha -->
+        <LinearLayout
+            android:layout_width="80dp"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="end|center_vertical">
+
+            <TextView
+                android:id="@+id/tvDisponible"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="#16A34A"/>
+
+            <TextView
+                android:id="@+id/tvUnidad"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="11sp"
+                android:textColor="#94A3B8"/>
+        </LinearLayout>
     </LinearLayout>
 
-    <!-- Indicador de stock (barra lateral invisible — mantenemos el id por compatibilidad) -->
+    <!-- Divisor -->
     <View
-        android:id="@+id/indicadorStock"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:visibility="gone"/>
+        android:layout_width="match_parent"
+        android:layout_height="0.5dp"
+        android:background="#E2E8F0"
+        android:layout_marginStart="16dp"/>
 
 </LinearLayout>
