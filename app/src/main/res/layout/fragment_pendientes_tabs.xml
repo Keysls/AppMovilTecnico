@@ -5,28 +5,192 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@color/bg">
+    android:background="#F8FAFC">
 
-    <!-- Tab bar -->
-    <com.google.android.material.tabs.TabLayout
-        android:id="@+id/tabLayout"
+    <!-- Header: título + contador -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
         android:background="#FFFFFF"
-        android:elevation="2dp"
-        app:tabTextColor="#94A3B8"
-        app:tabSelectedTextColor="#1A73E8"
-        app:tabIndicatorColor="#1A73E8"
-        app:tabIndicatorHeight="3dp"
-        app:tabMode="fixed"
-        app:tabGravity="fill"
-        app:tabTextAppearance="@style/TabTextStyle"/>
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="12dp"
+        android:elevation="2dp">
 
-    <!-- ViewPager -->
-    <androidx.viewpager2.widget.ViewPager2
-        android:id="@+id/viewPager"
+        <TextView
+            android:id="@+id/tvTituloPendientes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Órdenes pendientes"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#0F172A"
+            android:letterSpacing="-0.02"/>
+
+        <TextView
+            android:id="@+id/tvContadorPendientes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="cargando..."
+            android:textSize="13sp"
+            android:textColor="#64748B"
+            android:layout_marginTop="2dp"/>
+
+        <!-- Buscador -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/input_bg"
+            android:layout_marginTop="12dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_search"
+                android:contentDescription="@null"
+                app:tint="#94A3B8"
+                android:layout_marginEnd="8dp"/>
+
+            <EditText
+                android:id="@+id/etBuscarPendientes"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:hint="Buscar por cliente, contrato, dirección u orden"
+                android:textSize="12sp"
+                android:textColor="#0F172A"
+                android:textColorHint="#94A3B8"
+                android:importantForAutofill="no"
+                android:background="@null"
+                android:singleLine="true"
+                android:imeOptions="actionSearch"
+                android:inputType="text"/>
+        </LinearLayout>
+
+        <!-- Chips de filtro -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:layout_marginTop="10dp">
+
+            <RadioGroup
+                android:id="@+id/rgFiltroTipo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/chipTodos"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/bg_chip_selector"
+                    android:button="@null"
+                    android:checked="true"
+                    android:gravity="center"
+                    android:paddingHorizontal="16dp"
+                    android:text="Todos"
+                    android:textColor="@drawable/txt_chip_selector"
+                    android:textSize="12sp"/>
+
+                <RadioButton
+                    android:id="@+id/chipInternet"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/bg_chip_selector"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:paddingHorizontal="16dp"
+                    android:text="📡 Internet"
+                    android:textColor="@drawable/txt_chip_selector"
+                    android:textSize="12sp"/>
+
+                <RadioButton
+                    android:id="@+id/chipCable"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:layout_marginEnd="8dp"
+                    android:background="@drawable/bg_chip_selector"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:paddingHorizontal="16dp"
+                    android:text="📺 Cable"
+                    android:textColor="@drawable/txt_chip_selector"
+                    android:textSize="12sp"/>
+
+                <RadioButton
+                    android:id="@+id/chipDuo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:background="@drawable/bg_chip_selector"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:paddingHorizontal="16dp"
+                    android:text="📡📺 Dúo"
+                    android:textColor="@drawable/txt_chip_selector"
+                    android:textSize="12sp"/>
+
+            </RadioGroup>
+        </HorizontalScrollView>
+    </LinearLayout>
+
+    <!-- Lista de órdenes -->
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"/>
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvOrdenes"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingTop="8dp"
+            android:paddingBottom="16dp"
+            android:clipToPadding="false"/>
+
+        <!-- Estado vacío -->
+        <LinearLayout
+            android:id="@+id/layoutEmpty"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tvEmptyIcon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📋"
+                android:textSize="40sp"
+                android:layout_marginBottom="12dp"/>
+
+            <TextView
+                android:id="@+id/tvEmptyText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sin órdenes pendientes"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="#0F172A"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Desliza para actualizar"
+                android:textSize="12sp"
+                android:textColor="#94A3B8"
+                android:layout_marginTop="4dp"/>
+        </LinearLayout>
+
+    </FrameLayout>
 
 </LinearLayout>

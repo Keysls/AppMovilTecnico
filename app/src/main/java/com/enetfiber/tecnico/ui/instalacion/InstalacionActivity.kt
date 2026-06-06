@@ -1361,7 +1361,15 @@ class InstalacionActivity : AppCompatActivity() {
 
         // ── Conectar botón de materiales ──────────────────────
         val btnAgregarMaterial = findViewById<View>(R.id.btnAgregarMaterial)
-        btnAgregarMaterial?.setOnClickListener { mostrarDialogMateriales() }
+        btnAgregarMaterial?.setOnClickListener {
+            // Pasar items frescos en cada click
+            val itemsFrescos = inventarioVm.items.value?.filter { it.disponible > 0 }
+            if (itemsFrescos.isNullOrEmpty()) {
+                Toast.makeText(this, "No tienes items disponibles", Toast.LENGTH_SHORT).show()
+            } else {
+                agregarFilaMaterial(itemsFrescos)
+            }
+        }
         // Si es retiro, mostrar sección de equipos recuperados
         val ordenActual = vm.orden.value
         if (ordenActual != null && esRetiro(ordenActual.tipoOrden)) {
@@ -1476,87 +1484,107 @@ class InstalacionActivity : AppCompatActivity() {
             .show()
     }
 
-    /** Muestra el diálogo para seleccionar un item del inventario y su cantidad */
+    /** Agrega una fila inline de material (Spinner + Cantidad + Eliminar) */
     private fun mostrarDialogMateriales() {
-        // Intentar con datos en memoria primero
-        val itemsEnMemoria = inventarioVm.items.value?.filter { it.disponible > 0 }
-
-        if (!itemsEnMemoria.isNullOrEmpty()) {
-            mostrarDialogSeleccionMaterial(itemsEnMemoria)
+        val items = inventarioVm.items.value?.filter { it.disponible > 0 }
+        if (items.isNullOrEmpty()) {
+            Toast.makeText(this, "No tienes items disponibles en tu inventario", Toast.LENGTH_SHORT).show()
             return
         }
-
-        // Si no hay datos en memoria, esperar a que Room los emita
-        Toast.makeText(this, "Cargando inventario...", Toast.LENGTH_SHORT).show()
-        inventarioVm.items.observe(this) { items ->
-            val disponibles = items?.filter { it.disponible > 0 }
-            if (!disponibles.isNullOrEmpty()) {
-                inventarioVm.items.removeObservers(this)
-                mostrarDialogSeleccionMaterial(disponibles)
-            } else if (items != null) {
-                // Ya cargó pero está vacío
-                inventarioVm.items.removeObservers(this)
-                Toast.makeText(this, "No tienes items disponibles en tu inventario", Toast.LENGTH_SHORT).show()
-            }
-        }
+        agregarFilaMaterial(items)
     }
 
-    private fun mostrarDialogSeleccionMaterial(items: List<com.enetfiber.tecnico.data.local.InventarioItemEntity>) {
+    private fun agregarFilaMaterial(items: List<com.enetfiber.tecnico.data.local.InventarioItemEntity>) {
+        val layoutLista = findViewById<android.widget.LinearLayout>(R.id.layoutListaMateriales) ?: return
+        val layoutVacio = findViewById<android.widget.LinearLayout>(R.id.layoutMaterialesVacio) ?: return
 
-        val opciones = items.map { "${it.nombre} — disp: ${it.disponible.toInt()} ${it.unidad}" }
-            .toTypedArray()
+        // Mostrar lista y ocultar vacío
+        layoutVacio.visibility = android.view.View.GONE
+        layoutLista.visibility = android.view.View.VISIBLE
 
-        var seleccionIdx = -1
+        val rowView = layoutInflater.inflate(R.layout.item_material_row, layoutLista, false)
+        val spinner  = rowView.findViewById<android.widget.Spinner>(R.id.spinnerItem)
+        val etCant   = rowView.findViewById<android.widget.EditText>(R.id.etCantidad)
+        val tvHint   = rowView.findViewById<android.widget.TextView>(R.id.tvHint)
+        val btnElim  = rowView.findViewById<android.widget.ImageView>(R.id.btnEliminar)
 
-        AlertDialog.Builder(this)
-            .setTitle("Seleccionar material")
-            .setSingleChoiceItems(opciones, -1) { _, idx -> seleccionIdx = idx }
-            .setPositiveButton("Siguiente") { _, _ ->
-                if (seleccionIdx < 0) return@setPositiveButton
-                val item = items[seleccionIdx]
-                pedirCantidadMaterial(item.productoId, item.nombre, item.disponible)
+        // Llenar spinner con "Nombre — disp: X unidad"
+        val opciones = listOf("Seleccionar ítem...") +
+                items.map { "${it.nombre} — disp: ${it.disponible.toInt()} ${it.unidad}" }
+        val adapter = android.widget.ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_item,
+            opciones
+        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        spinner.adapter = adapter
+
+        // Cuando selecciona un item, mostrar hint con unidad y máx
+        spinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>, v: android.view.View?, pos: Int, id: Long) {
+                if (pos == 0) { tvHint.visibility = android.view.View.GONE; return }
+                val item = items[pos - 1]
+                tvHint.text = "${item.unidad}  ·  máx ${item.disponible.toInt()}"
+                tvHint.visibility = android.view.View.VISIBLE
+                etCant.hint = item.disponible.toInt().toString()
+                // Actualizar materialesGastados cuando cambia la cantidad
+                etCant.addTextChangedListener(object : android.text.TextWatcher {
+                    override fun afterTextChanged(s: android.text.Editable?) { sincronizarFilas(layoutLista, items) }
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                })
             }
-            .setNegativeButton("Cancelar", null)
-            .show()
-    }
-
-    private fun pedirCantidadMaterial(productoId: Int, nombre: String, maxDisponible: Double) {
-        val dialogView = layoutInflater.inflate(
-            android.R.layout.simple_list_item_1, null
-        )
-        // Crear un EditText programáticamente para la cantidad
-        val etCantidad = android.widget.EditText(this).apply {
-            hint = "Cantidad (máx ${maxDisponible.toInt()})"
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or
-                    android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-            setPadding(48, 24, 48, 24)
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
         }
 
-        AlertDialog.Builder(this)
-            .setTitle("Cantidad de $nombre")
-            .setView(etCantidad)
-            .setPositiveButton("Agregar") { _, _ ->
-                val cantidad = etCantidad.text.toString().toDoubleOrNull() ?: 0.0
-                if (cantidad <= 0) {
-                    Toast.makeText(this, "Ingresa una cantidad válida", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-                if (cantidad > maxDisponible) {
-                    Toast.makeText(this, "No puedes gastar más de lo disponible", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-                // Agregar o acumular
-                val idx = materialesGastados.indexOfFirst { it.first == productoId }
-                if (idx >= 0) {
-                    materialesGastados[idx] = Pair(productoId, materialesGastados[idx].second + cantidad)
-                } else {
-                    materialesGastados.add(Pair(productoId, cantidad))
-                    nombresProductos[productoId] = nombre
-                }
-                actualizarListaMateriales()
+        // Eliminar fila
+        btnElim.setOnClickListener {
+            layoutLista.removeView(rowView)
+            sincronizarFilas(layoutLista, items)
+            if (layoutLista.childCount == 0) {
+                layoutVacio.visibility = android.view.View.VISIBLE
+                layoutLista.visibility = android.view.View.GONE
             }
-            .setNegativeButton("Cancelar", null)
-            .show()
+            actualizarContadorMateriales()
+        }
+
+        layoutLista.addView(rowView)
+        actualizarContadorMateriales()
+    }
+
+    /** Lee todas las filas inline y actualiza materialesGastados */
+    private fun sincronizarFilas(
+        layoutLista: android.widget.LinearLayout,
+        items: List<com.enetfiber.tecnico.data.local.InventarioItemEntity>
+    ) {
+        materialesGastados.clear()
+        for (i in 0 until layoutLista.childCount) {
+            val row     = layoutLista.getChildAt(i)
+            val spinner = row.findViewById<android.widget.Spinner>(R.id.spinnerItem) ?: continue
+            val etCant  = row.findViewById<android.widget.EditText>(R.id.etCantidad) ?: continue
+            val pos     = spinner.selectedItemPosition
+            if (pos <= 0) continue
+            val item    = items[pos - 1]
+            val cant    = etCant.text.toString().toDoubleOrNull() ?: 0.0
+            if (cant <= 0) continue
+            val cantFinal = minOf(cant, item.disponible)
+            val idx = materialesGastados.indexOfFirst { it.first == item.productoId }
+            if (idx >= 0) materialesGastados[idx] = Pair(item.productoId, cantFinal)
+            else {
+                materialesGastados.add(Pair(item.productoId, cantFinal))
+                nombresProductos[item.productoId] = item.nombre
+            }
+        }
+        actualizarContadorMateriales()
+    }
+
+    private fun actualizarContadorMateriales() {
+        val tvContador = findViewById<android.widget.TextView>(R.id.tvMaterialesContador) ?: return
+        if (materialesGastados.isEmpty()) {
+            tvContador.visibility = android.view.View.GONE
+        } else {
+            tvContador.text = "${materialesGastados.size} item(s)"
+            tvContador.visibility = android.view.View.VISIBLE
+        }
     }
 
     private fun actualizarListaMateriales() {
