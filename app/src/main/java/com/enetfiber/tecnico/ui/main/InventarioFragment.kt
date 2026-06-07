@@ -118,6 +118,10 @@ class InventarioFragment : Fragment() {
 
         // Materiales reciclados: equipos recogidos de clientes
         vm.recojos.observe(viewLifecycleOwner) { recojos ->
+            android.util.Log.d("InventarioFrag", "recojos observer: ${recojos.size} items")
+            recojos.forEach { r ->
+                android.util.Log.d("InventarioFrag", "  → id=${r.id} nombre=${r.nombreProducto} tipo=${r.tipoEquipo}")
+            }
             recojoAdapter.submitList(recojos)
             binding.tvEmptyConsumos.visibility =
                 if (recojos.isEmpty()) View.VISIBLE else View.GONE
@@ -145,6 +149,12 @@ class InventarioFragment : Fragment() {
                 else -> { /* Idle / Guardando — no hacer nada */ }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        android.util.Log.d("InventarioFrag", "onResume → cargarMetricas")
+        vm.cargarMetricas(sincronizar = true)
     }
 
     private fun setupListeners() {

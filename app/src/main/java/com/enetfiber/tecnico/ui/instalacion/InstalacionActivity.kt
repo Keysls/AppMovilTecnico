@@ -2025,6 +2025,10 @@ class InstalacionActivity : AppCompatActivity() {
                     nombresMap  = nombresProductos
                 )
                 val ordenActual = vm.orden.value
+                android.util.Log.d("InstalacionAct", "Al completar — esRetiro=${ordenActual?.let { esRetiro(it.tipoOrden) }}, equiposRetirados=${equiposRetirados.size}")
+                equiposRetirados.forEach { i ->
+                    android.util.Log.d("InstalacionAct", "  equipo: productoId=${i.productoId} tipo=${i.tipoEquipo} pon=${i.codigoPon}")
+                }
                 if (ordenActual != null && esRetiro(ordenActual.tipoOrden) &&
                     equiposRetirados.isNotEmpty()) {
                     inventarioVm.registrarRetiro(

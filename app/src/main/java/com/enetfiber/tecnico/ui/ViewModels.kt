@@ -657,11 +657,22 @@ class InventarioViewModel @Inject constructor(
                 if (r is Resultado.Exito) {
                     // Cargar recojos del técnico
                     try {
+                        android.util.Log.d("InventarioVM", "Llamando mi-inventario para recojos...")
                         val inv = repo.api.getMiInventario()
+                        android.util.Log.d("InventarioVM", "mi-inventario status: ${inv.code()}")
                         if (inv.isSuccessful) {
-                            _recojos.postValue(inv.body()?.recojos ?: emptyList())
+                            val lista = inv.body()?.recojos ?: emptyList()
+                            android.util.Log.d("InventarioVM", "Recojos recibidos: ${lista.size}")
+                            lista.forEach { r ->
+                                android.util.Log.d("InventarioVM", "  recojo id=${r.id} producto=${r.nombreProducto} tipo=${r.tipoEquipo} estado=${r.estado}")
+                            }
+                            _recojos.postValue(lista)
+                        } else {
+                            android.util.Log.e("InventarioVM", "mi-inventario error: ${inv.code()} ${inv.errorBody()?.string()}")
                         }
-                    } catch (_: Exception) {}
+                    } catch (e: Exception) {
+                        android.util.Log.e("InventarioVM", "Excepción cargando recojos: ${e.message}")
+                    }
                     val metricasFrescas = repo.getMetricasInventario()
                     android.util.Log.d("InventarioVM", "Items en Room tras sync: ${repo.contarItems()}")
                     _uiState.value = _uiState.value?.copy(
@@ -723,7 +734,12 @@ class InventarioViewModel @Inject constructor(
         ordenId: String? = null,
     ) {
         viewModelScope.launch {
-            repo.registrarRetiro(items, ordenId)
+            android.util.Log.d("InventarioVM", "registrarRetiro: ${items.size} items, ordenId=$ordenId")
+            items.forEach { i ->
+                android.util.Log.d("InventarioVM", "  item: productoId=${i.productoId} tipo=${i.tipoEquipo} pon=${i.codigoPon}")
+            }
+            val resultado = repo.registrarRetiro(items, ordenId)
+            android.util.Log.d("InventarioVM", "registrarRetiro resultado: $resultado")
             // Refrescar métricas locales
             val metricas = repo.getMetricasInventario()
             _uiState.value = _uiState.value?.copy(
