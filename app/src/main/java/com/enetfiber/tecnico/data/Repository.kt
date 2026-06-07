@@ -629,15 +629,20 @@ fun OrdenEntity.toDto() = OrdenDto(
 )
 
 fun InventarioItemDto.toEntity() = InventarioItemEntity(
-    productoId = productoId,
-    nombre     = nombre,
-    codigo     = codigo,
-    categoria  = categoria,
-    unidad     = unidad,
-    asignado   = asignado,
-    utilizado  = utilizado,
-    disponible = disponible,
-    sinStock   = sinStock
+    productoId       = productoId,
+    nombre           = nombre,
+    codigo           = codigo,
+    categoria        = categoria,
+    unidad           = unidad,
+    asignado         = asignado,
+    utilizado        = utilizado,
+    disponible       = disponible,
+    sinStock         = sinStock,
+    esMedible        = esMedible,
+    metrosPorUnidad  = metrosPorUnidad,
+    disponibleMetros = disponibleMetros,
+    asignadoMetros   = asignadoMetros,
+    utilizadoMetros  = utilizadoMetros,
 )
 
 fun InventarioOnuDto.toEntity() = InventarioOnuEntity(

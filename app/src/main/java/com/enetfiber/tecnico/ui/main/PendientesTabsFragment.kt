@@ -157,7 +157,7 @@ class PendientesTabsFragment : Fragment() {
         binding.tvContadorPendientes.text = when {
             total == 0  -> "Sin órdenes pendientes"
             total == 1  -> "1 pendiente"
-            else        -> "$total pendientes  ·  📡$internet  📺$cable  🔀$duo"
+            else        -> "$total pendientes"//  ·  📡$internet  📺$cable  🔀$duo"
         }
     }
 

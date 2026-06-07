@@ -296,20 +296,25 @@ class InventarioItemAdapter :
 
     override fun onBindViewHolder(holder: VH, position: Int) {
         val item = getItem(position)
-        holder.tvCodigo.text     = item.codigo.ifBlank { "—" }
-        holder.tvNombre.text     = item.nombre
-        holder.tvCategoria.text  = item.categoria.ifBlank { "" }
-        holder.tvUnidad.text     = " ${item.unidad}"
+        holder.tvCodigo.text    = item.codigo.ifBlank { "—" }
+        holder.tvNombre.text    = item.nombre
+        holder.tvCategoria.text = item.categoria.ifBlank { "" }
 
         val color = when {
             item.sinStock       -> Color.parseColor("#EF4444")
             item.disponible < 5 -> Color.parseColor("#D97706")
             else                -> Color.parseColor("#16A34A")
         }
-        holder.tvDisponible.text = item.disponible.toInt().toString()
-        holder.tvDisponible.setTextColor(color)
 
-        // Divisor entre filas — fondo blanco siempre
+        if (item.esMedible && item.metrosPorUnidad != null && item.disponibleMetros != null) {
+            // Mostrar metros para productos medibles
+            holder.tvDisponible.text = item.disponibleMetros.toInt().toString()
+            holder.tvUnidad.text     = " m"
+        } else {
+            holder.tvDisponible.text = item.disponible.toInt().toString()
+            holder.tvUnidad.text     = " ${item.unidad}"
+        }
+        holder.tvDisponible.setTextColor(color)
         holder.view.setBackgroundColor(Color.WHITE)
     }
 }

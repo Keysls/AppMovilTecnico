@@ -92,15 +92,21 @@ data class AceptarPendienteEntity(
 @Entity(tableName = "inventario_items")
 data class InventarioItemEntity(
     @PrimaryKey val productoId: Int,
-    val nombre:      String,
-    val codigo:      String,
-    val categoria:   String,
-    val unidad:      String,
-    val asignado:    Double,   // total asignado por el admin
-    val utilizado:   Double,   // consumido según el servidor
-    val disponible:  Double,   // asignado - utilizado
-    val sinStock:    Boolean,
-    val cachedAt:    Long = System.currentTimeMillis()
+    val nombre:           String,
+    val codigo:           String,
+    val categoria:        String,
+    val unidad:           String,
+    val asignado:         Double,   // total asignado por el admin (en unidades)
+    val utilizado:        Double,   // consumido según el servidor (en unidades)
+    val disponible:       Double,   // asignado - utilizado (en unidades)
+    val sinStock:         Boolean,
+    // Campos para productos medibles
+    val esMedible:        Boolean = false,
+    val metrosPorUnidad:  Int?    = null,
+    val disponibleMetros: Double? = null,   // metros disponibles para mostrar al técnico
+    val asignadoMetros:   Double? = null,
+    val utilizadoMetros:  Double? = null,
+    val cachedAt:         Long = System.currentTimeMillis()
 )
 
 /**

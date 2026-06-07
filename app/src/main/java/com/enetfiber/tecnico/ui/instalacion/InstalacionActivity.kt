@@ -1360,12 +1360,21 @@ class InstalacionActivity : AppCompatActivity() {
         }
 
         // ── Conectar botón de materiales ──────────────────────
+        // Observar el LiveData y guardar en cache para no depender de .value
+        inventarioVm.items.observe(this) { items ->
+            itemsInventarioCache = items ?: emptyList()
+        }
+        // Forzar carga si aún no hay datos
+        if (inventarioVm.items.value.isNullOrEmpty()) {
+            inventarioVm.cargarMetricas(sincronizar = true)
+        }
+
         val btnAgregarMaterial = findViewById<View>(R.id.btnAgregarMaterial)
         btnAgregarMaterial?.setOnClickListener {
-            // Pasar items frescos en cada click
-            val itemsFrescos = inventarioVm.items.value?.filter { it.disponible > 0 }
-            if (itemsFrescos.isNullOrEmpty()) {
-                Toast.makeText(this, "No tienes items disponibles", Toast.LENGTH_SHORT).show()
+            val itemsFrescos = itemsInventarioCache.filter { it.disponible > 0 || (it.esMedible && (it.disponibleMetros ?: 0.0) > 0) }
+            if (itemsFrescos.isEmpty()) {
+                inventarioVm.cargarMetricas(sincronizar = true)
+                Toast.makeText(this, "Cargando inventario, intenta en un momento...", Toast.LENGTH_SHORT).show()
             } else {
                 agregarFilaMaterial(itemsFrescos)
             }
@@ -1382,6 +1391,8 @@ class InstalacionActivity : AppCompatActivity() {
 
     // ── Paso 4: materiales gastados ───────────────────────────
     private val inventarioVm: InventarioViewModel by viewModels()
+    // Cache local de items — se actualiza cuando el LiveData emite
+    private var itemsInventarioCache: List<com.enetfiber.tecnico.data.local.InventarioItemEntity> = emptyList()
     // Lista de pares (productoId, cantidad) que el técnico registró
     private val materialesGastados = mutableListOf<Pair<Int, Double>>()
     // Mapa id→nombre para mostrar offline
@@ -1420,7 +1431,7 @@ class InstalacionActivity : AppCompatActivity() {
     private fun mostrarDialogRetiro() {
         // Mostrar items del catálogo para seleccionar qué equipo se recuperó
         // Usamos el inventario del técnico pero también puede ser algo nuevo
-        val items = inventarioVm.items.value ?: emptyList()
+        val items = itemsInventarioCache.ifEmpty { inventarioVm.items.value ?: emptyList() }
 
         // Para retiro mostramos TODOS los items (incluso sin stock)
         // porque el técnico puede traer algo que no tenía
@@ -1486,7 +1497,7 @@ class InstalacionActivity : AppCompatActivity() {
 
     /** Agrega una fila inline de material (Spinner + Cantidad + Eliminar) */
     private fun mostrarDialogMateriales() {
-        val items = inventarioVm.items.value?.filter { it.disponible > 0 }
+        val items = itemsInventarioCache.filter { it.disponible > 0 || (it.esMedible && (it.disponibleMetros ?: 0.0) > 0) }.ifEmpty { inventarioVm.items.value?.filter { it.disponible > 0 } ?: emptyList() }
         if (items.isNullOrEmpty()) {
             Toast.makeText(this, "No tienes items disponibles en tu inventario", Toast.LENGTH_SHORT).show()
             return
@@ -1508,14 +1519,35 @@ class InstalacionActivity : AppCompatActivity() {
         val tvHint   = rowView.findViewById<android.widget.TextView>(R.id.tvHint)
         val btnElim  = rowView.findViewById<android.widget.ImageView>(R.id.btnEliminar)
 
-        // Llenar spinner con "Nombre — disp: X unidad"
+        // Llenar spinner con "Nombre — disp: X unidad" (o metros si es medible)
         val opciones = listOf("Seleccionar ítem...") +
-                items.map { "${it.nombre} — disp: ${it.disponible.toInt()} ${it.unidad}" }
-        val adapter = android.widget.ArrayAdapter(
-            this,
-            android.R.layout.simple_spinner_item,
-            opciones
-        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+                items.map { item ->
+                    if (item.esMedible && item.metrosPorUnidad != null && item.disponibleMetros != null) {
+                        "${item.nombre} — disp: ${item.disponibleMetros.toInt()} m"
+                    } else {
+                        "${item.nombre} — disp: ${item.disponible.toInt()} ${item.unidad}"
+                    }
+                }
+        val adapter = object : android.widget.ArrayAdapter<String>(
+            this, R.layout.item_spinner_selected, opciones
+        ) {
+            override fun getView(pos: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
+                val v = (convertView as? android.widget.TextView)
+                    ?: layoutInflater.inflate(R.layout.item_spinner_selected, parent, false) as android.widget.TextView
+                v.text = opciones[pos]
+                v.setTextColor(if (pos == 0) android.graphics.Color.parseColor("#94A3B8")
+                else android.graphics.Color.parseColor("#0F172A"))
+                return v
+            }
+            override fun getDropDownView(pos: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
+                val v = (convertView as? android.widget.TextView)
+                    ?: layoutInflater.inflate(R.layout.item_spinner_dropdown, parent, false) as android.widget.TextView
+                v.text = opciones[pos]
+                v.setTextColor(if (pos == 0) android.graphics.Color.parseColor("#94A3B8")
+                else android.graphics.Color.parseColor("#0F172A"))
+                return v
+            }
+        }
         spinner.adapter = adapter
 
         // Cuando selecciona un item, mostrar hint con unidad y máx
@@ -1523,12 +1555,29 @@ class InstalacionActivity : AppCompatActivity() {
             override fun onItemSelected(parent: android.widget.AdapterView<*>, v: android.view.View?, pos: Int, id: Long) {
                 if (pos == 0) { tvHint.visibility = android.view.View.GONE; return }
                 val item = items[pos - 1]
-                tvHint.text = "${item.unidad}  ·  máx ${item.disponible.toInt()}"
+                val maxCant = if (item.esMedible && item.metrosPorUnidad != null && item.disponibleMetros != null) {
+                    tvHint.text = "m  ·  máx ${item.disponibleMetros.toInt()} m"
+                    etCant.hint = item.disponibleMetros.toInt().toString()
+                    item.disponibleMetros.toInt()
+                } else {
+                    tvHint.text = "${item.unidad}  ·  máx ${item.disponible.toInt()}"
+                    etCant.hint = item.disponible.toInt().toString()
+                    item.disponible.toInt()
+                }
                 tvHint.visibility = android.view.View.VISIBLE
-                etCant.hint = item.disponible.toInt().toString()
-                // Actualizar materialesGastados cuando cambia la cantidad
+                // Validar y sincronizar cuando cambia la cantidad
                 etCant.addTextChangedListener(object : android.text.TextWatcher {
-                    override fun afterTextChanged(s: android.text.Editable?) { sincronizarFilas(layoutLista, items) }
+                    override fun afterTextChanged(s: android.text.Editable?) {
+                        val v = s?.toString()?.toIntOrNull() ?: 0
+                        if (v > maxCant) {
+                            etCant.removeTextChangedListener(this)
+                            etCant.setText(maxCant.toString())
+                            etCant.setSelection(etCant.text.length)
+                            etCant.error = "Máx: $maxCant"
+                            etCant.addTextChangedListener(this)
+                        }
+                        sincronizarFilas(layoutLista, items)
+                    }
                     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                 })
@@ -1566,7 +1615,13 @@ class InstalacionActivity : AppCompatActivity() {
             val item    = items[pos - 1]
             val cant    = etCant.text.toString().toDoubleOrNull() ?: 0.0
             if (cant <= 0) continue
-            val cantFinal = minOf(cant, item.disponible)
+            // Para productos medibles: el técnico ingresa metros → convertir a unidades
+            val cantFinal = if (item.esMedible && item.metrosPorUnidad != null && item.metrosPorUnidad > 0) {
+                val maxMetros = item.disponibleMetros ?: item.disponible * item.metrosPorUnidad
+                minOf(cant, maxMetros) / item.metrosPorUnidad
+            } else {
+                minOf(cant, item.disponible)
+            }
             val idx = materialesGastados.indexOfFirst { it.first == item.productoId }
             if (idx >= 0) materialesGastados[idx] = Pair(item.productoId, cantFinal)
             else {

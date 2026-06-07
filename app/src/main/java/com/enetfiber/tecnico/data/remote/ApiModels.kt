@@ -201,16 +201,22 @@ data class InventarioMetricas(
 )
 
 data class InventarioItemDto(
-    val productoId:  Int,
-    val nombre:      String,
-    val codigo:      String,
-    val categoria:   String,
-    val unidad:      String,
-    val asignado:    Double,
-    val utilizado:   Double,
-    val disponible:  Double,
-    val sinStock:    Boolean,
-    val fecha:       String?
+    val productoId:       Int,
+    val nombre:           String,
+    val codigo:           String,
+    val categoria:        String,
+    val unidad:           String,
+    val asignado:         Double,
+    val utilizado:        Double,
+    val disponible:       Double,
+    val sinStock:         Boolean,
+    val fecha:            String?,
+    // Campos para productos medibles (ej: rollos de fibra)
+    val esMedible:        Boolean = false,
+    val metrosPorUnidad:  Int?    = null,
+    val disponibleMetros: Double? = null,
+    val asignadoMetros:   Double? = null,
+    val utilizadoMetros:  Double? = null
 )
 
 data class InventarioOnuDto(
