@@ -16,6 +16,7 @@ import com.enetfiber.tecnico.databinding.FragmentPendientesTabsBinding
 import com.enetfiber.tecnico.ui.OrdenesViewModel
 import com.enetfiber.tecnico.ui.main.adapter.OrdenAdapter
 import com.enetfiber.tecnico.ui.detalle.DetalleOrdenActivity
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -42,7 +43,17 @@ class PendientesTabsFragment : Fragment() {
         setupRecycler()
         setupChips()
         setupBusqueda()
+        setupSwipeRefresh()
         setupObservers()
+    }
+
+    private fun setupSwipeRefresh() {
+        binding.swipeRefresh.setColorSchemeColors(
+            android.graphics.Color.parseColor("#1D4ED8")
+        )
+        binding.swipeRefresh.setOnRefreshListener {
+            vm.refrescar()
+        }
     }
 
     private fun setupRecycler() {
@@ -96,6 +107,10 @@ class PendientesTabsFragment : Fragment() {
             todasLasOrdenes = ordenes ?: emptyList()
             actualizarContador()
             actualizarLista()
+            binding.swipeRefresh.isRefreshing = false
+        }
+        vm.refresco.observe(viewLifecycleOwner) { refrescando ->
+            if (!refrescando) binding.swipeRefresh.isRefreshing = false
         }
     }
 

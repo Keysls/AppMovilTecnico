@@ -148,55 +148,62 @@
         </HorizontalScrollView>
     </LinearLayout>
 
-    <!-- Lista de órdenes -->
-    <FrameLayout
+    <!-- Lista de órdenes con SwipeRefresh -->
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefresh"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvOrdenes"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:paddingTop="8dp"
-            android:paddingBottom="16dp"
-            android:clipToPadding="false"/>
+            android:layout_height="match_parent">
 
-        <!-- Estado vacío -->
-        <LinearLayout
-            android:id="@+id/layoutEmpty"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:visibility="gone">
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvOrdenes"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:paddingTop="8dp"
+                android:paddingBottom="16dp"
+                android:clipToPadding="false"/>
 
-            <TextView
-                android:id="@+id/tvEmptyIcon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="📋"
-                android:textSize="40sp"
-                android:layout_marginBottom="12dp"/>
+            <!-- Estado vacío -->
+            <LinearLayout
+                android:id="@+id/layoutEmpty"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:visibility="gone">
 
-            <TextView
-                android:id="@+id/tvEmptyText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Sin órdenes pendientes"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:textColor="#0F172A"/>
+                <TextView
+                    android:id="@+id/tvEmptyIcon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📋"
+                    android:textSize="40sp"
+                    android:layout_marginBottom="12dp"/>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Desliza para actualizar"
-                android:textSize="12sp"
-                android:textColor="#94A3B8"
-                android:layout_marginTop="4dp"/>
-        </LinearLayout>
+                <TextView
+                    android:id="@+id/tvEmptyText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Sin órdenes pendientes"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="#0F172A"/>
 
-    </FrameLayout>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Desliza para actualizar"
+                    android:textSize="12sp"
+                    android:textColor="#94A3B8"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+
+        </FrameLayout>
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
 </LinearLayout>
