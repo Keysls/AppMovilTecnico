@@ -77,6 +77,9 @@ interface ApiService {
         @Body request: RegistrarConsumoRequest
     ): Response<RegistrarConsumoResponse>
 
+    @GET("stock/catalogo")
+    suspend fun getCatalogoTecnico(): retrofit2.Response<List<com.enetfiber.tecnico.data.remote.CatalogoProductoDto>>
+
     @POST("stock/mi-retiro")
     suspend fun registrarRetiro(
         @Body request: RegistrarRetiroRequest

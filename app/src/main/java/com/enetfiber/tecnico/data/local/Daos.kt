@@ -271,3 +271,22 @@ interface ConsumoPendienteDao {
     @Query("UPDATE consumo_pendiente SET tecnicoId = :tecnicoId WHERE tecnicoId = ''")
     suspend fun actualizarTecnicoIdVacios(tecnicoId: String)
 }
+
+// ── DAO del catálogo global ───────────────────────────────────
+@androidx.room.Dao
+interface CatalogoProductoDao {
+    @androidx.room.Query("SELECT * FROM catalogo_productos ORDER BY categoria ASC, nombre ASC")
+    fun getAll(): androidx.lifecycle.LiveData<List<CatalogoProductoEntity>>
+
+    @androidx.room.Query("SELECT * FROM catalogo_productos ORDER BY categoria ASC, nombre ASC")
+    suspend fun getAllOnce(): List<CatalogoProductoEntity>
+
+    @androidx.room.Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<CatalogoProductoEntity>)
+
+    @androidx.room.Query("DELETE FROM catalogo_productos")
+    suspend fun clearAll()
+
+    @androidx.room.Query("SELECT COUNT(*) FROM catalogo_productos")
+    suspend fun count(): Int
+}

@@ -13,11 +13,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CompletarPendienteEntity::class,
         IniciarPendienteEntity::class,
         AceptarPendienteEntity::class,
-        InventarioItemEntity::class,    // ← NUEVO
-        InventarioOnuEntity::class,     // ← NUEVO
-        ConsumoPendienteEntity::class,  // ← NUEVO
+        InventarioItemEntity::class,
+        InventarioOnuEntity::class,
+        ConsumoPendienteEntity::class,
+        CatalogoProductoEntity::class,  // ← catálogo para retiros offline
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -28,7 +29,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun iniciarPendienteDao(): IniciarPendienteDao
     abstract fun aceptarPendienteDao(): AceptarPendienteDao
     abstract fun inventarioDao(): InventarioDao          // ← NUEVO
-    abstract fun consumoPendienteDao(): ConsumoPendienteDao // ← NUEVO
+    abstract fun consumoPendienteDao(): ConsumoPendienteDao
+    abstract fun catalogoProductoDao(): CatalogoProductoDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -143,6 +145,21 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE inventario_items ADD COLUMN disponibleMetros REAL")
                 db.execSQL("ALTER TABLE inventario_items ADD COLUMN asignadoMetros REAL")
                 db.execSQL("ALTER TABLE inventario_items ADD COLUMN utilizadoMetros REAL")
+            }
+        }
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS catalogo_productos (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        nombre TEXT NOT NULL,
+                        codigo TEXT,
+                        categoria TEXT,
+                        unidad TEXT,
+                        cachedAt INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
             }
         }
     }

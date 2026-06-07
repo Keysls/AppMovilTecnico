@@ -273,6 +273,15 @@ data class RegistrarConsumoResponse(
     val registrados: Int
 )
 
+// Catálogo global para retiros
+data class CatalogoProductoDto(
+    val id:        Int,
+    val nombre:    String,
+    val codigo:    String?,
+    val categoria: String?,
+    val unidad:    String?,
+)
+
 data class RetiroItemRequest(
     val productoId: Int,
     val cantidad:   Double

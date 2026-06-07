@@ -140,3 +140,14 @@ data class ConsumoPendienteEntity(
     val sincronizado: Boolean = false,
     val creadoEn:    Long = System.currentTimeMillis()
 )
+
+// ── Catálogo global de productos (para retiros offline) ──────
+@Entity(tableName = "catalogo_productos")
+data class CatalogoProductoEntity(
+    @PrimaryKey val id:    Int,
+    val nombre:            String,
+    val codigo:            String?,
+    val categoria:         String?,
+    val unidad:            String?,
+    val cachedAt:          Long = System.currentTimeMillis()
+)

@@ -271,8 +271,10 @@ class InstalacionActivity : AppCompatActivity() {
         binding.layoutPaso3.visibility = if (paso == 3) View.VISIBLE else View.GONE
         binding.layoutPaso4.visibility = if (paso == 4) View.VISIBLE else View.GONE
 
-        binding.layoutPaso2Indicador.visibility = if (esInternet()) View.VISIBLE else View.GONE
-        binding.layoutPaso3Indicador.visibility = if (esInternet()) View.VISIBLE else View.GONE
+        val ordenTipo = vm.orden.value?.tipoOrden ?: ""
+        val esRetiroActual = esRetiro(ordenTipo)
+        binding.layoutPaso2Indicador.visibility = if (esInternet() && !esRetiroActual) View.VISIBLE else View.GONE
+        binding.layoutPaso3Indicador.visibility = if (esInternet() && !esRetiroActual) View.VISIBLE else View.GONE
 
         fun activo(tv: TextView) {
             tv.setTextColor(android.graphics.Color.WHITE)
@@ -454,18 +456,26 @@ class InstalacionActivity : AppCompatActivity() {
         }
 
         binding.btnSiguienteConfig.setOnClickListener {
-            // Quitar el bloque del cantidadFotos == 0
             guardarPrecintoSiCambio()
-            if (esInternet()) {
-                androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setTitle("⚠ Atención")
-                    .setMessage("Para continuar deberás conectarte al WiFi del equipo ONU.\n\nDurante la configuración perderás la conexión a internet.")
-                    .setPositiveButton("Entendido, continuar") { _, _ -> mostrarPaso(2) }
-                    .setNegativeButton("Cancelar", null)
-                    .show()
-            } else {
-                guardarPrecintoSiCambio()
-                mostrarPaso(4)
+            val tipoOrden = vm.orden.value?.tipoOrden ?: ""
+            when {
+                esRetiro(tipoOrden) -> {
+                    // Retiro: directo al paso 4 (sin config ONU)
+                    rellenarPaso4()
+                    mostrarPaso(4)
+                }
+                esInternet() -> {
+                    androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("⚠ Atención")
+                        .setMessage("Para continuar deberás conectarte al WiFi del equipo ONU.\n\nDurante la configuración perderás la conexión a internet.")
+                        .setPositiveButton("Entendido, continuar") { _, _ -> mostrarPaso(2) }
+                        .setNegativeButton("Cancelar", null)
+                        .show()
+                }
+                else -> {
+                    guardarPrecintoSiCambio()
+                    mostrarPaso(4)
+                }
             }
         }
         binding.btnCompletar.setOnClickListener { completar() }
@@ -1338,54 +1348,57 @@ class InstalacionActivity : AppCompatActivity() {
     //  PASO 4
     // ═════════════════════════════════════════════════════════
     private fun rellenarPaso4() {
+        val ordenActual = vm.orden.value
+        val esRetiroOrden = ordenActual != null && esRetiro(ordenActual.tipoOrden)
+
         val cardDatos   = findViewById<CardView>(R.id.cardDatosEquipo)
         val cardResumen = findViewById<CardView>(R.id.cardResumenConfig)
-        if (esInternet()) {
-            cardDatos?.visibility = View.VISIBLE
-            if (resultSsid.isNotBlank())  binding.etSsid.setText(resultSsid)
-            if (resultPass.isNotBlank())  binding.etSsidPass.setText(resultPass)
-            if (resultSsid5.isNotBlank()) binding.etSsid5ghz.setText(resultSsid5)
-            if (resultPass5.isNotBlank()) binding.etSsidPass5ghz.setText(resultPass5)
-            if (resultSn.isNotBlank())    binding.etSerial.setText(resultSn)
-            val tvSsid = findViewById<TextView>(R.id.tvResumenSsid)
-            val tvSn   = findViewById<TextView>(R.id.tvResumenSn)
-            if (resultSsid.isNotBlank() || resultSn.isNotBlank()) {
-                cardResumen?.visibility = View.VISIBLE
-                tvSsid?.text = "WiFi: $resultSsid"
-                tvSn?.text   = if (resultSn.isNotBlank()) "SN: $resultSn  ·  RX: $resultRx dBm" else ""
-            }
-        } else {
-            cardDatos?.visibility = View.GONE
+
+        if (esRetiroOrden) {
+            // Retiro: ocultar cards de config ONU
+            cardDatos?.visibility   = View.GONE
             cardResumen?.visibility = View.GONE
-        }
-
-        // ── Conectar botón de materiales ──────────────────────
-        // Observar el LiveData y guardar en cache para no depender de .value
-        inventarioVm.items.observe(this) { items ->
-            itemsInventarioCache = items ?: emptyList()
-        }
-        // Forzar carga si aún no hay datos
-        if (inventarioVm.items.value.isNullOrEmpty()) {
-            inventarioVm.cargarMetricas(sincronizar = true)
-        }
-
-        val btnAgregarMaterial = findViewById<View>(R.id.btnAgregarMaterial)
-        btnAgregarMaterial?.setOnClickListener {
-            val itemsFrescos = itemsInventarioCache.filter { it.disponible > 0 || (it.esMedible && (it.disponibleMetros ?: 0.0) > 0) }
-            if (itemsFrescos.isEmpty()) {
-                inventarioVm.cargarMetricas(sincronizar = true)
-                Toast.makeText(this, "Cargando inventario, intenta en un momento...", Toast.LENGTH_SHORT).show()
+            // Configurar sección de equipos recogidos
+            configurarSeccionRetiro()
+        } else {
+            if (esInternet()) {
+                cardDatos?.visibility = View.VISIBLE
+                if (resultSsid.isNotBlank())  binding.etSsid.setText(resultSsid)
+                if (resultPass.isNotBlank())  binding.etSsidPass.setText(resultPass)
+                if (resultSsid5.isNotBlank()) binding.etSsid5ghz.setText(resultSsid5)
+                if (resultPass5.isNotBlank()) binding.etSsidPass5ghz.setText(resultPass5)
+                if (resultSn.isNotBlank())    binding.etSerial.setText(resultSn)
+                val tvSsid = findViewById<TextView>(R.id.tvResumenSsid)
+                val tvSn   = findViewById<TextView>(R.id.tvResumenSn)
+                if (resultSsid.isNotBlank() || resultSn.isNotBlank()) {
+                    cardResumen?.visibility = View.VISIBLE
+                    tvSsid?.text = "WiFi: $resultSsid"
+                    tvSn?.text   = if (resultSn.isNotBlank()) "SN: $resultSn  ·  RX: $resultRx dBm" else ""
+                }
             } else {
-                agregarFilaMaterial(itemsFrescos)
+                cardDatos?.visibility   = View.GONE
+                cardResumen?.visibility = View.GONE
+            }
+
+            // ── Botón agregar material (solo para no-retiros) ──
+            inventarioVm.items.observe(this) { items ->
+                itemsInventarioCache = items ?: emptyList()
+            }
+            if (inventarioVm.items.value.isNullOrEmpty()) {
+                inventarioVm.cargarMetricas(sincronizar = true)
+            }
+            val btnAgregarMaterial = findViewById<View>(R.id.btnAgregarMaterial)
+            btnAgregarMaterial?.setOnClickListener {
+                val itemsFrescos = itemsInventarioCache.filter { it.disponible > 0 || (it.esMedible && (it.disponibleMetros ?: 0.0) > 0) }
+                if (itemsFrescos.isEmpty()) {
+                    inventarioVm.cargarMetricas(sincronizar = true)
+                    Toast.makeText(this, "Cargando inventario, intenta en un momento...", Toast.LENGTH_SHORT).show()
+                } else {
+                    agregarFilaMaterial(itemsFrescos)
+                }
             }
         }
-        // Si es retiro, mostrar sección de equipos recuperados
-        val ordenActual = vm.orden.value
-        if (ordenActual != null && esRetiro(ordenActual.tipoOrden)) {
-            mostrarSeccionRetiro()
-        }
 
-        // Refrescar lista visual si ya hay materiales
         actualizarListaMateriales()
     }
 
@@ -1410,77 +1423,124 @@ class InstalacionActivity : AppCompatActivity() {
             TipoOrden.BAJA_SERVICIO_D
         )
 
-    private fun mostrarSeccionRetiro() {
-        val cardMateriales = findViewById<com.google.android.material.card.MaterialCardView>(
-            R.id.cardMateriales
-        ) ?: return
+    // Cache del catálogo global para retiros
+    private var catalogoCache: List<com.enetfiber.tecnico.data.local.CatalogoProductoEntity> = emptyList()
 
-        // Cambiar el título del card a "Equipos recuperados"
-        val tvTitulo = cardMateriales.findViewById<TextView>(
-            R.id.tvMaterialesContador
-        )
+    private fun configurarSeccionRetiro() {
+        // Cambiar texto del botón a "Agregar equipo"
+        val btnAgregar  = findViewById<android.widget.LinearLayout>(R.id.btnAgregarMaterial)
+        val tvBtnTexto  = btnAgregar?.getChildAt(1) as? TextView
+        tvBtnTexto?.text = "+ Agregar equipo"
 
-        // Cambiar el botón a "Registrar equipo recuperado"
-        val btnAgregar = findViewById<android.widget.LinearLayout>(R.id.btnAgregarMaterial)
-        val tvBtnTexto = btnAgregar?.getChildAt(1) as? TextView
-        tvBtnTexto?.text = "Registrar equipo recuperado"
+        // Ocultar card de materiales normales, mostrar card de equipos retiro
+        // (reutilizamos el mismo card pero con semántica de retiro)
+        val tvContador = findViewById<TextView>(R.id.tvMaterialesContador)
+        tvContador?.text = "Equipos recogidos"
 
-        btnAgregar?.setOnClickListener { mostrarDialogRetiro() }
-    }
-
-    private fun mostrarDialogRetiro() {
-        // Mostrar items del catálogo para seleccionar qué equipo se recuperó
-        // Usamos el inventario del técnico pero también puede ser algo nuevo
-        val items = itemsInventarioCache.ifEmpty { inventarioVm.items.value ?: emptyList() }
-
-        // Para retiro mostramos TODOS los items (incluso sin stock)
-        // porque el técnico puede traer algo que no tenía
-        if (items.isEmpty()) {
-            // Si no hay inventario cargado, pedir producto manualmente
-            pedirEquipoManual()
-            return
+        // Cargar catálogo global
+        inventarioVm.cargarCatalogo()
+        inventarioVm.catalogo.observe(this) { catalogo ->
+            catalogoCache = catalogo ?: emptyList()
+            // Si llegó vacío e hay internet, cargar
+            if (catalogoCache.isEmpty()) inventarioVm.cargarCatalogo()
         }
 
-        val opciones = items.map { it.nombre }.toTypedArray()
-
-        var seleccionIdx = -1
-        AlertDialog.Builder(this)
-            .setTitle("¿Qué equipo recuperaste?")
-            .setSingleChoiceItems(opciones, -1) { _, idx -> seleccionIdx = idx }
-            .setPositiveButton("Siguiente") { _, _ ->
-                if (seleccionIdx < 0) return@setPositiveButton
-                val item = items[seleccionIdx]
-                pedirCantidadRetiro(item.productoId, item.nombre)
+        btnAgregar?.setOnClickListener {
+            if (catalogoCache.isEmpty()) {
+                inventarioVm.cargarCatalogo()
+                Toast.makeText(this, "Cargando catálogo...", Toast.LENGTH_SHORT).show()
+            } else {
+                mostrarSelectorEquipoRetiro()
             }
-            .setNegativeButton("Cancelar", null)
-            .show()
+        }
     }
 
-    private fun pedirEquipoManual() {
-        // Fallback: si no hay inventario local, solo mostrar un mensaje
-        Toast.makeText(
+    private fun mostrarSelectorEquipoRetiro() {
+        val listView = android.widget.ListView(this)
+        listView.divider = null
+
+        // Adapter con nombre + código
+        val adapter = object : android.widget.ArrayAdapter<String>(
             this,
-            "Sincroniza tu inventario para poder registrar equipos recuperados",
-            Toast.LENGTH_LONG
-        ).show()
+            android.R.layout.simple_list_item_2,
+            android.R.id.text1,
+            catalogoCache.map { it.nombre }
+        ) {
+            override fun getView(pos: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
+                val v = super.getView(pos, convertView, parent)
+                val prod = catalogoCache[pos]
+                v.findViewById<TextView>(android.R.id.text1).apply {
+                    text = prod.nombre
+                    textSize = 13f
+                    setTextColor(android.graphics.Color.parseColor("#0F172A"))
+                }
+                v.findViewById<TextView>(android.R.id.text2).apply {
+                    text = buildString {
+                        if (!prod.codigo.isNullOrBlank()) append(prod.codigo)
+                        if (!prod.categoria.isNullOrBlank()) {
+                            if (isNotEmpty()) append(" · ")
+                            append(prod.categoria)
+                        }
+                    }
+                    textSize = 11f
+                    setTextColor(android.graphics.Color.parseColor("#94A3B8"))
+                }
+                return v
+            }
+        }
+        listView.adapter = adapter
+
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Seleccionar equipo recogido")
+            .setView(listView)
+            .setNegativeButton("Cancelar", null)
+            .create()
+
+        listView.setOnItemClickListener { _, _, pos, _ ->
+            dialog.dismiss()
+            val prod = catalogoCache[pos]
+            pedirCantidadRetiro(prod.id, prod.nombre)
+        }
+        dialog.show()
     }
 
     private fun pedirCantidadRetiro(productoId: Int, nombre: String) {
-        val etCantidad = android.widget.EditText(this).apply {
-            hint = "Cantidad recuperada"
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            setPadding(48, 24, 48, 24)
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(64, 16, 64, 8)
         }
+        val tvNombre = TextView(this).apply {
+            text = nombre
+            textSize = 13f
+            setTextColor(android.graphics.Color.parseColor("#64748B"))
+            setPadding(0, 0, 0, 12)
+        }
+        val etCantidad = android.widget.EditText(this).apply {
+            hint = "Cantidad"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            textSize = 16f
+            setTextColor(android.graphics.Color.parseColor("#0F172A"))
+            background = getDrawable(R.drawable.input_bg)
+            setPadding(32, 24, 32, 24)
+        }
+        container.addView(tvNombre)
+        container.addView(etCantidad)
 
-        AlertDialog.Builder(this)
-            .setTitle("Cantidad de $nombre")
-            .setView(etCantidad)
-            .setPositiveButton("Agregar") { _, _ ->
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("¿Cuántos retiras?")
+            .setView(container)
+            .setPositiveButton("Agregar", null)
+            .setNegativeButton("Cancelar", null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val cantidad = etCantidad.text.toString().toDoubleOrNull() ?: 0.0
                 if (cantidad <= 0) {
-                    Toast.makeText(this, "Ingresa una cantidad válida", Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
+                    etCantidad.error = "Ingresa una cantidad válida"
+                    return@setOnClickListener
                 }
+                // Si ya existe el producto en la lista, sumarlo
                 val idx = equiposRetirados.indexOfFirst { it.first == productoId }
                 if (idx >= 0) {
                     equiposRetirados[idx] = Pair(productoId, equiposRetirados[idx].second + cantidad)
@@ -1488,11 +1548,13 @@ class InstalacionActivity : AppCompatActivity() {
                     equiposRetirados.add(Pair(productoId, cantidad))
                     nombresEquipos[productoId] = nombre
                 }
-                actualizarListaMateriales() // reusa la misma función visual
-                Toast.makeText(this, "✅ $nombre x${cantidad.toInt()} agregado", Toast.LENGTH_SHORT).show()
+                actualizarListaMateriales()
+                dialog.dismiss()
+                Toast.makeText(this, "✅ $nombre ×${cantidad.toInt()} agregado", Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton("Cancelar", null)
-            .show()
+        }
+        dialog.show()
+        etCantidad.requestFocus()
     }
 
     /** Agrega una fila inline de material (Spinner + Cantidad + Eliminar) */
@@ -1649,7 +1711,13 @@ class InstalacionActivity : AppCompatActivity() {
 
         layoutLista.removeAllViews()
 
-        if (materialesGastados.isEmpty()) {
+        // Para retiros usar equiposRetirados, para instalaciones usar materialesGastados
+        val ordenTipo = vm.orden.value?.tipoOrden ?: ""
+        val esRetiroOrden = esRetiro(ordenTipo)
+        val listaActual   = if (esRetiroOrden) equiposRetirados else materialesGastados
+        val nombresActual = if (esRetiroOrden) nombresEquipos   else nombresProductos
+
+        if (listaActual.isEmpty()) {
             layoutVacio.visibility = View.VISIBLE
             layoutLista.visibility = View.GONE
             tvContador.visibility  = View.GONE
@@ -1659,10 +1727,10 @@ class InstalacionActivity : AppCompatActivity() {
         layoutVacio.visibility = View.GONE
         layoutLista.visibility = View.VISIBLE
         tvContador.visibility  = View.VISIBLE
-        tvContador.text        = "${materialesGastados.size} items"
+        tvContador.text        = "${listaActual.size} item${if (listaActual.size != 1) "s" else ""}"
 
-        for ((productoId, cantidad) in materialesGastados) {
-            val nombre = nombresProductos[productoId] ?: "Producto #$productoId"
+        for ((productoId, cantidad) in listaActual) {
+            val nombre = nombresActual[productoId] ?: "Producto #$productoId"
             val row = android.widget.LinearLayout(this).apply {
                 orientation = android.widget.LinearLayout.HORIZONTAL
                 gravity = android.view.Gravity.CENTER_VERTICAL
@@ -1689,8 +1757,13 @@ class InstalacionActivity : AppCompatActivity() {
                 background = null
                 setPadding(16, 0, 0, 0)
                 setOnClickListener {
-                    materialesGastados.removeAll { it.first == productoId }
-                    nombresProductos.remove(productoId)
+                    if (esRetiroOrden) {
+                        equiposRetirados.removeAll { it.first == productoId }
+                        nombresEquipos.remove(productoId)
+                    } else {
+                        materialesGastados.removeAll { it.first == productoId }
+                        nombresProductos.remove(productoId)
+                    }
                     actualizarListaMateriales()
                 }
             }

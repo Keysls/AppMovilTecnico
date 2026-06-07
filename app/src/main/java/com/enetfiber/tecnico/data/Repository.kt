@@ -42,7 +42,7 @@ object MsgResultado {
 
 @Singleton
 class Repository @Inject constructor(
-    private val api:              ApiService,
+    val api:              ApiService,
     private val ordenDao:         OrdenDao,
     private val configDao:        ConfigOfflineDao,
     private val fotoDao:          FotoPendienteDao,
@@ -50,7 +50,8 @@ class Repository @Inject constructor(
     private val iniciarDao:       IniciarPendienteDao,
     private val aceptarDao:       AceptarPendienteDao,
     private val inventarioDao:    InventarioDao,          // ← NUEVO
-    private val consumoDao:       ConsumoPendienteDao,    // ← NUEVO
+    private val consumoDao:       ConsumoPendienteDao,
+    val catalogoDao:      CatalogoProductoDao,    // ← NUEVO
     private val session:          SessionDataStore,
     @ApplicationContext private val ctx: Context
 ) {
@@ -394,6 +395,8 @@ class Repository @Inject constructor(
      */
     suspend fun sincronizarInventario(): Resultado<Unit> {
         if (!isOnline()) return Resultado.Error("Sin internet — mostrando datos locales")
+        // Sincronizar catálogo en paralelo
+        try { sincronizarCatalogo() } catch (_: Exception) {}
         return try {
             val res = api.getMiInventario()
             if (res.isSuccessful) {
@@ -446,6 +449,36 @@ class Repository @Inject constructor(
      * Siempre guarda localmente primero; si hay internet también envía al servidor.
      * Si no hay internet encola para sincronizar después.
      */
+    // ── Catálogo offline ─────────────────────────────────────
+    fun getCatalogo() = catalogoDao.getAll()
+
+    suspend fun getCatalogoOnce() = catalogoDao.getAllOnce()
+
+    suspend fun sincronizarCatalogo(): Resultado<Unit> {
+        if (!isOnline()) return Resultado.Error("Sin internet")
+        return try {
+            val res = api.getCatalogoTecnico()
+            if (res.isSuccessful) {
+                val items = (res.body() ?: emptyList()).map {
+                    CatalogoProductoEntity(
+                        id        = it.id,
+                        nombre    = it.nombre,
+                        codigo    = it.codigo,
+                        categoria = it.categoria,
+                        unidad    = it.unidad,
+                    )
+                }
+                catalogoDao.clearAll()
+                catalogoDao.insertAll(items)
+                Resultado.Exito(Unit)
+            } else {
+                Resultado.Error("Error al obtener catálogo")
+            }
+        } catch (e: Exception) {
+            Resultado.Error(e.message ?: "Error")
+        }
+    }
+
     suspend fun registrarConsumo(
         items:       List<ConsumoItemRequest>,
         motivo:      String = "SERVICIO",

@@ -605,6 +605,23 @@ class InventarioViewModel @Inject constructor(
 
     val isOnline get() = repo.isOnline()
 
+    // Catálogo offline desde Room (para retiros)
+    val catalogo = repo.getCatalogo()
+
+    fun cargarCatalogo() {
+        viewModelScope.launch {
+            try {
+                // Si no hay catálogo local o hay internet, sincronizar
+                val count = repo.catalogoDao.count()
+                if (count == 0 || repo.isOnline()) {
+                    repo.sincronizarCatalogo()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("InventarioVM", "Error cargando catálogo: ${e.message}")
+            }
+        }
+    }
+
     private var ultimaSync: Long = 0L
     private val MIN_INTERVALO_SYNC = 30_000L // 30 segundos mínimo entre syncs
 
