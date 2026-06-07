@@ -252,7 +252,8 @@ data class MiInventarioResponse(
     val items:             List<InventarioItemDto>,
     val onus:              List<InventarioOnuDto>,
     val historialConsumos: List<ConsumoHistorialDto>,
-    val historialEntregas: List<EntregaHistorialDto>
+    val historialEntregas: List<EntregaHistorialDto>,
+    val recojos:           List<RecojoDto> = emptyList()
 )
 
 // Request para registrar material gastado
@@ -282,15 +283,31 @@ data class CatalogoProductoDto(
     val unidad:    String?,
 )
 
+// Un item de retiro = un equipo individual (una card en la UI)
 data class RetiroItemRequest(
-    val productoId: Int,
-    val cantidad:   Double
+    val productoId:  Int?,
+    val tipoEquipo:  String  = "EQUIPO",
+    val codigoPon:   String? = null,   // solo para ONUs
+    val cliente:     String? = null,
 )
 
 data class RegistrarRetiroRequest(
-    val items:       List<RetiroItemRequest>,
-    val ordenId:     String? = null,
-    val descripcion: String? = null
+    val items:   List<RetiroItemRequest>,
+    val ordenId: String? = null,
+)
+
+// Recojo devuelto por mi-inventario
+data class RecojoDto(
+    val id:             Int,
+    val tipoEquipo:     String,
+    val codigoPon:      String?,
+    val productoId:     Int?,
+    val nombreProducto: String?,
+    val estado:         String,
+    val cliente:        String?,
+    val comentario:     String?,
+    val grupoOrden:     String?,
+    val fecha:          String?,
 )
 
 data class RegistrarRetiroResponse(

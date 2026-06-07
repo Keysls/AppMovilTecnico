@@ -1411,8 +1411,9 @@ class InstalacionActivity : AppCompatActivity() {
     // Mapa id→nombre para mostrar offline
     private val nombresProductos   = mutableMapOf<Int, String>()
 
-    private val equiposRetirados   = mutableListOf<Pair<Int, Double>>()
-    private val nombresEquipos     = mutableMapOf<Int, String>()
+    // Retiros: una entrada por cada equipo individual (una card en la UI)
+    private val equiposRetirados = mutableListOf<com.enetfiber.tecnico.data.remote.RetiroItemRequest>()
+    private val nombresEquipos   = mutableMapOf<Int, String>()  // productoId → nombre para display
 
     private fun esRetiro(tipoOrden: String) =
         tipoOrden in listOf(
@@ -1426,135 +1427,303 @@ class InstalacionActivity : AppCompatActivity() {
     // Cache del catálogo global para retiros
     private var catalogoCache: List<com.enetfiber.tecnico.data.local.CatalogoProductoEntity> = emptyList()
 
+    /** Detecta si un producto es ONU por nombre o categoría */
+    private fun esOnu(nombre: String, categoria: String?): Boolean {
+        val texto = "$nombre ${categoria ?: ""}".lowercase()
+        return texto.contains("onu") || texto.contains("ont")
+    }
+
     private fun configurarSeccionRetiro() {
-        // Cambiar texto del botón a "Agregar equipo"
-        val btnAgregar  = findViewById<android.widget.LinearLayout>(R.id.btnAgregarMaterial)
-        val tvBtnTexto  = btnAgregar?.getChildAt(1) as? TextView
+        val btnAgregar = findViewById<android.widget.LinearLayout>(R.id.btnAgregarMaterial)
+        val tvBtnTexto = btnAgregar?.getChildAt(1) as? TextView
         tvBtnTexto?.text = "+ Agregar equipo"
 
-        // Ocultar card de materiales normales, mostrar card de equipos retiro
-        // (reutilizamos el mismo card pero con semántica de retiro)
-        val tvContador = findViewById<TextView>(R.id.tvMaterialesContador)
-        tvContador?.text = "Equipos recogidos"
-
-        // Cargar catálogo global
-        inventarioVm.cargarCatalogo()
+        // Cargar catálogo offline-first
         inventarioVm.catalogo.observe(this) { catalogo ->
             catalogoCache = catalogo ?: emptyList()
-            // Si llegó vacío e hay internet, cargar
-            if (catalogoCache.isEmpty()) inventarioVm.cargarCatalogo()
         }
+        inventarioVm.cargarCatalogo()
 
         btnAgregar?.setOnClickListener {
-            if (catalogoCache.isEmpty()) {
-                inventarioVm.cargarCatalogo()
-                Toast.makeText(this, "Cargando catálogo...", Toast.LENGTH_SHORT).show()
-            } else {
-                mostrarSelectorEquipoRetiro()
-            }
+            agregarCardEquipoRetiro()
         }
     }
 
-    private fun mostrarSelectorEquipoRetiro() {
-        val listView = android.widget.ListView(this)
-        listView.divider = null
+    private val cardsRetiro = mutableListOf<android.view.View>()
 
-        // Adapter con nombre + código
-        val adapter = object : android.widget.ArrayAdapter<String>(
-            this,
-            android.R.layout.simple_list_item_2,
-            android.R.id.text1,
-            catalogoCache.map { it.nombre }
-        ) {
-            override fun getView(pos: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
-                val v = super.getView(pos, convertView, parent)
-                val prod = catalogoCache[pos]
-                v.findViewById<TextView>(android.R.id.text1).apply {
-                    text = prod.nombre
-                    textSize = 13f
+    private fun agregarCardEquipoRetiro() {
+        val layoutLista = findViewById<android.widget.LinearLayout>(R.id.layoutListaMateriales) ?: return
+        val layoutVacio = findViewById<android.widget.LinearLayout>(R.id.layoutMaterialesVacio) ?: return
+
+        layoutVacio.visibility = android.view.View.GONE
+        layoutLista.visibility = android.view.View.VISIBLE
+
+        val numEquipo = cardsRetiro.size + 1
+        val dp = resources.displayMetrics.density
+
+        // ── Card contenedor ────────────────────────────────────
+        val card = com.google.android.material.card.MaterialCardView(this).apply {
+            radius = 12f * dp
+            strokeWidth = 1
+            strokeColor = android.graphics.Color.parseColor("#E2E8F0")
+            cardElevation = 0f
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = (10 * dp).toInt() }
+        }
+
+        val inner = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding((14*dp).toInt(), (12*dp).toInt(), (14*dp).toInt(), (14*dp).toInt())
+        }
+
+        // Header EQUIPO #N + eliminar
+        val headerRow = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = (10*dp).toInt() }
+        }
+        val tvNumero = TextView(this).apply {
+            text = "EQUIPO #$numEquipo"
+            textSize = 10f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(android.graphics.Color.parseColor("#94A3B8"))
+            letterSpacing = 0.06f
+            layoutParams = android.widget.LinearLayout.LayoutParams(0,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val btnElim = android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.ic_trash)
+            setPadding(8, 8, 8, 8)
+            background = getDrawable(R.drawable.bg_btn_delete)
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                (32*dp).toInt(), (32*dp).toInt())
+        }
+        headerRow.addView(tvNumero); headerRow.addView(btnElim)
+
+        // ── Buscador de catálogo ───────────────────────────────
+        val tvLabel = TextView(this).apply {
+            text = "Producto del catálogo *"
+            textSize = 11f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(android.graphics.Color.parseColor("#64748B"))
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = (6*dp).toInt() }
+        }
+        val searchContainer = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            background = getDrawable(R.drawable.input_bg)
+            setPadding((10*dp).toInt(), 0, (10*dp).toInt(), 0)
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT, (44*dp).toInt())
+        }
+        val ivLupa = android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.ic_search)
+            val sz = (16*dp).toInt()
+            layoutParams = android.widget.LinearLayout.LayoutParams(sz, sz).apply {
+                marginEnd = (8*dp).toInt() }
+            androidx.core.widget.ImageViewCompat.setImageTintList(this,
+                android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#94A3B8")))
+        }
+        val etBuscar = android.widget.EditText(this).apply {
+            hint = "Buscar en catálogo..."; textSize = 13f
+            setTextColor(android.graphics.Color.parseColor("#0F172A"))
+            setHintTextColor(android.graphics.Color.parseColor("#94A3B8"))
+            background = null; importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO
+            layoutParams = android.widget.LinearLayout.LayoutParams(0,
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+        }
+        searchContainer.addView(ivLupa); searchContainer.addView(etBuscar)
+
+        // Dropdown de resultados
+        val dropdown = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            visibility = android.view.View.GONE
+            background = getDrawable(R.drawable.input_bg)
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = (4*dp).toInt() }
+        }
+
+        // ── Campo PON-SN (oculto hasta seleccionar ONU) ────────
+        val ponSection = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            visibility = android.view.View.GONE
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = (12*dp).toInt() }
+        }
+        val tvPonLabel = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = (6*dp).toInt() }
+        }
+        val tvPonIcon = TextView(this).apply {
+            text = "◈ "; textSize = 12f
+            setTextColor(android.graphics.Color.parseColor("#7C3AED"))
+        }
+        val tvPonTitle = TextView(this).apply {
+            text = "Código PON-SN *"; textSize = 11f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(android.graphics.Color.parseColor("#64748B"))
+        }
+        tvPonLabel.addView(tvPonIcon); tvPonLabel.addView(tvPonTitle)
+
+        val etPon = android.widget.EditText(this).apply {
+            hint = "Ej: ZTEGC1234567"; textSize = 13f
+            setTextColor(android.graphics.Color.parseColor("#0F172A"))
+            setHintTextColor(android.graphics.Color.parseColor("#94A3B8"))
+            background = getDrawable(R.drawable.input_bg)
+            setPadding((12*dp).toInt(), (10*dp).toInt(), (12*dp).toInt(), (10*dp).toInt())
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                    android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+            importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO
+        }
+        val tvPonHint = TextView(this).apply {
+            text = "Código de la etiqueta trasera de la ONU"
+            textSize = 10f; setTextColor(android.graphics.Color.parseColor("#94A3B8"))
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = (4*dp).toInt() }
+        }
+        ponSection.addView(tvPonLabel); ponSection.addView(etPon); ponSection.addView(tvPonHint)
+
+        // Estado del producto seleccionado
+        var productoSelId: Int? = null
+        var productoSelNombre: String? = null
+        var productoSelCat: String? = null
+        var indiceEnLista: Int = -1
+
+        fun mostrarDropdown(query: String) {
+            dropdown.removeAllViews()
+            val resultados = if (query.isBlank()) catalogoCache.take(8)
+            else catalogoCache.filter {
+                it.nombre.contains(query, ignoreCase = true) ||
+                        it.codigo?.contains(query, ignoreCase = true) == true ||
+                        it.categoria?.contains(query, ignoreCase = true) == true
+            }.take(8)
+
+            if (resultados.isEmpty()) { dropdown.visibility = android.view.View.GONE; return }
+
+            resultados.forEach { prod ->
+                val item = android.widget.LinearLayout(this).apply {
+                    orientation = android.widget.LinearLayout.VERTICAL
+                    setPadding((12*dp).toInt(), (10*dp).toInt(), (12*dp).toInt(), (10*dp).toInt())
+                    isClickable = true; isFocusable = true
+                    background = android.graphics.drawable.ColorDrawable(android.graphics.Color.WHITE)
+                }
+                val tn = TextView(this).apply {
+                    text = prod.nombre; textSize = 13f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
                     setTextColor(android.graphics.Color.parseColor("#0F172A"))
                 }
-                v.findViewById<TextView>(android.R.id.text2).apply {
-                    text = buildString {
-                        if (!prod.codigo.isNullOrBlank()) append(prod.codigo)
-                        if (!prod.categoria.isNullOrBlank()) {
-                            if (isNotEmpty()) append(" · ")
-                            append(prod.categoria)
-                        }
+                val ts = TextView(this).apply {
+                    text = listOfNotNull(prod.codigo, prod.categoria).joinToString(" · ")
+                    textSize = 11f; setTextColor(android.graphics.Color.parseColor("#94A3B8"))
+                    visibility = if (prod.codigo.isNullOrBlank() && prod.categoria.isNullOrBlank())
+                        android.view.View.GONE else android.view.View.VISIBLE
+                }
+                item.addView(tn); item.addView(ts)
+                val div = android.view.View(this).apply {
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1
+                    ).apply { marginStart = (12*dp).toInt() }
+                    setBackgroundColor(android.graphics.Color.parseColor("#F1F5F9"))
+                }
+                item.setOnClickListener {
+                    productoSelId     = prod.id
+                    productoSelNombre = prod.nombre
+                    productoSelCat    = prod.categoria
+                    etBuscar.setText(prod.nombre)
+                    etBuscar.clearFocus()
+                    dropdown.visibility = android.view.View.GONE
+
+                    // Mostrar PON-SN solo para ONUs
+                    val esOnu = esOnu(prod.nombre, prod.categoria)
+                    ponSection.visibility = if (esOnu) android.view.View.VISIBLE else android.view.View.GONE
+
+                    // Guardar o actualizar en la lista
+                    val nuevoItem = com.enetfiber.tecnico.data.remote.RetiroItemRequest(
+                        productoId = prod.id,
+                        tipoEquipo = if (esOnu) "ONU" else "EQUIPO",
+                        codigoPon  = if (esOnu) etPon.text.toString().trim().ifBlank { null } else null,
+                    )
+                    if (indiceEnLista >= 0 && indiceEnLista < equiposRetirados.size) {
+                        equiposRetirados[indiceEnLista] = nuevoItem
+                    } else {
+                        equiposRetirados.add(nuevoItem)
+                        indiceEnLista = equiposRetirados.size - 1
                     }
-                    textSize = 11f
-                    setTextColor(android.graphics.Color.parseColor("#94A3B8"))
+                    if (prod.id != null) nombresEquipos[prod.id] = prod.nombre
+                    actualizarContadorMateriales()
                 }
-                return v
+                dropdown.addView(item); dropdown.addView(div)
             }
+            dropdown.visibility = android.view.View.VISIBLE
         }
-        listView.adapter = adapter
 
-        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Seleccionar equipo recogido")
-            .setView(listView)
-            .setNegativeButton("Cancelar", null)
-            .create()
-
-        listView.setOnItemClickListener { _, _, pos, _ ->
-            dialog.dismiss()
-            val prod = catalogoCache[pos]
-            pedirCantidadRetiro(prod.id, prod.nombre)
-        }
-        dialog.show()
-    }
-
-    private fun pedirCantidadRetiro(productoId: Int, nombre: String) {
-        val container = android.widget.LinearLayout(this).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(64, 16, 64, 8)
-        }
-        val tvNombre = TextView(this).apply {
-            text = nombre
-            textSize = 13f
-            setTextColor(android.graphics.Color.parseColor("#64748B"))
-            setPadding(0, 0, 0, 12)
-        }
-        val etCantidad = android.widget.EditText(this).apply {
-            hint = "Cantidad"
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            textSize = 16f
-            setTextColor(android.graphics.Color.parseColor("#0F172A"))
-            background = getDrawable(R.drawable.input_bg)
-            setPadding(32, 24, 32, 24)
-        }
-        container.addView(tvNombre)
-        container.addView(etCantidad)
-
-        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("¿Cuántos retiras?")
-            .setView(container)
-            .setPositiveButton("Agregar", null)
-            .setNegativeButton("Cancelar", null)
-            .create()
-
-        dialog.setOnShowListener {
-            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val cantidad = etCantidad.text.toString().toDoubleOrNull() ?: 0.0
-                if (cantidad <= 0) {
-                    etCantidad.error = "Ingresa una cantidad válida"
-                    return@setOnClickListener
+        // Actualizar codigoPon cuando el técnico escribe
+        etPon.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) {
+                if (indiceEnLista >= 0 && indiceEnLista < equiposRetirados.size) {
+                    val actual = equiposRetirados[indiceEnLista]
+                    equiposRetirados[indiceEnLista] = actual.copy(
+                        codigoPon = s?.toString()?.trim()?.uppercase()?.ifBlank { null }
+                    )
                 }
-                // Si ya existe el producto en la lista, sumarlo
-                val idx = equiposRetirados.indexOfFirst { it.first == productoId }
-                if (idx >= 0) {
-                    equiposRetirados[idx] = Pair(productoId, equiposRetirados[idx].second + cantidad)
-                } else {
-                    equiposRetirados.add(Pair(productoId, cantidad))
-                    nombresEquipos[productoId] = nombre
-                }
-                actualizarListaMateriales()
-                dialog.dismiss()
-                Toast.makeText(this, "✅ $nombre ×${cantidad.toInt()} agregado", Toast.LENGTH_SHORT).show()
             }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        etBuscar.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val q = s?.toString() ?: ""
+                if (productoSelNombre != null && q == productoSelNombre) return
+                productoSelId = null; productoSelNombre = null
+                mostrarDropdown(q)
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+        etBuscar.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus && catalogoCache.isNotEmpty()) mostrarDropdown(etBuscar.text.toString())
         }
-        dialog.show()
-        etCantidad.requestFocus()
+
+        btnElim.setOnClickListener {
+            if (indiceEnLista >= 0 && indiceEnLista < equiposRetirados.size) {
+                equiposRetirados.removeAt(indiceEnLista)
+                productoSelId?.let { nombresEquipos.remove(it) }
+            }
+            cardsRetiro.remove(card)
+            layoutLista.removeView(card)
+            if (layoutLista.childCount == 0) {
+                layoutVacio.visibility = android.view.View.VISIBLE
+                layoutLista.visibility = android.view.View.GONE
+            }
+            actualizarContadorMateriales()
+        }
+
+        inner.addView(headerRow); inner.addView(tvLabel)
+        inner.addView(searchContainer); inner.addView(dropdown)
+        inner.addView(ponSection)
+        card.addView(inner)
+        cardsRetiro.add(card)
+        layoutLista.addView(card)
+
+        etBuscar.requestFocus()
+        if (catalogoCache.isNotEmpty()) mostrarDropdown("")
     }
 
     /** Agrega una fila inline de material (Spinner + Cantidad + Eliminar) */
@@ -1711,11 +1880,32 @@ class InstalacionActivity : AppCompatActivity() {
 
         layoutLista.removeAllViews()
 
-        // Para retiros usar equiposRetirados, para instalaciones usar materialesGastados
-        val ordenTipo = vm.orden.value?.tipoOrden ?: ""
+        val ordenTipo     = vm.orden.value?.tipoOrden ?: ""
         val esRetiroOrden = esRetiro(ordenTipo)
-        val listaActual   = if (esRetiroOrden) equiposRetirados else materialesGastados
-        val nombresActual = if (esRetiroOrden) nombresEquipos   else nombresProductos
+
+        if (esRetiroOrden) {
+            // Para retiros las cards están en el layout — solo actualizar contador
+            val total = equiposRetirados.size
+            tvContador.visibility = if (total > 0) View.VISIBLE else View.GONE
+            if (total > 0) tvContador.text = "$total equipo${if (total != 1) "s" else ""}"
+            return
+        }
+
+        // Para instalaciones: lista de materiales gastados
+        val listaActual   = materialesGastados
+        val nombresActual = nombresProductos
+
+        if (listaActual.isEmpty()) {
+            layoutVacio.visibility = View.VISIBLE
+            layoutLista.visibility = View.GONE
+            tvContador.visibility  = View.GONE
+            return
+        }
+
+        layoutVacio.visibility = View.GONE
+        layoutLista.visibility = View.VISIBLE
+        tvContador.visibility  = View.VISIBLE
+        tvContador.text        = "${listaActual.size} item${if (listaActual.size != 1) "s" else ""}"
 
         if (listaActual.isEmpty()) {
             layoutVacio.visibility = View.VISIBLE
@@ -1758,7 +1948,7 @@ class InstalacionActivity : AppCompatActivity() {
                 setPadding(16, 0, 0, 0)
                 setOnClickListener {
                     if (esRetiroOrden) {
-                        equiposRetirados.removeAll { it.first == productoId }
+                        equiposRetirados.removeAll { it.productoId == productoId }
                         nombresEquipos.remove(productoId)
                     } else {
                         materialesGastados.removeAll { it.first == productoId }
@@ -1837,13 +2027,9 @@ class InstalacionActivity : AppCompatActivity() {
                 val ordenActual = vm.orden.value
                 if (ordenActual != null && esRetiro(ordenActual.tipoOrden) &&
                     equiposRetirados.isNotEmpty()) {
-                    val retiroItems = equiposRetirados.map { (productoId, cantidad) ->
-                        RetiroItemRequest(productoId, cantidad)
-                    }
                     inventarioVm.registrarRetiro(
-                        items       = retiroItems,
-                        ordenId     = ordenId,
-                        descripcion = "Retiro: ${TipoOrden.label(ordenActual.tipoOrden)}"
+                        items   = equiposRetirados.toList(),
+                        ordenId = ordenId,
                     )
                 }
 

@@ -160,27 +160,9 @@ class SyncWorker @AssistedInject constructor(
                     }
                 }
 
-                // Enviar retiros
-                if (retirosLista.isNotEmpty()) {
-                    val itemsRetiro = retirosLista.map { r ->
-                        RetiroItemRequest(productoId = r.productoId, cantidad = -r.cantidad)
-                    }
-                    val res = runCatching {
-                        api.registrarRetiro(
-                            RegistrarRetiroRequest(
-                                items       = itemsRetiro,
-                                descripcion = "Retiro sincronizado offline"
-                            )
-                        )
-                    }.getOrNull()
-                    if (res?.isSuccessful == true) {
-                        for (r in retirosLista) consumoDao.marcarSincronizado(r.id)
-                        android.util.Log.d(tag, "  ✓ ${retirosLista.size} retiro(s) sincronizados")
-                    } else {
-                        huboFallo = true
-                        android.util.Log.e(tag, "  ✗ retiros fallaron — ${res?.code()}")
-                    }
-                }
+                // Retiros: ahora usan modelo Recojo — ya no se sincronizan aquí
+                // Los recojos se envían directamente al completar la orden
+                // (sin cola offline por ahora)
 
                 // Refrescar inventario desde servidor si todo fue bien
                 if (!huboFallo) {

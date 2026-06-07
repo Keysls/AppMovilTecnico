@@ -584,6 +584,10 @@ class InventarioViewModel @Inject constructor(
     // LiveData de la BD local — funciona offline
     val items = repo.getInventarioItems()
     val onus  = repo.getInventarioOnus()
+
+    // Recojos: equipos recuperados de clientes (vienen del servidor)
+    private val _recojos = MutableLiveData<List<com.enetfiber.tecnico.data.remote.RecojoDto>>(emptyList())
+    val recojos: LiveData<List<com.enetfiber.tecnico.data.remote.RecojoDto>> = _recojos
     val consumosPendientes = session.tecnicoId
         .filterNotNull()
         .filter { it.isNotBlank() }
@@ -651,6 +655,13 @@ class InventarioViewModel @Inject constructor(
                 val r = repo.sincronizarInventario()
                 android.util.Log.d("InventarioVM", "Resultado sync: $r")
                 if (r is Resultado.Exito) {
+                    // Cargar recojos del técnico
+                    try {
+                        val inv = repo.api.getMiInventario()
+                        if (inv.isSuccessful) {
+                            _recojos.postValue(inv.body()?.recojos ?: emptyList())
+                        }
+                    } catch (_: Exception) {}
                     val metricasFrescas = repo.getMetricasInventario()
                     android.util.Log.d("InventarioVM", "Items en Room tras sync: ${repo.contarItems()}")
                     _uiState.value = _uiState.value?.copy(
@@ -708,12 +719,11 @@ class InventarioViewModel @Inject constructor(
 
 
     fun registrarRetiro(
-        items:       List<RetiroItemRequest>,
-        ordenId:     String? = null,
-        descripcion: String? = null
+        items:   List<com.enetfiber.tecnico.data.remote.RetiroItemRequest>,
+        ordenId: String? = null,
     ) {
         viewModelScope.launch {
-            repo.registrarRetiro(items, ordenId, descripcion)
+            repo.registrarRetiro(items, ordenId)
             // Refrescar métricas locales
             val metricas = repo.getMetricasInventario()
             _uiState.value = _uiState.value?.copy(

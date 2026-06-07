@@ -32,6 +32,7 @@ class InventarioFragment : Fragment() {
 
     private lateinit var itemsAdapter: InventarioItemAdapter
     private lateinit var consumosAdapter: ConsumoAdapter
+    private lateinit var recojoAdapter:   RecojoAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -56,9 +57,10 @@ class InventarioFragment : Fragment() {
         }
 
         consumosAdapter = ConsumoAdapter()
+        recojoAdapter   = RecojoAdapter()
         binding.rvConsumos.apply {
             layoutManager = LinearLayoutManager(requireContext())
-            adapter = consumosAdapter
+            adapter = recojoAdapter   // Mostrar recojos (materiales reciclados)
             isNestedScrollingEnabled = false
             setHasFixedSize(false)
         }
@@ -114,11 +116,15 @@ class InventarioFragment : Fragment() {
             }
         }
 
-        vm.consumosPendientes.observe(viewLifecycleOwner) { consumos ->
-            consumosAdapter.submitList(consumos.take(20))
+        // Materiales reciclados: equipos recogidos de clientes
+        vm.recojos.observe(viewLifecycleOwner) { recojos ->
+            recojoAdapter.submitList(recojos)
             binding.tvEmptyConsumos.visibility =
-                if (consumos.isEmpty()) View.VISIBLE else View.GONE
+                if (recojos.isEmpty()) View.VISIBLE else View.GONE
+        }
 
+        // Banner de consumos pendientes de sync (materiales gastados)
+        vm.consumosPendientes.observe(viewLifecycleOwner) { consumos ->
             val pendientes = consumos.count { c -> !c.sincronizado }
             binding.bannerPendientes.visibility =
                 if (pendientes > 0) View.VISIBLE else View.GONE
@@ -381,5 +387,69 @@ class ConsumoAdapter :
         else
             Color.parseColor("#E67E22")
         holder.tvSync.setTextColor(colorSync)
+    }
+}
+// ── Adapter: materiales reciclados (recojos) ──────────────────
+class RecojoAdapter :
+    ListAdapter<com.enetfiber.tecnico.data.remote.RecojoDto,
+            RecojoAdapter.VH>(DIFF) {
+
+    companion object {
+        val DIFF = object : DiffUtil.ItemCallback<com.enetfiber.tecnico.data.remote.RecojoDto>() {
+            override fun areItemsTheSame(
+                a: com.enetfiber.tecnico.data.remote.RecojoDto,
+                b: com.enetfiber.tecnico.data.remote.RecojoDto
+            ) = a.id == b.id
+            override fun areContentsTheSame(
+                a: com.enetfiber.tecnico.data.remote.RecojoDto,
+                b: com.enetfiber.tecnico.data.remote.RecojoDto
+            ) = a == b
+        }
+    }
+
+    inner class VH(val view: View) : RecyclerView.ViewHolder(view) {
+        val tvNombre:    TextView = view.findViewById(R.id.tvRecojoNombre)
+        val tvPon:       TextView = view.findViewById(R.id.tvRecojoPon)
+        val tvCategoria: TextView = view.findViewById(R.id.tvRecojoCategoria)
+        val tvEstado:    TextView = view.findViewById(R.id.tvRecojoEstado)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+        val v = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_recojo, parent, false)
+        return VH(v)
+    }
+
+    override fun onBindViewHolder(holder: VH, position: Int) {
+        val recojo = getItem(position)
+
+        // Nombre del producto (del catálogo) o tipo de equipo como fallback
+        holder.tvNombre.text = recojo.nombreProducto?.ifBlank { null }
+            ?: recojo.tipoEquipo.ifBlank { "Equipo" }
+
+        // Código PON-SN si existe
+        if (!recojo.codigoPon.isNullOrBlank()) {
+            holder.tvPon.text = "◈ ${recojo.codigoPon}"
+            holder.tvPon.visibility = View.VISIBLE
+        } else {
+            holder.tvPon.visibility = View.GONE
+        }
+
+        // Comentario u orden asociada
+        holder.tvCategoria.text = when {
+            !recojo.grupoOrden.isNullOrBlank() -> "Orden asociada"
+            !recojo.comentario.isNullOrBlank()  -> recojo.comentario
+            else -> ""
+        }
+
+        // Estado con color
+        val (estadoTexto, textColor, bgColor) = when (recojo.estado) {
+            "entregado" -> Triple("entregado", "#16A34A", "#DCFCE7")
+            "revision"  -> Triple("en revisión", "#2563EB", "#EFF6FF")
+            else        -> Triple("pendiente",   "#D97706", "#FEF3C7")
+        }
+        holder.tvEstado.text = estadoTexto
+        holder.tvEstado.setTextColor(android.graphics.Color.parseColor(textColor))
+        holder.tvEstado.setBackgroundColor(android.graphics.Color.parseColor(bgColor))
     }
 }

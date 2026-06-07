@@ -583,50 +583,22 @@ class Repository @Inject constructor(
      * Offline-first: si no hay internet encola para sincronizar.
      */
     suspend fun registrarRetiro(
-        items:       List<RetiroItemRequest>,
-        ordenId:     String? = null,
-        descripcion: String? = null
+        items:   List<RetiroItemRequest>,
+        ordenId: String? = null,
     ): Resultado<Unit> {
-        // Guardar offline como entrada pendiente
-        for (item in items) {
-            if (item.cantidad <= 0) continue
-            consumoDao.insert(ConsumoPendienteEntity(
-                productoId   = item.productoId,
-                nombre       = "Retiro #${item.productoId}",
-                cantidad     = -item.cantidad,  // negativo = entrada (distingue del gasto)
-                motivo       = "RETIRO",
-                descripcion  = descripcion ?: (ordenId?.let { "Orden: $it" }),
-                ordenId      = ordenId,
-            ))
-        }
-
-        // Actualizar caché local — sumar al disponible
-        val itemsActuales = inventarioDao.getItemsOnce()
-        val actualizados  = itemsActuales.map { inv ->
-            val recuperado = items.filter { it.productoId == inv.productoId }
-                .sumOf { it.cantidad }
-            if (recuperado > 0) {
-                val nuevoDisponible = inv.disponible + recuperado
-                inv.copy(
-                    disponible = nuevoDisponible,
-                    sinStock   = nuevoDisponible == 0.0
-                )
-            } else inv
-        }
-        inventarioDao.insertItems(actualizados)
-
-        // Intentar enviar al servidor
+        // Intentar enviar al servidor directamente
+        // (los recojos se guardan en tabla Recojo, no en consumo_pendiente)
         if (isOnline()) {
             try {
                 val res = api.registrarRetiro(
-                    RegistrarRetiroRequest(items, ordenId, descripcion)
+                    RegistrarRetiroRequest(items = items, ordenId = ordenId)
                 )
                 if (res.isSuccessful) {
                     sincronizarInventario()
-                } else {
-                    programarSync()
+                    return Resultado.Exito(Unit)
                 }
             } catch (e: Exception) {
+                // Si falla, guardar pendiente para sync posterior
                 programarSync()
             }
         } else {

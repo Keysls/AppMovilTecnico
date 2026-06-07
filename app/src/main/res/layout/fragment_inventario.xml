@@ -411,7 +411,7 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Sección: Últimos gastos + botón registrar -->
+            <!-- Sección: Materiales reciclados -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -423,7 +423,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Últimos gastos"
+                    android:text="Materiales reciclados"
                     android:textSize="14sp"
                     android:textStyle="bold"
                     android:textColor="#0F172A"/>
@@ -467,7 +467,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:padding="24dp"
-                        android:text="Sin gastos registrados"
+                        android:text="No tenés materiales reciclados"
                         android:textSize="13sp"
                         android:textColor="#94A3B8"
                         android:gravity="center"
