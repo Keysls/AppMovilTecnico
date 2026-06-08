@@ -347,7 +347,7 @@
             android:id="@+id/btnContinuar"
             android:layout_width="match_parent"
             android:layout_height="52dp"
-            android:text="Iniciar instalación"
+            android:text="Continuar"
             android:textColor="@color/white"
             android:textSize="15sp"
             android:textStyle="bold"

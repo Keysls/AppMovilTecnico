@@ -474,6 +474,7 @@ class InstalacionActivity : AppCompatActivity() {
                 }
                 else -> {
                     guardarPrecintoSiCambio()
+                    rellenarPaso4()
                     mostrarPaso(4)
                 }
             }
@@ -1347,7 +1348,7 @@ class InstalacionActivity : AppCompatActivity() {
     // ═════════════════════════════════════════════════════════
     //  PASO 4
     // ═════════════════════════════════════════════════════════
-    private fun rellenarPaso4() {
+ /*   private fun rellenarPaso4() {
         val ordenActual = vm.orden.value
         val esRetiroOrden = ordenActual != null && esRetiro(ordenActual.tipoOrden)
 
@@ -1407,7 +1408,67 @@ class InstalacionActivity : AppCompatActivity() {
             actualizarContadorMateriales()
         }
     }
+*/
 
+    private fun rellenarPaso4() {
+        val ordenActual = vm.orden.value
+        val esRetiroOrden = ordenActual != null && esRetiro(ordenActual.tipoOrden)
+
+        val cardDatos   = findViewById<CardView>(R.id.cardDatosEquipo)
+        val cardResumen = findViewById<CardView>(R.id.cardResumenConfig)
+
+        if (esRetiroOrden) {
+            cardDatos?.visibility   = View.GONE
+            cardResumen?.visibility = View.GONE
+            configurarSeccionRetiro()
+        } else {
+            if (esInternet()) {
+                cardDatos?.visibility = View.VISIBLE
+                if (resultSsid.isNotBlank())  binding.etSsid.setText(resultSsid)
+                if (resultPass.isNotBlank())  binding.etSsidPass.setText(resultPass)
+                if (resultSsid5.isNotBlank()) binding.etSsid5ghz.setText(resultSsid5)
+                if (resultPass5.isNotBlank()) binding.etSsidPass5ghz.setText(resultPass5)
+                if (resultSn.isNotBlank())    binding.etSerial.setText(resultSn)
+                val tvSsid = findViewById<TextView>(R.id.tvResumenSsid)
+                val tvSn   = findViewById<TextView>(R.id.tvResumenSn)
+                if (resultSsid.isNotBlank() || resultSn.isNotBlank()) {
+                    cardResumen?.visibility = View.VISIBLE
+                    tvSsid?.text = "WiFi: $resultSsid"
+                    tvSn?.text   = if (resultSn.isNotBlank()) "SN: $resultSn  ·  RX: $resultRx dBm" else ""
+                }
+            } else {
+                cardDatos?.visibility   = View.GONE
+                cardResumen?.visibility = View.GONE
+            }
+
+            // ✅ FUERA del if(esInternet()) — aplica a cable, duo, internet
+            inventarioVm.items.observe(this) { items ->
+                itemsInventarioCache = items ?: emptyList()
+            }
+            if (inventarioVm.items.value.isNullOrEmpty()) {
+                inventarioVm.cargarMetricas(sincronizar = true)
+            }
+            val btnAgregarMaterial = findViewById<View>(R.id.btnAgregarMaterial)
+            btnAgregarMaterial?.setOnClickListener {
+                val itemsFrescos = itemsInventarioCache.filter {
+                    it.disponible > 0 || (it.esMedible && (it.disponibleMetros ?: 0.0) > 0)
+                }
+                if (itemsFrescos.isEmpty()) {
+                    inventarioVm.cargarMetricas(sincronizar = true)
+                    Toast.makeText(this, "Cargando inventario, intenta en un momento...", Toast.LENGTH_SHORT).show()
+                } else {
+                    agregarFilaMaterial(itemsFrescos)
+                }
+            }
+        }
+
+        val tipoActual = vm.orden.value?.tipoOrden ?: ""
+        if (!esRetiro(tipoActual)) {
+            actualizarListaMateriales()
+        } else {
+            actualizarContadorMateriales()
+        }
+    }
     // ── Paso 4: materiales gastados ───────────────────────────
     private val inventarioVm: InventarioViewModel by viewModels()
     // Cache local de items — se actualiza cuando el LiveData emite

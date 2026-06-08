@@ -7,8 +7,9 @@
     android:layout_height="match_parent"
     android:background="@color/bg">
 
-    <ScrollView
-        android:layout_width="match_parent"
+    <androidx.core.widget.NestedScrollView
+
+    android:layout_width="match_parent"
         android:layout_height="match_parent">
 
         <LinearLayout
@@ -488,5 +489,6 @@
             <!-- tvSinStock oculto para compatibilidad (el valor se muestra en card disponibles) -->
 
         </LinearLayout>
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
+
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
