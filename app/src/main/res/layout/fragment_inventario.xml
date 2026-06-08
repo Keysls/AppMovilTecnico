@@ -428,17 +428,24 @@
                     android:textStyle="bold"
                     android:textColor="#0F172A"/>
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnRegistrarConsumo"
+                <LinearLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:text="+ Registrar gasto"
-                    android:textSize="12sp"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    app:cornerRadius="8dp"
-                    app:backgroundTint="#2563EB"
-                    style="@style/Widget.MaterialComponents.Button"/>
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnDevolverSede"
+                        android:layout_width="wrap_content"
+                        android:layout_height="36dp"
+                        android:text="+ Devolver"
+                        android:textSize="12sp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        app:cornerRadius="8dp"
+                        app:backgroundTint="#2563EB"
+                        style="@style/Widget.MaterialComponents.Button"/>
+
+                </LinearLayout>
             </LinearLayout>
 
             <com.google.android.material.card.MaterialCardView

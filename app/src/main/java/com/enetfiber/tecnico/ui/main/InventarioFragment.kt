@@ -1,6 +1,7 @@
 package com.enetfiber.tecnico.ui.main
 
 import android.app.AlertDialog
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -21,6 +22,7 @@ import com.enetfiber.tecnico.data.remote.ConsumoItemRequest
 import com.enetfiber.tecnico.databinding.FragmentInventarioBinding
 import com.enetfiber.tecnico.ui.ConsumoState
 import com.enetfiber.tecnico.ui.InventarioViewModel
+import com.enetfiber.tecnico.ui.devolucion.DevolucionActivity
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -163,8 +165,12 @@ class InventarioFragment : Fragment() {
             vm.cargarMetricas(sincronizar = true)
             binding.swipeRefresh.isRefreshing = false
         }
-        binding.btnRegistrarConsumo.setOnClickListener {
+        /*binding.btnRegistrarConsumo.setOnClickListener {
             mostrarDialogConsumo()
+        }*/
+        binding.btnDevolverSede.setOnClickListener {
+            startActivity(Intent(/* packageContext = */ requireContext(), /* cls = */
+                DevolucionActivity::class.java))
         }
     }
 

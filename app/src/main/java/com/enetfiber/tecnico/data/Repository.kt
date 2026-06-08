@@ -403,10 +403,8 @@ class Repository @Inject constructor(
             val res = api.getMiInventario()
             if (res.isSuccessful) {
                 val body = res.body()!!
-                inventarioDao.clearItems()
-                inventarioDao.insertItems(body.items.map { it.toEntity() })
-                inventarioDao.clearOnus()
-                inventarioDao.insertOnus(body.onus.map { it.toEntity() })
+                inventarioDao.reemplazarItems(body.items.map { it.toEntity() })
+                inventarioDao.reemplazarOnus(body.onus.map { it.toEntity() })
 
                 // Corregir consumos con tecnicoId vacío (guardados antes del fix)
                 val tecnicoIdFix = session.tecnicoId.firstOrNull() ?: ""

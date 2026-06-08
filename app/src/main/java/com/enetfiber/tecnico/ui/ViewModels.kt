@@ -629,16 +629,14 @@ class InventarioViewModel @Inject constructor(
     }
 
     private var ultimaSync: Long = 0L
-    private val MIN_INTERVALO_SYNC = 30_000L // 30 segundos mínimo entre syncs
+    private val MIN_INTERVALO_SYNC = 30_000L
 
     init { cargarMetricas() }
 
     /** Recalcula métricas desde Room y opcionalmente sincroniza con el servidor */
     fun cargarMetricas(sincronizar: Boolean = true) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value?.copy(cargando = true)
-
-            // Siempre cargar métricas locales primero (offline-first)
+            // SIEMPRE cargar Room primero — nunca se saltea
             val metricas = repo.getMetricasInventario()
             _uiState.value = _uiState.value?.copy(
                 totalAsignados   = metricas.totalAsignados,
@@ -648,51 +646,42 @@ class InventarioViewModel @Inject constructor(
                 cargando         = false
             )
 
-            // Si hay internet, sincronizar con el servidor (máx cada 30 seg)
+            // Sincronizar con servidor solo si corresponde
             val ahora = System.currentTimeMillis()
-            if (sincronizar && repo.isOnline() && (ahora - ultimaSync) > MIN_INTERVALO_SYNC) {
-                ultimaSync = ahora
-                _uiState.value = _uiState.value?.copy(sincronizando = true)
-                android.util.Log.d("InventarioVM", "Iniciando sincronización...")
-                val r = repo.sincronizarInventario()
-                android.util.Log.d("InventarioVM", "Resultado sync: $r")
-                if (r is Resultado.Exito) {
-                    // Cargar recojos del técnico
-                    try {
-                        android.util.Log.d("InventarioVM", "Llamando mi-inventario para recojos...")
-                        val inv = repo.api.getMiInventario()
-                        android.util.Log.d("InventarioVM", "mi-inventario status: ${inv.code()}")
-                        if (inv.isSuccessful) {
-                            val lista = inv.body()?.recojos ?: emptyList()
-                            android.util.Log.d("InventarioVM", "Recojos recibidos: ${lista.size}")
-                            lista.forEach { r ->
-                                android.util.Log.d("InventarioVM", "  recojo id=${r.id} producto=${r.nombreProducto} tipo=${r.tipoEquipo} estado=${r.estado}")
-                            }
-                            _recojos.postValue(lista)
-                        } else {
-                            android.util.Log.e("InventarioVM", "mi-inventario error: ${inv.code()} ${inv.errorBody()?.string()}")
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("InventarioVM", "Excepción cargando recojos: ${e.message}")
+            val debeSync = sincronizar
+                    && repo.isOnline()
+                    && (ahora - ultimaSync) > MIN_INTERVALO_SYNC
+
+            if (!debeSync) return@launch  // ← sale pero Room ya está mostrado arriba
+
+            ultimaSync = ahora
+            _uiState.value = _uiState.value?.copy(sincronizando = true)
+            val r = repo.sincronizarInventario()
+
+            if (r is Resultado.Exito) {
+                // Recojos
+                try {
+                    val inv = repo.api.getMiInventario()
+                    if (inv.isSuccessful) {
+                        _recojos.postValue(inv.body()?.recojos ?: emptyList())
                     }
-                    val metricasFrescas = repo.getMetricasInventario()
-                    android.util.Log.d("InventarioVM", "Items en Room tras sync: ${repo.contarItems()}")
-                    _uiState.value = _uiState.value?.copy(
-                        totalAsignados   = metricasFrescas.totalAsignados,
-                        totalUtilizados  = metricasFrescas.totalUtilizados,
-                        totalDisponibles = metricasFrescas.totalDisponibles,
-                        totalSinStock    = metricasFrescas.totalSinStock,
-                        sincronizando    = false
-                    )
-                } else {
-                    android.util.Log.e("InventarioVM", "Error sync: ${(r as? Resultado.Error)?.mensaje}")
-                    _uiState.value = _uiState.value?.copy(
-                        sincronizando = false,
-                        mensaje = (r as? Resultado.Error)?.mensaje ?: "Error al sincronizar"
-                    )
+                } catch (e: Exception) {
+                    android.util.Log.e("InventarioVM", "Error recojos: ${e.message}")
                 }
+                // Métricas frescas post-sync
+                val frescas = repo.getMetricasInventario()
+                _uiState.value = _uiState.value?.copy(
+                    totalAsignados   = frescas.totalAsignados,
+                    totalUtilizados  = frescas.totalUtilizados,
+                    totalDisponibles = frescas.totalDisponibles,
+                    totalSinStock    = frescas.totalSinStock,
+                    sincronizando    = false
+                )
             } else {
-                android.util.Log.d("InventarioVM", "Sin internet o sincronizar=false, online=${repo.isOnline()}")
+                _uiState.value = _uiState.value?.copy(
+                    sincronizando = false,
+                    mensaje = (r as? Resultado.Error)?.mensaje
+                )
             }
         }
     }

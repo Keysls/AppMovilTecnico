@@ -243,6 +243,19 @@ interface InventarioDao {
 
     @Query("SELECT COUNT(*) FROM inventario_items WHERE sinStock = 1")
     suspend fun totalSinStock(): Int
+
+
+    @Transaction
+    suspend fun reemplazarItems(items: List<InventarioItemEntity>) {
+        clearItems()
+        insertItems(items)
+    }
+
+    @Transaction
+    suspend fun reemplazarOnus(onus: List<InventarioOnuEntity>) {
+        clearOnus()
+        insertOnus(onus)
+    }
 }
 
 @Dao
