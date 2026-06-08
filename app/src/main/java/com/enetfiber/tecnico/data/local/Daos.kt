@@ -69,22 +69,26 @@ interface OrdenDao {
     suspend fun deleteObsoletas(idsRemotos: List<String>, idsProtegidos: List<String>)
 
     @Query("""
-        SELECT * FROM ordenes 
-        WHERE estado = 'COMPLETADA'
-        AND (:filtrarTipo = 0 OR tipoOrden IN (:tipos))
-        AND (:busqueda = '' OR 
-             abonado LIKE '%' || :busqueda || '%' OR 
-             nServicio LIKE '%' || :busqueda || '%' OR
-             direccion LIKE '%' || :busqueda || '%')
-        ORDER BY cachedAt DESC
-        LIMIT :limit OFFSET :offset
-    """)
+    SELECT * FROM ordenes 
+    WHERE estado = 'COMPLETADA'
+    AND (:filtrarTipo = 0 OR tipoOrden IN (:tipos))
+    AND (:busqueda = '' OR 
+         abonado LIKE '%' || :busqueda || '%' OR 
+         nServicio LIKE '%' || :busqueda || '%' OR
+         direccion LIKE '%' || :busqueda || '%')
+    AND (:fechaDesde IS NULL OR cachedAt >= :fechaDesde)
+    AND (:fechaHasta IS NULL OR cachedAt <= :fechaHasta)
+    ORDER BY cachedAt DESC, nServicio DESC
+    LIMIT :limit OFFSET :offset
+""")
     suspend fun getCompletadasFiltradas(
         filtrarTipo: Boolean,
-        tipos: List<String>,
-        busqueda: String,
-        limit: Int,
-        offset: Int
+        tipos:       List<String>,
+        busqueda:    String,
+        fechaDesde:  Long?,
+        fechaHasta:  Long?,
+        limit:       Int,
+        offset:      Int
     ): List<OrdenEntity>
 
     @Query("""
@@ -289,4 +293,29 @@ interface CatalogoProductoDao {
 
     @androidx.room.Query("SELECT COUNT(*) FROM catalogo_productos")
     suspend fun count(): Int
+}
+
+@Dao
+interface RetiroPendienteDao {
+
+    @Insert
+    suspend fun insert(retiro: RetiroPendienteEntity)
+
+    @Query("SELECT * FROM retiro_pendiente WHERE sincronizado = 0 ORDER BY creadoEn ASC")
+    suspend fun getPendientes(): List<RetiroPendienteEntity>
+
+    @Query("UPDATE retiro_pendiente SET sincronizado = 1 WHERE id = :id")
+    suspend fun marcarSincronizado(id: Int)
+
+    @Query("SELECT COUNT(*) FROM retiro_pendiente WHERE sincronizado = 0")
+    suspend fun countPendientes(): Int
+
+    @Query("DELETE FROM retiro_pendiente WHERE sincronizado = 1")
+    suspend fun deleteSincronizados()
+
+    @Query("DELETE FROM retiro_pendiente")
+    suspend fun deleteAll()
+
+    @Query("UPDATE retiro_pendiente SET tecnicoId = :tecnicoId WHERE tecnicoId = ''")
+    suspend fun actualizarTecnicoIdVacios(tecnicoId: String)
 }

@@ -26,6 +26,8 @@ class SyncWorker @AssistedInject constructor(
     private val aceptarDao:    AceptarPendienteDao,
     private val consumoDao:    ConsumoPendienteDao,
     private val inventarioDao: InventarioDao,
+    private val retiroDao:     RetiroPendienteDao,  // ← NUEVO
+
 ) : CoroutineWorker(ctx, params) {
 
     override suspend fun doWork(): Result {
@@ -129,50 +131,72 @@ class SyncWorker @AssistedInject constructor(
                 }
             }
 
-            // ── PASO 4: consumos y retiros offline ────────────────────
-            val todosPendientes = consumoDao.getPendientes()
-            android.util.Log.d(tag, "${todosPendientes.size} consumo(s)/retiro(s) pendiente(s)")
+            // ── PASO 4: consumos offline ──────────────────────────────
+            val consumosPendientes = consumoDao.getPendientes()
+            android.util.Log.d(tag, "${consumosPendientes.size} consumo(s) pendiente(s)")
 
-            if (todosPendientes.isNotEmpty()) {
-                val consumosNormales = todosPendientes.filter { c -> c.motivo != "RETIRO" }
-                val retirosLista     = todosPendientes.filter { r -> r.motivo == "RETIRO" }
+            if (consumosPendientes.isNotEmpty()) {
+                val itemsConsumo = consumosPendientes.map { c ->
+                    ConsumoItemRequest(productoId = c.productoId, cantidad = c.cantidad)
+                }
+                val res = runCatching {
+                    api.registrarConsumo(
+                        RegistrarConsumoRequest(
+                            items       = itemsConsumo,
+                            motivo      = "SERVICIO",
+                            descripcion = "Sincronización offline"
+                        )
+                    )
+                }.getOrNull()
+                if (res?.isSuccessful == true) {
+                    for (c in consumosPendientes) consumoDao.marcarSincronizado(c.id)
+                    android.util.Log.d(tag, "  ✓ ${consumosPendientes.size} consumo(s) sincronizados")
+                } else {
+                    huboFallo = true
+                    android.util.Log.e(tag, "  ✗ consumos fallaron — ${res?.code()}")
+                }
+            }
 
-                // Enviar consumos normales
-                if (consumosNormales.isNotEmpty()) {
-                    val itemsConsumo = consumosNormales.map { c ->
-                        ConsumoItemRequest(productoId = c.productoId, cantidad = c.cantidad)
+// ── PASO 5: retiros offline ───────────────────────────────
+            val retirosPendientes = retiroDao.getPendientes()
+            android.util.Log.d(tag, "${retirosPendientes.size} retiro(s) pendiente(s)")
+
+            if (retirosPendientes.isNotEmpty()) {
+                val porOrden = retirosPendientes.groupBy { it.ordenId }
+                for ((ordenId, retiros) in porOrden) {
+                    val itemsRetiro = retiros.map { r ->
+                        RetiroItemRequest(
+                            productoId = r.productoId,
+                            tipoEquipo = r.tipoEquipo,
+                            codigoPon  = r.codigoPon,
+                        )
                     }
                     val res = runCatching {
-                        api.registrarConsumo(
-                            RegistrarConsumoRequest(
-                                items       = itemsConsumo,
-                                motivo      = "SERVICIO",
-                                descripcion = "Sincronización offline"
+                        api.registrarRetiro(
+                            RegistrarRetiroRequest(
+                                items   = itemsRetiro,
+                                ordenId = ordenId
                             )
                         )
                     }.getOrNull()
                     if (res?.isSuccessful == true) {
-                        for (c in consumosNormales) consumoDao.marcarSincronizado(c.id)
-                        android.util.Log.d(tag, "  ✓ ${consumosNormales.size} consumo(s) sincronizados")
+                        for (r in retiros) retiroDao.marcarSincronizado(r.id)
+                        android.util.Log.d(tag, "  ✓ ${retiros.size} retiro(s) sincronizados — orden: $ordenId")
                     } else {
                         huboFallo = true
-                        android.util.Log.e(tag, "  ✗ consumos fallaron — ${res?.code()}")
+                        android.util.Log.e(tag, "  ✗ retiros fallaron — orden: $ordenId — ${res?.code()}")
                     }
                 }
+            }
 
-                // Retiros: ahora usan modelo Recojo — ya no se sincronizan aquí
-                // Los recojos se envían directamente al completar la orden
-                // (sin cola offline por ahora)
-
-                // Refrescar inventario desde servidor si todo fue bien
-                if (!huboFallo) {
-                    runCatching { api.getMiInventario() }.getOrNull()?.body()?.let { body ->
-                        inventarioDao.clearItems()
-                        inventarioDao.insertItems(body.items.map { item -> item.toEntity() })
-                        inventarioDao.clearOnus()
-                        inventarioDao.insertOnus(body.onus.map { onu -> onu.toEntity() })
-                        android.util.Log.d(tag, "  ✓ inventario actualizado")
-                    }
+// ── Refrescar inventario si todo fue bien ─────────────────
+            if (!huboFallo) {
+                runCatching { api.getMiInventario() }.getOrNull()?.body()?.let { body ->
+                    inventarioDao.clearItems()
+                    inventarioDao.insertItems(body.items.map { item -> item.toEntity() })
+                    inventarioDao.clearOnus()
+                    inventarioDao.insertOnus(body.onus.map { onu -> onu.toEntity() })
+                    android.util.Log.d(tag, "  ✓ inventario actualizado")
                 }
             }
 

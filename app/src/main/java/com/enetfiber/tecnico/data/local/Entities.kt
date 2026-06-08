@@ -151,3 +151,17 @@ data class CatalogoProductoEntity(
     val unidad:            String?,
     val cachedAt:          Long = System.currentTimeMillis()
 )
+
+
+@Entity(tableName = "retiro_pendiente")
+data class RetiroPendienteEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val productoId:   Int?,
+    val tecnicoId:    String = "",
+    val nombre:       String = "",   // para mostrar offline
+    val tipoEquipo:   String = "EQUIPO",
+    val codigoPon:    String? = null,
+    val ordenId:      String? = null,
+    val sincronizado: Boolean = false,
+    val creadoEn:     Long = System.currentTimeMillis()
+)

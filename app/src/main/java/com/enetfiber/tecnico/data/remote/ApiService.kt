@@ -85,4 +85,12 @@ interface ApiService {
         @Body request: RegistrarRetiroRequest
     ): Response<RegistrarRetiroResponse>
 
+    @POST("stock/mi-devolucion")
+    suspend fun registrarDevolucion(
+        @Body request: RegistrarDevolucionRequest
+    ): Response<RegistrarDevolucionResponse>
+
+    @GET("stock/mis-devoluciones")
+    suspend fun getMisDevoluciones(): Response<List<DevolucionDto>>
+
 }

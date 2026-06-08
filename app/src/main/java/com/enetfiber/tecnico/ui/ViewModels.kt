@@ -166,6 +166,17 @@ class OrdenesViewModel @Inject constructor(
     val completadas: LiveData<List<OrdenEntity>> = _completadas
 
     private val _cargandoMas = MutableLiveData(false)
+
+    private val _fechaDesde = MutableLiveData<Long?>(null)
+    private val _fechaHasta = MutableLiveData<Long?>(null)
+
+    fun setFechas(desde: Long?, hasta: Long?) {
+        _fechaDesde.value = desde
+        _fechaHasta.value = hasta
+        cargarPagina(reset = true)
+    }
+
+
     val cargandoMas: LiveData<Boolean> = _cargandoMas
 
     init { cargarPagina(reset = true) }
@@ -189,33 +200,24 @@ class OrdenesViewModel @Inject constructor(
     private fun cargarPagina(reset: Boolean) {
         if (_cargando) return
         _cargando = true
-
         viewModelScope.launch {
-            if (reset) {
-                _paginaActual = 0
-                _hayMas = true
-            }
-
+            if (reset) { _paginaActual = 0; _hayMas = true }
             _cargandoMas.value = true
-
             val lista = repo.getCompletadasFiltradas(
-                tipo     = _tipoFiltro.value ?: "TODOS",
-                busqueda = _busqueda.value?.trim().orEmpty(),
-                limit    = PAGE_SIZE,
-                offset   = _paginaActual * PAGE_SIZE
+                tipo      = _tipoFiltro.value ?: "TODOS",
+                busqueda  = _busqueda.value?.trim().orEmpty(),
+                fechaDesde = _fechaDesde.value,
+                fechaHasta = _fechaHasta.value,
+                limit     = PAGE_SIZE,
+                offset    = _paginaActual * PAGE_SIZE
             )
-
-            _completadas.value = if (reset) lista
-            else (_completadas.value ?: emptyList()) + lista
-
+            _completadas.value = if (reset) lista else (_completadas.value ?: emptyList()) + lista
             _hayMas = lista.size == PAGE_SIZE
             if (lista.isNotEmpty()) _paginaActual++
-
             _cargandoMas.value = false
             _cargando = false
         }
     }
-
     private val _refresco = MutableLiveData(false)
     val refresco: LiveData<Boolean> = _refresco
 
@@ -750,4 +752,46 @@ class InventarioViewModel @Inject constructor(
             )
         }
     }
+
+    // Estado de devolución
+    sealed class DevolucionState {
+        object Idle      : DevolucionState()
+        object Guardando : DevolucionState()
+        object Exito     : DevolucionState()
+        data class Error(val msg: String) : DevolucionState()
+    }
+
+    // En la clase InventarioViewModel agrega:
+    private val _devolucionState = MutableLiveData<DevolucionState>(DevolucionState.Idle)
+    val devolucionState: LiveData<DevolucionState> = _devolucionState
+
+    private val _devoluciones = MutableLiveData<List<DevolucionDto>>(emptyList())
+    val devoluciones: LiveData<List<DevolucionDto>> = _devoluciones
+
+    fun registrarDevolucion(
+        items:      List<DevolucionItemRequest>,
+        comentario: String? = null
+    ) {
+        if (items.isEmpty()) return
+        viewModelScope.launch {
+            _devolucionState.value = DevolucionState.Guardando
+            val r = repo.registrarDevolucion(items, comentario)
+            if (r is Resultado.Exito) {
+                // Refrescar devoluciones
+                cargarDevoluciones()
+                _devolucionState.value = DevolucionState.Exito
+            } else {
+                _devolucionState.value = DevolucionState.Error((r as Resultado.Error).mensaje)
+            }
+        }
+    }
+
+    fun cargarDevoluciones() {
+        viewModelScope.launch {
+            val r = repo.getMisDevoluciones()
+            if (r is Resultado.Exito) _devoluciones.value = r.data
+        }
+    }
+
+    fun resetDevolucionState() { _devolucionState.value = DevolucionState.Idle }
 }

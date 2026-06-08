@@ -51,7 +51,8 @@ class Repository @Inject constructor(
     private val aceptarDao:       AceptarPendienteDao,
     private val inventarioDao:    InventarioDao,          // ← NUEVO
     private val consumoDao:       ConsumoPendienteDao,
-    val catalogoDao:      CatalogoProductoDao,    // ← NUEVO
+    val catalogoDao:              CatalogoProductoDao,    // ← NUEVO
+    private val retiroDao:        RetiroPendienteDao,
     private val session:          SessionDataStore,
     @ApplicationContext private val ctx: Context
 ) {
@@ -118,6 +119,7 @@ class Repository @Inject constructor(
     suspend fun logout() {
         try { api.logout() } catch (_: Exception) {}
         consumoDao.deleteAll() // ← limpiar consumos locales al cerrar sesión
+        retiroDao.deleteAll()
         inventarioDao.clearItems()
         inventarioDao.clearOnus()
         session.cerrarSesion()
@@ -566,7 +568,12 @@ class Repository @Inject constructor(
     suspend fun hayCompletarPendientes(): Int = completarDao.countPendientes()
 
     suspend fun getCompletadasFiltradas(
-        tipo: String, busqueda: String, limit: Int, offset: Int
+        tipo:       String,
+        busqueda:   String,
+        fechaDesde: Long?,
+        fechaHasta: Long?,
+        limit:      Int,
+        offset:     Int
     ): List<OrdenEntity> {
         val (filtrar, tipos) = when (tipo) {
             "INTERNET" -> true  to TipoOrden.INTERNET
@@ -574,7 +581,11 @@ class Repository @Inject constructor(
             "DUO"      -> true  to TipoOrden.DUO
             else       -> false to emptyList()
         }
-        return ordenDao.getCompletadasFiltradas(filtrar, tipos, busqueda, limit, offset)
+        // fechaHasta: sumar 1 día para incluir todo el día seleccionado
+        val hastaFin = fechaHasta?.plus(86_400_000L)
+        return ordenDao.getCompletadasFiltradas(
+            filtrar, tipos, busqueda, fechaDesde, hastaFin, limit, offset
+        )
     }
 
     /**
@@ -586,19 +597,65 @@ class Repository @Inject constructor(
         items:   List<RetiroItemRequest>,
         ordenId: String? = null,
     ): Resultado<Unit> {
-        // Intentar enviar al servidor directamente
-        // (los recojos se guardan en tabla Recojo, no en consumo_pendiente)
+        val tecnicoIdActual = session.tecnicoId.firstOrNull() ?: ""
+
+        // ── 1. Guardar localmente siempre (offline-first) ──────────
+        for (item in items) {
+            // Buscar nombre del producto en catálogo local para mostrarlo offline
+            val nombreProducto = item.productoId?.let { pid ->
+                catalogoDao.getAllOnce().find { it.id == pid }?.nombre
+            } ?: "Equipo #${item.productoId}"
+
+            retiroDao.insert(RetiroPendienteEntity(
+                productoId  = item.productoId,
+                tecnicoId   = tecnicoIdActual,
+                nombre      = nombreProducto,
+                tipoEquipo  = item.tipoEquipo ?: "EQUIPO",
+                codigoPon   = item.codigoPon,
+                ordenId     = ordenId,
+            ))
+        }
+
+        // ── 2. Actualizar inventario local inmediatamente ──────────
+        // El técnico puede usar el equipo aunque no haya internet
+        val itemsActuales = inventarioDao.getItemsOnce()
+        val actualizados = itemsActuales.map { inv ->
+            val recuperado = items
+                .filter { it.productoId == inv.productoId }
+                .size.toDouble()  // cada item del retiro = 1 unidad
+            if (recuperado > 0) {
+                val nuevoAsignado   = inv.asignado + recuperado
+                val nuevoDisponible = maxOf(0.0, nuevoAsignado - inv.utilizado)
+                inv.copy(
+                    asignado   = nuevoAsignado,
+                    disponible = nuevoDisponible,
+                    sinStock   = nuevoDisponible == 0.0,
+                    // Actualizar metros si es medible
+                    asignadoMetros   = if (inv.esMedible && inv.metrosPorUnidad != null)
+                        nuevoAsignado * inv.metrosPorUnidad else inv.asignadoMetros,
+                    disponibleMetros = if (inv.esMedible && inv.metrosPorUnidad != null)
+                        nuevoDisponible * inv.metrosPorUnidad else inv.disponibleMetros,
+                )
+            } else inv
+        }
+        inventarioDao.insertItems(actualizados)
+
+        // ── 3. Intentar sincronizar si hay internet ────────────────
         if (isOnline()) {
             try {
                 val res = api.registrarRetiro(
                     RegistrarRetiroRequest(items = items, ordenId = ordenId)
                 )
                 if (res.isSuccessful) {
+                    // Marcar todos los recién insertados como sincronizados
+                    val pendientes = retiroDao.getPendientes()
+                    for (p in pendientes) retiroDao.marcarSincronizado(p.id)
+                    // Refrescar inventario desde servidor para confirmar
                     sincronizarInventario()
-                    return Resultado.Exito(Unit)
+                } else {
+                    programarSync()
                 }
             } catch (e: Exception) {
-                // Si falla, guardar pendiente para sync posterior
                 programarSync()
             }
         } else {
@@ -608,6 +665,39 @@ class Repository @Inject constructor(
         return Resultado.Exito(Unit)
     }
 
+    suspend fun registrarDevolucion(
+        items:      List<DevolucionItemRequest>,
+        comentario: String? = null
+    ): Resultado<Int> {
+        if (!isOnline()) return Resultado.Error("Sin conexión — las devoluciones requieren internet")
+        return try {
+            val res = api.registrarDevolucion(
+                RegistrarDevolucionRequest(items, comentario)
+            )
+            if (res.isSuccessful) {
+                val devolucionId = res.body()?.devolucionId ?: 0
+                // Refrescar inventario local — el stock del técnico no cambia
+                // hasta que el admin apruebe, así que NO actualizamos Room aquí
+                Resultado.Exito(devolucionId)
+            } else {
+                val error = res.errorBody()?.string() ?: "Error desconocido"
+                Resultado.Error(error)
+            }
+        } catch (e: Exception) {
+            Resultado.Error("Sin conexión al servidor")
+        }
+    }
+
+    suspend fun getMisDevoluciones(): Resultado<List<DevolucionDto>> {
+        if (!isOnline()) return Resultado.Error("Sin conexión")
+        return try {
+            val res = api.getMisDevoluciones()
+            if (res.isSuccessful) Resultado.Exito(res.body() ?: emptyList())
+            else Resultado.Error("Error al obtener devoluciones")
+        } catch (e: Exception) {
+            Resultado.Error("Sin conexión al servidor")
+        }
+    }
 }
 
 // ── Mappers ───────────────────────────────────────────────────

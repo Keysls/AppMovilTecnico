@@ -1399,7 +1399,13 @@ class InstalacionActivity : AppCompatActivity() {
             }
         }
 
-        actualizarListaMateriales()
+        // Solo actualizar lista para instalaciones; los retiros gestionan sus cards directamente
+        val tipoActual = vm.orden.value?.tipoOrden ?: ""
+        if (!esRetiro(tipoActual)) {
+            actualizarListaMateriales()
+        } else {
+            actualizarContadorMateriales()
+        }
     }
 
     // ── Paso 4: materiales gastados ───────────────────────────
@@ -1878,17 +1884,12 @@ class InstalacionActivity : AppCompatActivity() {
         val layoutVacio   = findViewById<android.widget.LinearLayout>(R.id.layoutMaterialesVacio) ?: return
         val tvContador    = findViewById<TextView>(R.id.tvMaterialesContador) ?: return
 
-        layoutLista.removeAllViews()
-
         val ordenTipo     = vm.orden.value?.tipoOrden ?: ""
         val esRetiroOrden = esRetiro(ordenTipo)
 
-        if (esRetiroOrden) {
-            // Para retiros las cards están en el layout — solo actualizar contador
-            val total = equiposRetirados.size
-            tvContador.visibility = if (total > 0) View.VISIBLE else View.GONE
-            if (total > 0) tvContador.text = "$total equipo${if (total != 1) "s" else ""}"
-            return
+        // Para retiros NO limpiar el layout — las cards se gestionan dinámicamente
+        if (!esRetiroOrden) {
+            layoutLista.removeAllViews()
         }
 
         // Para instalaciones: lista de materiales gastados
@@ -2010,7 +2011,7 @@ class InstalacionActivity : AppCompatActivity() {
             val fotosOk = vm.subirFotosPendientesSuspend()
 
             // 3. Registrar materiales gastados (offline-first — siempre)
-            if (materialesGastados.isNotEmpty()) {
+       /*     if (materialesGastados.isNotEmpty()) {
                 val consumoItems = materialesGastados.map { (productoId, cantidad) ->
                     ConsumoItemRequest(productoId, cantidad)
                 }
@@ -2037,6 +2038,39 @@ class InstalacionActivity : AppCompatActivity() {
                     )
                 }
 
+            }
+*/
+            // 3a. Registrar materiales gastados (solo instalaciones)
+            val ordenActual = vm.orden.value
+            if (materialesGastados.isNotEmpty()) {
+                val consumoItems = materialesGastados.map { (productoId, cantidad) ->
+                    ConsumoItemRequest(productoId, cantidad)
+                }
+                inventarioVm.registrarConsumo(
+                    items       = consumoItems,
+                    motivo      = "SERVICIO",
+                    descripcion = "Orden: $ordenId",
+                    ordenId     = ordenId,
+                    nServicio   = ordenActual?.nServicio,
+                    abonado     = ordenActual?.abonado,
+                    nombresMap  = nombresProductos
+                )
+            }
+
+// 3b. Registrar retiro de equipos (solo órdenes de retiro) — INDEPENDIENTE del if anterior
+            if (ordenActual != null && esRetiro(ordenActual.tipoOrden)) {
+                android.util.Log.d("InstalacionAct", "Registrando retiro: ${equiposRetirados.size} equipos, ordenId=$ordenId")
+                equiposRetirados.forEach { i ->
+                    android.util.Log.d("InstalacionAct", "  equipo: productoId=${i.productoId} tipo=${i.tipoEquipo} pon=${i.codigoPon}")
+                }
+                if (equiposRetirados.isNotEmpty()) {
+                    inventarioVm.registrarRetiro(
+                        items   = equiposRetirados.toList(),
+                        ordenId = ordenId,
+                    )
+                } else {
+                    android.util.Log.w("InstalacionAct", "⚠ Retiro sin equipos registrados")
+                }
             }
 
             // 4. Completar la instalación

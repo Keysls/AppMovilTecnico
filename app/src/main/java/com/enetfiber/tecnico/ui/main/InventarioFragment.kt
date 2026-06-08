@@ -68,22 +68,18 @@ class InventarioFragment : Fragment() {
 
     private fun setupObservers() {
         vm.uiState.observe(viewLifecycleOwner) { state ->
-            val asignados   = state.totalAsignados.toInt()
-            val utilizados  = state.totalUtilizados.toInt()
-            val disponibles = state.totalDisponibles.toInt()
-            val sinStock    = state.totalSinStock
+            val asignados  = state.totalAsignados.toInt()
+            val utilizados = state.totalUtilizados.toInt()
+            val sinStock   = state.totalSinStock
 
             binding.tvAsignados.text  = asignados.toString()
             binding.tvUtilizados.text = utilizados.toString()
-            binding.tvDisponibles.text = disponibles.toString()
-            binding.tvDisponiblesHeader.text = "$disponibles disponibles"
+            // tvDisponibles lo maneja vm.items para contar correctamente medibles
 
-            // Porcentaje utilizado
             val pct = if (asignados > 0) (utilizados * 100 / asignados) else 0
             binding.tvPorcentajeUtilizado.text =
                 if (asignados > 0) "$pct% del total asignado" else ""
 
-            // Sin stock badge
             if (sinStock > 0) {
                 binding.tvSinStock.text = "$sinStock ítem(s) sin stock"
                 binding.tvSinStock.visibility = View.VISIBLE
@@ -102,14 +98,19 @@ class InventarioFragment : Fragment() {
 
         vm.items.observe(viewLifecycleOwner) { items ->
             itemsAdapter.submitList(items)
+
+            // Contar items con stock — el rollo de fibra cuenta como 1 item aunque sea medible
+            val conStock = items.count { !it.sinStock }
+            binding.tvDisponibles.text       = conStock.toString()
+            binding.tvDisponiblesHeader.text = "$conStock disponibles"
+
             binding.tvEmptyItems.visibility =
                 if (items.isEmpty()) View.VISIBLE else View.GONE
 
-            // Banner sin stock — lista los productos agotados
-            val sinStock = items.filter { it.sinStock }
-            if (sinStock.isNotEmpty()) {
+            val sinStockLst = items.filter { it.sinStock }
+            if (sinStockLst.isNotEmpty()) {
                 binding.bannerSinStock.visibility = View.VISIBLE
-                binding.tvListaSinStock.text = sinStock.joinToString(", ") { it.nombre } +
+                binding.tvListaSinStock.text = sinStockLst.joinToString(", ") { it.nombre } +
                         ". Contactate con el administrador."
             } else {
                 binding.bannerSinStock.visibility = View.GONE
@@ -446,9 +447,14 @@ class RecojoAdapter :
         }
 
         // Comentario u orden asociada
+        // Mostrar contrato y cliente si están disponibles
         holder.tvCategoria.text = when {
-            !recojo.grupoOrden.isNullOrBlank() -> "Orden asociada"
-            !recojo.comentario.isNullOrBlank()  -> recojo.comentario
+            !recojo.contrato.isNullOrBlank() -> buildString {
+                append("Contrato: ${recojo.contrato}")
+                if (!recojo.abonado.isNullOrBlank()) append("  ·  ${recojo.abonado}")
+            }
+            !recojo.abonado.isNullOrBlank() -> recojo.abonado
+            !recojo.comentario.isNullOrBlank() -> recojo.comentario
             else -> ""
         }
 

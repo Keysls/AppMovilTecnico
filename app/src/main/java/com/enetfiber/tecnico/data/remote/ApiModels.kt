@@ -307,6 +307,9 @@ data class RecojoDto(
     val cliente:        String?,
     val comentario:     String?,
     val grupoOrden:     String?,
+    val nServicio:      String? = null,  // ← NUEVO
+    val abonado:        String? = null,  // ← NUEVO
+    val contrato:       String? = null,  // ← NUEVO
     val fecha:          String?,
 )
 
@@ -318,4 +321,35 @@ data class RegistrarRetiroResponse(
 data class CambiarPasswordRequest(
     val passwordActual: String,
     val passwordNueva:  String
+)
+
+data class DevolucionItemRequest(
+    val productoId: Int,
+    val cantidad:   Double
+)
+
+data class RegistrarDevolucionRequest(
+    val items:      List<DevolucionItemRequest>,
+    val comentario: String? = null
+)
+
+data class DevolucionDetalleDto(
+    val productoId: Int,
+    val nombre:     String,
+    val unidad:     String?,
+    val cantidad:   Double
+)
+
+data class DevolucionDto(
+    val id:            Int,
+    val estado:        String,   // pendiente | aprobado | rechazado
+    val comentario:    String?,
+    val fecha:         String?,
+    val fechaRevision: String?,
+    val detalles:      List<DevolucionDetalleDto>
+)
+
+data class RegistrarDevolucionResponse(
+    val ok:          Boolean,
+    val devolucionId: Int
 )

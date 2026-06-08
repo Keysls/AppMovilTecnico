@@ -17,8 +17,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         InventarioOnuEntity::class,
         ConsumoPendienteEntity::class,
         CatalogoProductoEntity::class,  // ← catálogo para retiros offline
+        RetiroPendienteEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -31,6 +32,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun inventarioDao(): InventarioDao          // ← NUEVO
     abstract fun consumoPendienteDao(): ConsumoPendienteDao
     abstract fun catalogoProductoDao(): CatalogoProductoDao
+    abstract fun retiroPendienteDao(): RetiroPendienteDao   // ← NUEVO
+
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -158,6 +161,24 @@ abstract class AppDatabase : RoomDatabase() {
                         categoria TEXT,
                         unidad TEXT,
                         cachedAt INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS retiro_pendiente (
+                        id           INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                        productoId   INTEGER,
+                        tecnicoId    TEXT    NOT NULL DEFAULT '',
+                        nombre       TEXT    NOT NULL DEFAULT '',
+                        tipoEquipo   TEXT    NOT NULL DEFAULT 'EQUIPO',
+                        codigoPon    TEXT,
+                        ordenId      TEXT,
+                        sincronizado INTEGER NOT NULL DEFAULT 0,
+                        creadoEn     INTEGER NOT NULL
                     )
                 """.trimIndent())
             }
