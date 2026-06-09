@@ -1813,7 +1813,7 @@
                         android:id="@+id/btnCompletar"
                         android:layout_width="match_parent"
                         android:layout_height="56dp"
-                        android:text="✅  Completar instalación"
+                        android:text=" Completar "
                         android:textColor="@color/white"
                         android:textSize="15sp"
                         android:textStyle="bold"

@@ -1451,27 +1451,20 @@ class InstalacionActivity : AppCompatActivity() {
             val btnAgregarMaterial = findViewById<View>(R.id.btnAgregarMaterial)
             btnAgregarMaterial?.setOnClickListener {
                 val layoutLista = findViewById<android.widget.LinearLayout>(R.id.layoutListaMateriales)
-                // Recoger productoIds ya seleccionados en filas existentes
                 val yaSeleccionados = mutableSetOf<Int>()
                 if (layoutLista != null) {
                     for (i in 0 until layoutLista.childCount) {
                         val row     = layoutLista.getChildAt(i)
                         val spinner = row?.findViewById<android.widget.Spinner>(R.id.spinnerItem)
-                        val pos     = spinner?.selectedItemPosition ?: 0
-                        if (pos > 0) {
-                            // items del cache filtrados con stock > 0 (misma lista base)
-                            val baseItems = itemsInventarioCache.filter {
-                                it.disponible > 0 || (it.esMedible && (it.disponibleMetros ?: 0.0) > 0)
-                            }
-                            if (pos - 1 < baseItems.size) {
-                                yaSeleccionados.add(baseItems[pos - 1].productoId)
-                            }
+                        val productoId = spinner?.tag as? Int
+                        if (productoId != null) {
+                            yaSeleccionados.add(productoId)
                         }
                     }
                 }
                 val itemsFrescos = itemsInventarioCache.filter {
                     (it.disponible > 0 || (it.esMedible && (it.disponibleMetros ?: 0.0) > 0))
-                            && it.productoId !in yaSeleccionados  // ← excluir los ya en uso
+                            && it.productoId !in yaSeleccionados
                 }
                 if (itemsFrescos.isEmpty()) {
                     inventarioVm.cargarMetricas(sincronizar = true)
@@ -1871,8 +1864,10 @@ class InstalacionActivity : AppCompatActivity() {
         // Cuando selecciona un item, mostrar hint con unidad y máx
         spinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: android.widget.AdapterView<*>, v: android.view.View?, pos: Int, id: Long) {
+
                 if (pos == 0) { tvHint.visibility = android.view.View.GONE; return }
                 val item = items[pos - 1]
+                spinner.tag = item.productoId  // ← guardar el productoId seleccionado
                 val maxCant = if (item.esMedible && item.metrosPorUnidad != null && item.disponibleMetros != null) {
                     tvHint.text = "m  ·  máx ${item.disponibleMetros.toInt()} m"
                     etCant.hint = item.disponibleMetros.toInt().toString()
@@ -1941,23 +1936,26 @@ class InstalacionActivity : AppCompatActivity() {
             val row     = layoutLista.getChildAt(i)
             val spinner = row.findViewById<android.widget.Spinner>(R.id.spinnerItem) ?: continue
             val etCant  = row.findViewById<android.widget.EditText>(R.id.etCantidad) ?: continue
-            val pos     = spinner.selectedItemPosition
-            if (pos <= 0) continue
-            val item    = items[pos - 1]
-            val cant    = etCant.text.toString().toDoubleOrNull() ?: 0.0
+
+            // ── Usar tag en lugar de buscar por posición en items ──
+            val productoId = spinner.tag as? Int ?: continue
+            val item = itemsInventarioCache.firstOrNull { it.productoId == productoId } ?: continue
+
+            val cant = etCant.text.toString().toDoubleOrNull() ?: 0.0
             if (cant <= 0) continue
-            // Para productos medibles: el técnico ingresa metros → convertir a unidades
+
             val cantFinal = if (item.esMedible && item.metrosPorUnidad != null && item.metrosPorUnidad > 0) {
                 val maxMetros = item.disponibleMetros ?: item.disponible * item.metrosPorUnidad
                 minOf(cant, maxMetros) / item.metrosPorUnidad
             } else {
                 minOf(cant, item.disponible)
             }
-            val idx = materialesGastados.indexOfFirst { it.first == item.productoId }
-            if (idx >= 0) materialesGastados[idx] = Pair(item.productoId, cantFinal)
+
+            val idx = materialesGastados.indexOfFirst { it.first == productoId }
+            if (idx >= 0) materialesGastados[idx] = Pair(productoId, cantFinal)
             else {
-                materialesGastados.add(Pair(item.productoId, cantFinal))
-                nombresProductos[item.productoId] = item.nombre
+                materialesGastados.add(Pair(productoId, cantFinal))
+                nombresProductos[productoId] = item.nombre
             }
         }
         actualizarContadorMateriales()
