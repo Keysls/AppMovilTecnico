@@ -629,6 +629,10 @@ class InventarioViewModel @Inject constructor(
     }
 
     private var ultimaSync: Long = 0L
+    fun forzarSync() {
+        ultimaSync = 0L
+        cargarMetricas(sincronizar = true)
+    }
     private val MIN_INTERVALO_SYNC = 30_000L
 
     init { cargarMetricas() }
@@ -663,7 +667,9 @@ class InventarioViewModel @Inject constructor(
                 try {
                     val inv = repo.api.getMiInventario()
                     if (inv.isSuccessful) {
-                        _recojos.postValue(inv.body()?.recojos ?: emptyList())
+                        val soloEnMano = (inv.body()?.recojos ?: emptyList())
+                            .filter { it.estado == "en_mano" }
+                        _recojos.postValue(soloEnMano)
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("InventarioVM", "Error recojos: ${e.message}")

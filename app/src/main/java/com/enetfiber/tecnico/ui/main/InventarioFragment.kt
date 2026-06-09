@@ -162,7 +162,7 @@ class InventarioFragment : Fragment() {
 
     private fun setupListeners() {
         binding.swipeRefresh.setOnRefreshListener {
-            vm.cargarMetricas(sincronizar = true)
+            vm.forzarSync()
             binding.swipeRefresh.isRefreshing = false
         }
         /*binding.btnRegistrarConsumo.setOnClickListener {
@@ -464,14 +464,8 @@ class RecojoAdapter :
             else -> ""
         }
 
-        // Estado con color
-        val (estadoTexto, textColor, bgColor) = when (recojo.estado) {
-            "entregado" -> Triple("entregado", "#16A34A", "#DCFCE7")
-            "revision"  -> Triple("en revisión", "#2563EB", "#EFF6FF")
-            else        -> Triple("pendiente",   "#D97706", "#FEF3C7")
-        }
-        holder.tvEstado.text = estadoTexto
-        holder.tvEstado.setTextColor(android.graphics.Color.parseColor(textColor))
-        holder.tvEstado.setBackgroundColor(android.graphics.Color.parseColor(bgColor))
+        holder.tvEstado.text = "📦 En mano"
+        holder.tvEstado.setTextColor(android.graphics.Color.parseColor("#7C3AED"))
+        holder.tvEstado.setBackgroundColor(android.graphics.Color.parseColor("#F5F3FF"))
     }
 }

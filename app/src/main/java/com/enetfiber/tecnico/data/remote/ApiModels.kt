@@ -347,10 +347,13 @@ data class DevolucionDetalleDto(
 )
 
 data class DevolucionRecojoDto(
-    val id:         Int,
-    val tipoEquipo: String,
-    val codigoPon:  String?,
-    val estado:     String   // en_revision | entregado | malogrado
+    val id:             Int,
+    val tipoEquipo:     String,
+    val codigoPon:      String?,
+    val estado:         String,
+    val nombreProducto: String? = null,   // ← AGREGAR
+    val nServicio:      String? = null,   // ← AGREGAR
+    val abonado:        String? = null,   // ← AGREGAR
 )
 
 data class DevolucionDto(

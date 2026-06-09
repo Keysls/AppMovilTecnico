@@ -63,6 +63,11 @@ class DevolucionActivity : AppCompatActivity() {
         observar()
         agregarFila()
         vm.cargarDevoluciones()
+        binding.swipeRefreshDevoluciones?.setOnRefreshListener {
+            vm.forzarSync()
+            vm.cargarDevoluciones()
+            binding.swipeRefreshDevoluciones?.isRefreshing = false
+        }
     }
 
     private fun setupHistorial() {
@@ -129,6 +134,8 @@ class DevolucionActivity : AppCompatActivity() {
                     agregarFila()
                     binding.btnEnviarDevolucion.isEnabled = true
                     binding.btnEnviarDevolucion.text = "Enviar devolución"
+                    vm.forzarSync()           // ← AGREGAR
+                    vm.cargarDevoluciones()   // ← AGREGAR
                     vm.resetDevolucionState()
                 }
                 is InventarioViewModel.DevolucionState.Error -> {
@@ -379,8 +386,14 @@ class DevolucionHistorialAdapter :
         // Recojos devueltos
         val recojos = dev.recojos
         if (recojos.isNotEmpty()) {
-            holder.tvRecojos.text = recojos.joinToString(" · ") {
-                "♻ ${it.tipoEquipo}${if (!it.codigoPon.isNullOrBlank()) " (${it.codigoPon})" else ""}"
+            holder.tvRecojos.text = recojos.joinToString("\n") {
+                buildString {
+                    append("♻ ${it.tipoEquipo}")
+                    if (!it.codigoPon.isNullOrBlank()) append(" · ${it.codigoPon}")
+                    if (!it.nombreProducto.isNullOrBlank()) append("\n   ${it.nombreProducto}")
+                    if (!it.nServicio.isNullOrBlank()) append(" · Orden #${it.nServicio}")
+                    if (!it.abonado.isNullOrBlank()) append(" · ${it.abonado}")
+                }
             }
             holder.tvRecojos.visibility = View.VISIBLE
         } else {
