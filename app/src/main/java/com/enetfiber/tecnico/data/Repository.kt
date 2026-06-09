@@ -665,17 +665,16 @@ class Repository @Inject constructor(
 
     suspend fun registrarDevolucion(
         items:      List<DevolucionItemRequest>,
+        recojos:    List<DevolucionRecojoRequest> = emptyList(),
         comentario: String? = null
     ): Resultado<Int> {
         if (!isOnline()) return Resultado.Error("Sin conexión — las devoluciones requieren internet")
         return try {
             val res = api.registrarDevolucion(
-                RegistrarDevolucionRequest(items, comentario)
+                RegistrarDevolucionRequest(items, recojos, comentario)
             )
             if (res.isSuccessful) {
                 val devolucionId = res.body()?.devolucionId ?: 0
-                // Refrescar inventario local — el stock del técnico no cambia
-                // hasta que el admin apruebe, así que NO actualizamos Room aquí
                 Resultado.Exito(devolucionId)
             } else {
                 val error = res.errorBody()?.string() ?: "Error desconocido"

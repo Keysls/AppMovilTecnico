@@ -759,21 +759,23 @@ class InventarioViewModel @Inject constructor(
 
     fun registrarDevolucion(
         items:      List<DevolucionItemRequest>,
+        recojos:    List<DevolucionRecojoRequest> = emptyList(),
         comentario: String? = null
     ) {
-        if (items.isEmpty()) return
         viewModelScope.launch {
             _devolucionState.value = DevolucionState.Guardando
-            val r = repo.registrarDevolucion(items, comentario)
+            val r = repo.registrarDevolucion(items, recojos, comentario)
             if (r is Resultado.Exito) {
-                // Refrescar devoluciones
                 cargarDevoluciones()
+                // Refrescar recojos — los que se devolvieron ya no están en_mano
+                cargarMetricas(sincronizar = true)
                 _devolucionState.value = DevolucionState.Exito
             } else {
                 _devolucionState.value = DevolucionState.Error((r as Resultado.Error).mensaje)
             }
         }
     }
+
 
     fun cargarDevoluciones() {
         viewModelScope.launch {

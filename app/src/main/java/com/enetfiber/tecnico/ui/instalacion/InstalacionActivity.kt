@@ -1450,12 +1450,32 @@ class InstalacionActivity : AppCompatActivity() {
             }
             val btnAgregarMaterial = findViewById<View>(R.id.btnAgregarMaterial)
             btnAgregarMaterial?.setOnClickListener {
+                val layoutLista = findViewById<android.widget.LinearLayout>(R.id.layoutListaMateriales)
+                // Recoger productoIds ya seleccionados en filas existentes
+                val yaSeleccionados = mutableSetOf<Int>()
+                if (layoutLista != null) {
+                    for (i in 0 until layoutLista.childCount) {
+                        val row     = layoutLista.getChildAt(i)
+                        val spinner = row?.findViewById<android.widget.Spinner>(R.id.spinnerItem)
+                        val pos     = spinner?.selectedItemPosition ?: 0
+                        if (pos > 0) {
+                            // items del cache filtrados con stock > 0 (misma lista base)
+                            val baseItems = itemsInventarioCache.filter {
+                                it.disponible > 0 || (it.esMedible && (it.disponibleMetros ?: 0.0) > 0)
+                            }
+                            if (pos - 1 < baseItems.size) {
+                                yaSeleccionados.add(baseItems[pos - 1].productoId)
+                            }
+                        }
+                    }
+                }
                 val itemsFrescos = itemsInventarioCache.filter {
-                    it.disponible > 0 || (it.esMedible && (it.disponibleMetros ?: 0.0) > 0)
+                    (it.disponible > 0 || (it.esMedible && (it.disponibleMetros ?: 0.0) > 0))
+                            && it.productoId !in yaSeleccionados  // ← excluir los ya en uso
                 }
                 if (itemsFrescos.isEmpty()) {
                     inventarioVm.cargarMetricas(sincronizar = true)
-                    Toast.makeText(this, "Cargando inventario, intenta en un momento...", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Sin más ítems disponibles", Toast.LENGTH_SHORT).show()
                 } else {
                     agregarFilaMaterial(itemsFrescos)
                 }
@@ -1863,6 +1883,19 @@ class InstalacionActivity : AppCompatActivity() {
                     item.disponible.toInt()
                 }
                 tvHint.visibility = android.view.View.VISIBLE
+                // ── Badge ♻ si es un equipo reciclado ───────────────────
+                val tvReciclado = rowView.findViewById<android.widget.TextView>(R.id.tvReciclado)
+                val esReciclado = inventarioVm.recojos.value?.any {
+                    it.productoId == item.productoId && it.estado == "en_mano"
+                } == true
+                if (tvReciclado != null) {
+                    if (esReciclado) {
+                        tvReciclado.visibility = android.view.View.VISIBLE
+                        tvReciclado.text = "♻ Reciclado"
+                    } else {
+                        tvReciclado.visibility = android.view.View.GONE
+                    }
+                }
                 // Validar y sincronizar cuando cambia la cantidad
                 etCant.addTextChangedListener(object : android.text.TextWatcher {
                     override fun afterTextChanged(s: android.text.Editable?) {

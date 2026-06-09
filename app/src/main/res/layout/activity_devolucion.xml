@@ -7,7 +7,6 @@
     android:orientation="vertical"
     android:background="#F8FAFC">
 
-    <!-- Header -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
@@ -55,14 +54,76 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Selecciona los productos que deseas devolver al almacén. El admin deberá aprobar la devolución."
+                        android:text="Selecciona los productos y/o equipos reciclados que deseas devolver al almacén. El admin deberá aprobar."
                         android:textSize="12sp"
                         android:textColor="#1E40AF"
                         android:lineSpacingExtra="2dp"/>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Título items -->
+            <!-- ── Sección: Equipos reciclados ♻ ── -->
+            <LinearLayout
+                android:id="@+id/sectionRecojos"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    app:cardBackgroundColor="#FFFFFF"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="#BBF7D0"
+                    app:strokeWidth="1dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <!-- Header sección -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:padding="12dp"
+                            android:background="#F0FDF4">
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="♻ Equipos reciclados en tu poder"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                android:textColor="#166534"/>
+                        </LinearLayout>
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Selecciona los que deseas devolver para revisión del admin."
+                            android:textSize="11sp"
+                            android:textColor="#64748B"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp"
+                            android:paddingTop="8dp"
+                            android:paddingBottom="4dp"/>
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rvRecojos"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:nestedScrollingEnabled="false"
+                            android:padding="8dp"/>
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
+
+            <!-- ── Sección: Material regular ── -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -72,14 +133,12 @@
                 android:textColor="#0F172A"
                 android:layout_marginBottom="10dp"/>
 
-            <!-- Lista de items a devolver -->
             <LinearLayout
                 android:id="@+id/layoutItems"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"/>
 
-            <!-- Botón agregar item -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnAgregarItem"
                 android:layout_width="match_parent"
@@ -126,7 +185,7 @@
                     android:importantForAutofill="no"/>
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Historial de devoluciones -->
+            <!-- Historial -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -146,18 +205,15 @@
                 app:cardElevation="0dp"
                 app:strokeColor="#E2E8F0"
                 app:strokeWidth="1dp">
-
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
-
                     <androidx.recyclerview.widget.RecyclerView
                         android:id="@+id/rvDevoluciones"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:nestedScrollingEnabled="false"/>
-
                     <TextView
                         android:id="@+id/tvEmptyDevoluciones"
                         android:layout_width="match_parent"
@@ -168,14 +224,12 @@
                         android:textColor="#94A3B8"
                         android:gravity="center"
                         android:visibility="gone"/>
-
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
     </ScrollView>
 
-    <!-- Botón enviar fijo abajo -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -183,7 +237,6 @@
         android:background="#FFFFFF"
         android:elevation="8dp"
         android:padding="16dp">
-
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnEnviarDevolucion"
             android:layout_width="match_parent"
@@ -196,7 +249,6 @@
             app:cornerRadius="12dp"
             app:backgroundTint="#2563EB"
             style="@style/Widget.MaterialComponents.Button"/>
-
     </LinearLayout>
 
 </LinearLayout>

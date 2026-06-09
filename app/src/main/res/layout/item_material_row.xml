@@ -64,4 +64,19 @@
         android:layout_marginTop="3dp"
         android:visibility="gone"/>
 
+    <TextView
+        android:id="@+id/tvReciclado"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="♻ Reciclado"
+        android:textSize="10sp"
+        android:textColor="#065F46"
+        android:background="@drawable/bg_badge_reciclado"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp"
+        android:visibility="gone"
+        android:layout_marginTop="2dp" />
+
 </LinearLayout>

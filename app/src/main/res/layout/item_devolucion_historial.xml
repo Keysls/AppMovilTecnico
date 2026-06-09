@@ -32,10 +32,9 @@
             android:textSize="11sp"
             android:textColor="#94A3B8"
             android:layout_marginStart="8dp"/>
-
     </LinearLayout>
 
-    <!-- Items devueltos -->
+    <!-- Items devueltos (material regular) -->
     <TextView
         android:id="@+id/tvItems"
         android:layout_width="match_parent"
@@ -43,6 +42,16 @@
         android:textSize="13sp"
         android:textColor="#0F172A"
         android:lineSpacingExtra="2dp"/>
+
+    <!-- Recojos devueltos ♻ -->
+    <TextView
+        android:id="@+id/tvRecojosDevueltos"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:textColor="#166534"
+        android:layout_marginTop="4dp"
+        android:visibility="gone"/>
 
     <!-- Comentario -->
     <TextView

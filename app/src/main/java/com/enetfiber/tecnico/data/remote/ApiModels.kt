@@ -259,7 +259,12 @@ data class MiInventarioResponse(
 // Request para registrar material gastado
 data class ConsumoItemRequest(
     val productoId: Int,
-    val cantidad:   Double
+    val cantidad:   Double,
+    val recojoId:   Int? = null   // ← NUEVO: si viene de un recojo
+)
+
+data class DevolucionRecojoRequest(
+    val recojoId: Int
 )
 
 data class RegistrarConsumoRequest(
@@ -330,6 +335,7 @@ data class DevolucionItemRequest(
 
 data class RegistrarDevolucionRequest(
     val items:      List<DevolucionItemRequest>,
+    val recojos:    List<DevolucionRecojoRequest> = emptyList(),  // ← NUEVO
     val comentario: String? = null
 )
 
@@ -340,13 +346,21 @@ data class DevolucionDetalleDto(
     val cantidad:   Double
 )
 
+data class DevolucionRecojoDto(
+    val id:         Int,
+    val tipoEquipo: String,
+    val codigoPon:  String?,
+    val estado:     String   // en_revision | entregado | malogrado
+)
+
 data class DevolucionDto(
     val id:            Int,
-    val estado:        String,   // pendiente | aprobado | rechazado
+    val estado:        String,
     val comentario:    String?,
     val fecha:         String?,
     val fechaRevision: String?,
-    val detalles:      List<DevolucionDetalleDto>
+    val detalles:      List<DevolucionDetalleDto>,
+    val recojos:       List<DevolucionRecojoDto> = emptyList()  // ← NUEVO
 )
 
 data class RegistrarDevolucionResponse(
