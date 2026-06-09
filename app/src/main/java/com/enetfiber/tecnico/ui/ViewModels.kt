@@ -768,6 +768,7 @@ class InventarioViewModel @Inject constructor(
             if (r is Resultado.Exito) {
                 cargarDevoluciones()
                 // Refrescar recojos — los que se devolvieron ya no están en_mano
+                ultimaSync = 0L
                 cargarMetricas(sincronizar = true)
                 _devolucionState.value = DevolucionState.Exito
             } else {
@@ -781,6 +782,9 @@ class InventarioViewModel @Inject constructor(
         viewModelScope.launch {
             val r = repo.getMisDevoluciones()
             if (r is Resultado.Exito) _devoluciones.value = r.data
+            // Refrescar inventario también — puede haber cambios de estado
+            ultimaSync = 0L
+            cargarMetricas(sincronizar = true)
         }
     }
 
