@@ -388,10 +388,9 @@ class DevolucionHistorialAdapter :
         if (recojos.isNotEmpty()) {
             holder.tvRecojos.text = recojos.joinToString("\n") {
                 buildString {
-                    append("♻ ${it.tipoEquipo}")
+                    append("♻ ${it.nombreProducto ?: it.tipoEquipo}")
                     if (!it.codigoPon.isNullOrBlank()) append(" · ${it.codigoPon}")
-                    if (!it.nombreProducto.isNullOrBlank()) append("\n   ${it.nombreProducto}")
-                    if (!it.nServicio.isNullOrBlank()) append(" · Orden #${it.nServicio}")
+                    if (!it.contrato.isNullOrBlank()) append("\n   Contrato: ${it.contrato}")
                     if (!it.abonado.isNullOrBlank()) append(" · ${it.abonado}")
                 }
             }

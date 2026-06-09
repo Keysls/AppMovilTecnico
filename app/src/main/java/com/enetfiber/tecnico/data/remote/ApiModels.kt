@@ -351,9 +351,9 @@ data class DevolucionRecojoDto(
     val tipoEquipo:     String,
     val codigoPon:      String?,
     val estado:         String,
-    val nombreProducto: String? = null,   // ← AGREGAR
-    val nServicio:      String? = null,   // ← AGREGAR
-    val abonado:        String? = null,   // ← AGREGAR
+    val nombreProducto: String? = null,
+    val contrato:       String? = null,  // ← reemplaza nServicio
+    val abonado:        String? = null,
 )
 
 data class DevolucionDto(
