@@ -1488,6 +1488,8 @@ class InstalacionActivity : AppCompatActivity() {
     private var itemsInventarioCache: List<com.enetfiber.tecnico.data.local.InventarioItemEntity> = emptyList()
     // Lista de pares (productoId, cantidad) que el técnico registró
     private val materialesGastados = mutableListOf<Pair<Int, Double>>()
+    // Mapa productoId → codigoPon seleccionado (para ONUs)
+    private val onusSeleccionadas = mutableMapOf<Int, String>()
     // Mapa id→nombre para mostrar offline
     private val nombresProductos   = mutableMapOf<Int, String>()
 
@@ -1830,6 +1832,8 @@ class InstalacionActivity : AppCompatActivity() {
         val tvHint   = rowView.findViewById<android.widget.TextView>(R.id.tvHint)
         val btnElim  = rowView.findViewById<android.widget.ImageView>(R.id.btnEliminar)
 
+
+
         // Llenar spinner con "Nombre — disp: X unidad" (o metros si es medible)
         val opciones = listOf("Seleccionar ítem...") +
                 items.map { item ->
@@ -1867,7 +1871,129 @@ class InstalacionActivity : AppCompatActivity() {
 
                 if (pos == 0) { tvHint.visibility = android.view.View.GONE; return }
                 val item = items[pos - 1]
-                spinner.tag = item.productoId  // ← guardar el productoId seleccionado
+                spinner.tag = item.productoId
+
+// ── Sección ONU: mostrar chips de códigos PON ─────────────
+                val dp = resources.displayMetrics.density
+                val esOnuProducto = item.categoria?.lowercase()?.let {
+                    it.contains("onu") || it.contains("ont")
+                } == true || item.nombre.lowercase().let {
+                    it.contains("onu") || it.contains("ont")
+                }
+
+// Buscar o crear la onuSection dentro del rowView
+                var onuSection = rowView.findViewWithTag<android.widget.LinearLayout>("onu_section_${item.productoId}")
+                if (onuSection == null) {
+                    onuSection = android.widget.LinearLayout(this@InstalacionActivity).apply {
+                        tag = "onu_section_${item.productoId}"
+                        orientation = android.widget.LinearLayout.VERTICAL
+                        visibility = android.view.View.GONE
+                        layoutParams = android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { topMargin = (10 * dp).toInt() }
+                    }
+                    (rowView as? android.widget.LinearLayout)?.addView(onuSection)
+                }
+
+                if (esOnuProducto) {
+                    // Ocultar cantidad — no aplica para ONUs
+                    etCant.visibility = android.view.View.GONE
+                    tvHint.visibility = android.view.View.GONE
+                    onuSection.visibility = android.view.View.VISIBLE
+                    onuSection.removeAllViews()
+
+                    // Label
+                    val tvLabel = android.widget.TextView(this@InstalacionActivity).apply {
+                        text = "◈  SELECCIONÁ LA ONU A USAR"
+                        textSize = 10f
+                        typeface = android.graphics.Typeface.DEFAULT_BOLD
+                        setTextColor(android.graphics.Color.parseColor("#7C3AED"))
+                        letterSpacing = 0.06f
+                        layoutParams = android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { bottomMargin = (8 * dp).toInt() }
+                    }
+                    onuSection.addView(tvLabel)
+
+                    // Chips container
+                    val chipsRow = android.widget.LinearLayout(this@InstalacionActivity).apply {
+                        orientation = android.widget.LinearLayout.HORIZONTAL
+                        layoutParams = android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+                    }
+                    onuSection.addView(chipsRow)
+
+                    val onusDelProducto = inventarioVm.onus.value
+                        ?.filter { it.productoId == item.productoId }
+                        ?: emptyList()
+
+                    if (onusDelProducto.isEmpty()) {
+                        val tvVacio = android.widget.TextView(this@InstalacionActivity).apply {
+                            text = "Sin ONUs disponibles"
+                            textSize = 12f
+                            setTextColor(android.graphics.Color.parseColor("#94A3B8"))
+                        }
+                        chipsRow.addView(tvVacio)
+                    } else {
+                        onusDelProducto.forEach { onu ->
+                            val chip = android.widget.TextView(this@InstalacionActivity).apply {
+                                text = onu.codigoPon ?: "SIN CÓDIGO"
+                                textSize = 12f
+                                typeface = android.graphics.Typeface.MONOSPACE
+                                setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
+                                background = getDrawable(R.drawable.input_bg)
+                                setPadding(
+                                    (10 * dp).toInt(), (6 * dp).toInt(),
+                                    (10 * dp).toInt(), (6 * dp).toInt()
+                                )
+                                isClickable = true; isFocusable = true
+                                layoutParams = android.widget.LinearLayout.LayoutParams(
+                                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                                ).apply { marginEnd = (8 * dp).toInt() }
+                            }
+                            chip.setOnClickListener {
+                                // Deseleccionar todos los chips de esta fila
+                                for (i in 0 until chipsRow.childCount) {
+                                    val c = chipsRow.getChildAt(i) as? android.widget.TextView
+                                    c?.setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
+                                    c?.background = getDrawable(R.drawable.input_bg)
+                                }
+                                // Seleccionar este
+                                chip.setTextColor(android.graphics.Color.WHITE)
+                                chip.setBackgroundColor(android.graphics.Color.parseColor("#7C3AED"))
+                                // Guardar selección
+                                onu.codigoPon?.let { ponCode ->
+                                    onusSeleccionadas[item.productoId] = ponCode
+                                }
+                                // Registrar en materialesGastados con cantidad 1
+                                val idx = materialesGastados.indexOfFirst { it.first == item.productoId }
+                                if (idx >= 0) materialesGastados[idx] = Pair(item.productoId, 1.0)
+                                else {
+                                    materialesGastados.add(Pair(item.productoId, 1.0))
+                                    nombresProductos[item.productoId] = item.nombre
+                                }
+                                actualizarContadorMateriales()
+                            }
+                            chipsRow.addView(chip)
+                        }
+                    }
+                } else {
+                    // Producto normal: mostrar cantidad, ocultar ONU
+                    etCant.visibility = android.view.View.VISIBLE
+                    tvHint.visibility = android.view.View.VISIBLE
+                    onuSection.visibility = android.view.View.GONE
+                    onusSeleccionadas.remove(item.productoId)
+                }
+
+
+
+
+
                 val maxCant = if (item.esMedible && item.metrosPorUnidad != null && item.disponibleMetros != null) {
                     tvHint.text = "m  ·  máx ${item.disponibleMetros.toInt()} m"
                     etCant.hint = item.disponibleMetros.toInt().toString()
@@ -2136,7 +2262,11 @@ class InstalacionActivity : AppCompatActivity() {
             val ordenActual = vm.orden.value
             if (materialesGastados.isNotEmpty()) {
                 val consumoItems = materialesGastados.map { (productoId, cantidad) ->
-                    ConsumoItemRequest(productoId, cantidad)
+                    ConsumoItemRequest(
+                        productoId = productoId,
+                        cantidad   = cantidad,
+                        codigoPon  = onusSeleccionadas[productoId]
+                    )
                 }
                 inventarioVm.registrarConsumo(
                     items       = consumoItems,

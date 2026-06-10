@@ -260,7 +260,8 @@ data class MiInventarioResponse(
 data class ConsumoItemRequest(
     val productoId: Int,
     val cantidad:   Double,
-    val recojoId:   Int? = null   // ← NUEVO: si viene de un recojo
+    val recojoId:   Int? = null,
+    val codigoPon:  String? = null
 )
 
 data class DevolucionRecojoRequest(
