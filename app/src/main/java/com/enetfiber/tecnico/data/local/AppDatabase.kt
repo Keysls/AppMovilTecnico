@@ -19,7 +19,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         CatalogoProductoEntity::class,  // ← catálogo para retiros offline
         RetiroPendienteEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -183,5 +183,15 @@ abstract class AppDatabase : RoomDatabase() {
                 """.trimIndent())
             }
         }
+
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE inventario_onus ADD COLUMN productoId INTEGER"
+                )
+            }
+        }
+
+
     }
 }

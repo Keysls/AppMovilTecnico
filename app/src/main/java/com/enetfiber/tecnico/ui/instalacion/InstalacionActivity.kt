@@ -259,6 +259,59 @@ class InstalacionActivity : AppCompatActivity() {
 
         // Cargar inventario del técnico al iniciar la activity
         inventarioVm.cargarMetricas(sincronizar = true)
+
+        // Observer global de ONUs — actualiza chips del producto actualmente visible
+        inventarioVm.onus.observe(this) { onus ->
+            val layoutLista = findViewById<android.widget.LinearLayout>(R.id.layoutListaMateriales) ?: return@observe
+            for (i in 0 until layoutLista.childCount) {
+                val row = layoutLista.getChildAt(i) ?: continue
+                val spinner = row.findViewById<android.widget.Spinner>(R.id.spinnerItem) ?: continue
+                val productoId = spinner.tag as? Int ?: continue
+                val chipsRow = row.findViewWithTag<android.widget.LinearLayout>("chips_row_$productoId") ?: continue
+                val onuSection = row.findViewWithTag<android.widget.LinearLayout>("onu_section_$productoId") ?: continue
+                if (onuSection.visibility != android.view.View.VISIBLE) continue
+                chipsRow.removeAllViews()
+                val filtradas = (onus ?: emptyList()).filter { it.productoId == productoId }
+                if (filtradas.isEmpty()) {
+                    chipsRow.addView(android.widget.TextView(this).apply {
+                        text = "Sin ONUs disponibles"; textSize = 12f
+                        setTextColor(android.graphics.Color.parseColor("#94A3B8"))
+                    })
+                } else {
+                    val dp = resources.displayMetrics.density
+                    filtradas.forEach { onu ->
+                        val chip = android.widget.TextView(this).apply {
+                            text = onu.codigoPon ?: "SIN CÓDIGO"; textSize = 12f
+                            typeface = android.graphics.Typeface.MONOSPACE
+                            setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
+                            background = getDrawable(R.drawable.input_bg)
+                            setPadding((10*dp).toInt(),(6*dp).toInt(),(10*dp).toInt(),(6*dp).toInt())
+                            isClickable = true; isFocusable = true
+                            layoutParams = android.widget.LinearLayout.LayoutParams(
+                                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                            ).apply { marginEnd = (8*dp).toInt() }
+                        }
+                        chip.setOnClickListener {
+                            for (j in 0 until chipsRow.childCount) {
+                                val c = chipsRow.getChildAt(j) as? android.widget.TextView
+                                c?.setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
+                                c?.background = getDrawable(R.drawable.input_bg)
+                            }
+                            chip.setTextColor(android.graphics.Color.WHITE)
+                            chip.setBackgroundColor(android.graphics.Color.parseColor("#7C3AED"))
+                            onu.codigoPon?.let { onusSeleccionadas[productoId] = it }
+                            val idx = materialesGastados.indexOfFirst { it.first == productoId }
+                            val nombre = itemsInventarioCache.firstOrNull { it.productoId == productoId }?.nombre ?: ""
+                            if (idx >= 0) materialesGastados[idx] = Pair(productoId, 1.0)
+                            else { materialesGastados.add(Pair(productoId, 1.0)); nombresProductos[productoId] = nombre }
+                            actualizarContadorMateriales()
+                        }
+                        chipsRow.addView(chip)
+                    }
+                }
+            }
+        }
     }
 
     // ═════════════════════════════════════════════════════════
@@ -1919,6 +1972,7 @@ class InstalacionActivity : AppCompatActivity() {
 
                     // Chips container
                     val chipsRow = android.widget.LinearLayout(this@InstalacionActivity).apply {
+                        tag = "chips_row_${item.productoId}"  // ← AGREGAR esta línea
                         orientation = android.widget.LinearLayout.HORIZONTAL
                         layoutParams = android.widget.LinearLayout.LayoutParams(
                             android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1927,61 +1981,63 @@ class InstalacionActivity : AppCompatActivity() {
                     }
                     onuSection.addView(chipsRow)
 
-                    val onusDelProducto = inventarioVm.onus.value
-                        ?.filter { it.productoId == item.productoId }
-                        ?: emptyList()
+                    fun poblarChips(onusList: List<com.enetfiber.tecnico.data.local.InventarioOnuEntity>) {
+                        val onusDelProducto = onusList.filter { it.productoId == item.productoId }
+                        chipsRow.removeAllViews()
 
-                    if (onusDelProducto.isEmpty()) {
-                        val tvVacio = android.widget.TextView(this@InstalacionActivity).apply {
-                            text = "Sin ONUs disponibles"
-                            textSize = 12f
-                            setTextColor(android.graphics.Color.parseColor("#94A3B8"))
-                        }
-                        chipsRow.addView(tvVacio)
-                    } else {
-                        onusDelProducto.forEach { onu ->
-                            val chip = android.widget.TextView(this@InstalacionActivity).apply {
-                                text = onu.codigoPon ?: "SIN CÓDIGO"
+                        if (onusDelProducto.isEmpty()) {
+                            val tvVacio = android.widget.TextView(this@InstalacionActivity).apply {
+                                text = "Sin ONUs disponibles"
                                 textSize = 12f
-                                typeface = android.graphics.Typeface.MONOSPACE
-                                setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
-                                background = getDrawable(R.drawable.input_bg)
-                                setPadding(
-                                    (10 * dp).toInt(), (6 * dp).toInt(),
-                                    (10 * dp).toInt(), (6 * dp).toInt()
-                                )
-                                isClickable = true; isFocusable = true
-                                layoutParams = android.widget.LinearLayout.LayoutParams(
-                                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-                                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-                                ).apply { marginEnd = (8 * dp).toInt() }
+                                setTextColor(android.graphics.Color.parseColor("#94A3B8"))
                             }
-                            chip.setOnClickListener {
-                                // Deseleccionar todos los chips de esta fila
-                                for (i in 0 until chipsRow.childCount) {
-                                    val c = chipsRow.getChildAt(i) as? android.widget.TextView
-                                    c?.setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
-                                    c?.background = getDrawable(R.drawable.input_bg)
+                            chipsRow.addView(tvVacio)
+                        } else {
+                            onusDelProducto.forEach { onu ->
+                                val chip = android.widget.TextView(this@InstalacionActivity).apply {
+                                    text = onu.codigoPon ?: "SIN CÓDIGO"
+                                    textSize = 12f
+                                    typeface = android.graphics.Typeface.MONOSPACE
+                                    setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
+                                    background = getDrawable(R.drawable.input_bg)
+                                    setPadding(
+                                        (10 * dp).toInt(), (6 * dp).toInt(),
+                                        (10 * dp).toInt(), (6 * dp).toInt()
+                                    )
+                                    isClickable = true; isFocusable = true
+                                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                                    ).apply { marginEnd = (8 * dp).toInt() }
                                 }
-                                // Seleccionar este
-                                chip.setTextColor(android.graphics.Color.WHITE)
-                                chip.setBackgroundColor(android.graphics.Color.parseColor("#7C3AED"))
-                                // Guardar selección
-                                onu.codigoPon?.let { ponCode ->
-                                    onusSeleccionadas[item.productoId] = ponCode
+                                chip.setOnClickListener {
+                                    for (i in 0 until chipsRow.childCount) {
+                                        val c = chipsRow.getChildAt(i) as? android.widget.TextView
+                                        c?.setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
+                                        c?.background = getDrawable(R.drawable.input_bg)
+                                    }
+                                    chip.setTextColor(android.graphics.Color.WHITE)
+                                    chip.setBackgroundColor(android.graphics.Color.parseColor("#7C3AED"))
+                                    onu.codigoPon?.let { ponCode ->
+                                        onusSeleccionadas[item.productoId] = ponCode
+                                    }
+                                    val idx = materialesGastados.indexOfFirst { it.first == item.productoId }
+                                    if (idx >= 0) materialesGastados[idx] = Pair(item.productoId, 1.0)
+                                    else {
+                                        materialesGastados.add(Pair(item.productoId, 1.0))
+                                        nombresProductos[item.productoId] = item.nombre
+                                    }
+                                    actualizarContadorMateriales()
                                 }
-                                // Registrar en materialesGastados con cantidad 1
-                                val idx = materialesGastados.indexOfFirst { it.first == item.productoId }
-                                if (idx >= 0) materialesGastados[idx] = Pair(item.productoId, 1.0)
-                                else {
-                                    materialesGastados.add(Pair(item.productoId, 1.0))
-                                    nombresProductos[item.productoId] = item.nombre
-                                }
-                                actualizarContadorMateriales()
+                                chipsRow.addView(chip)
                             }
-                            chipsRow.addView(chip)
                         }
                     }
+
+// Poblar inmediatamente con cache actual
+                    poblarChips(inventarioVm.onus.value ?: emptyList())
+
+
                 } else {
                     // Producto normal: mostrar cantidad, ocultar ONU
                     etCant.visibility = android.view.View.VISIBLE

@@ -118,7 +118,8 @@ data class InventarioOnuEntity(
     val codigoPon: String?,
     val producto:  String,
     val codigo:    String?,
-    val cachedAt:  Long = System.currentTimeMillis()
+    val cachedAt:  Long = System.currentTimeMillis(),
+    val productoId: Int? = null
 )
 
 /**

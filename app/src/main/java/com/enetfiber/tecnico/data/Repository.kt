@@ -738,8 +738,9 @@ fun InventarioItemDto.toEntity() = InventarioItemEntity(
 )
 
 fun InventarioOnuDto.toEntity() = InventarioOnuEntity(
-    id        = id,
-    codigoPon = codigoPon,
-    producto  = producto,
-    codigo    = codigo
+    id         = id,
+    codigoPon  = codigoPon,
+    producto   = producto,
+    codigo     = codigo,
+    productoId = productoId  // ← AGREGAR
 )

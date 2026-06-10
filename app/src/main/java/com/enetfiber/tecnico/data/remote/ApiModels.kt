@@ -220,10 +220,11 @@ data class InventarioItemDto(
 )
 
 data class InventarioOnuDto(
-    val id:        Int,
-    val codigoPon: String?,
-    val producto:  String,
-    val codigo:    String?
+    val id:         Int,
+    val codigoPon:  String?,
+    val producto:   String,
+    val codigo:     String?,
+    val productoId: Int? = null
 )
 
 data class ConsumoHistorialDto(
