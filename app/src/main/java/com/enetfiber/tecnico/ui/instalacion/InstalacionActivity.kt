@@ -267,8 +267,10 @@ class InstalacionActivity : AppCompatActivity() {
                 val row = layoutLista.getChildAt(i) ?: continue
                 val spinner = row.findViewById<android.widget.Spinner>(R.id.spinnerItem) ?: continue
                 val productoId = spinner.tag as? Int ?: continue
-                val chipsRow = row.findViewWithTag<android.widget.LinearLayout>("chips_row_$productoId") ?: continue
-                val onuSection = row.findViewWithTag<android.widget.LinearLayout>("onu_section_$productoId") ?: continue
+                //val chipsRow = row.findViewWithTag<android.widget.LinearLayout>("chips_row_$productoId") ?: continue
+                val chipsRow = row.findViewWithTag<android.widget.LinearLayout>("chips_row") ?: continue
+               // val onuSection = row.findViewWithTag<android.widget.LinearLayout>("onu_section_$productoId") ?: continue
+                val onuSection = row.findViewWithTag<android.widget.LinearLayout>("onu_section") ?: continue
                 if (onuSection.visibility != android.view.View.VISIBLE) continue
                 chipsRow.removeAllViews()
                 val filtradas = (onus ?: emptyList()).filter { it.productoId == productoId }
@@ -1935,10 +1937,25 @@ class InstalacionActivity : AppCompatActivity() {
                 }
 
 // Buscar o crear la onuSection dentro del rowView
-                var onuSection = rowView.findViewWithTag<android.widget.LinearLayout>("onu_section_${item.productoId}")
+               /* var onuSection = rowView.findViewWithTag<android.widget.LinearLayout>("onu_section_${item.productoId}")
                 if (onuSection == null) {
                     onuSection = android.widget.LinearLayout(this@InstalacionActivity).apply {
                         tag = "onu_section_${item.productoId}"
+                        orientation = android.widget.LinearLayout.VERTICAL
+                        visibility = android.view.View.GONE
+                        layoutParams = android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { topMargin = (10 * dp).toInt() }
+                    }
+                    (rowView as? android.widget.LinearLayout)?.addView(onuSection)
+                }*/
+
+                // Buscar o crear la onuSection dentro del rowView — TAG FIJO
+                var onuSection = rowView.findViewWithTag<android.widget.LinearLayout>("onu_section")
+                if (onuSection == null) {
+                    onuSection = android.widget.LinearLayout(this@InstalacionActivity).apply {
+                        tag = "onu_section"   // ← sin productoId
                         orientation = android.widget.LinearLayout.VERTICAL
                         visibility = android.view.View.GONE
                         layoutParams = android.widget.LinearLayout.LayoutParams(
@@ -1972,7 +1989,8 @@ class InstalacionActivity : AppCompatActivity() {
 
                     // Chips container
                     val chipsRow = android.widget.LinearLayout(this@InstalacionActivity).apply {
-                        tag = "chips_row_${item.productoId}"  // ← AGREGAR esta línea
+                        //tag = "chips_row_${item.productoId}"  // ← AGREGAR esta línea
+                        tag = "chips_row"   // ← sin productoId
                         orientation = android.widget.LinearLayout.HORIZONTAL
                         layoutParams = android.widget.LinearLayout.LayoutParams(
                             android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
