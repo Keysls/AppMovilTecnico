@@ -1479,12 +1479,136 @@ class InstalacionActivity : AppCompatActivity() {
             cardResumen?.visibility = View.GONE
             configurarSeccionRetiro()
         } else if (esCambioEquipoOrden) {
-            // CAMBIO_EQUIPO: primero retira el viejo, luego instala el nuevo
             cardDatos?.visibility   = View.GONE
             cardResumen?.visibility = View.GONE
-            configurarSeccionRetiro()  // sección de equipo a retirar
-            // Además mostrar sección de materiales para el equipo nuevo
+
+            // Cambiar título del card de materiales a "Equipo nuevo a instalar"
+            val cardMateriales = findViewById<com.google.android.material.card.MaterialCardView>(R.id.cardMateriales)
+            val tvTituloMateriales = cardMateriales
+                ?.findViewById<android.widget.LinearLayout>(android.R.id.content)
+                ?: run {
+                    // Buscar el TextView del título por texto
+                    cardMateriales?.findViewWithTag<TextView>("titulo_materiales")
+                }
+
+            // Agregar card de equipo a retirar ANTES del card de materiales
+            val layoutPaso4 = findViewById<android.widget.LinearLayout>(R.id.layoutPaso4)
+            val cardEquipoViejo = com.google.android.material.card.MaterialCardView(this).apply {
+                id = View.generateViewId()
+                radius = (14 * resources.displayMetrics.density)
+                strokeWidth = 1
+                strokeColor = android.graphics.Color.parseColor("#FDE68A")
+                cardElevation = 0f
+                setCardBackgroundColor(android.graphics.Color.parseColor("#FFFBEB"))
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = (12 * resources.displayMetrics.density).toInt() }
+            }
+
+            val innerLayout = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.VERTICAL
+                val dp14 = (14 * resources.displayMetrics.density).toInt()
+                setPadding(dp14, dp14, dp14, dp14)
+            }
+
+            // Header del card
+            val headerRow = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = (12 * resources.displayMetrics.density).toInt() }
+            }
+            val ivIcono = android.widget.ImageView(this).apply {
+                setImageResource(R.drawable.ic_trash)
+                androidx.core.widget.ImageViewCompat.setImageTintList(this,
+                    android.content.res.ColorStateList.valueOf(android.graphics.Color.parseColor("#D97706")))
+                val sz = (16 * resources.displayMetrics.density).toInt()
+                layoutParams = android.widget.LinearLayout.LayoutParams(sz, sz).apply {
+                    marginEnd = (7 * resources.displayMetrics.density).toInt()
+                }
+            }
+            val tvTitulo = TextView(this).apply {
+                text = "Equipo viejo a retirar"
+                textSize = 13f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setTextColor(android.graphics.Color.parseColor("#92400E"))
+                layoutParams = android.widget.LinearLayout.LayoutParams(0,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+            headerRow.addView(ivIcono)
+            headerRow.addView(tvTitulo)
+
+            // Layout vacío
+            val layoutVacioRetiro = android.widget.LinearLayout(this).apply {
+                id = View.generateViewId()
+                orientation = android.widget.LinearLayout.VERTICAL
+                gravity = android.view.Gravity.CENTER
+                val dp = resources.displayMetrics.density
+                setPadding(0, (14*dp).toInt(), 0, (10*dp).toInt())
+            }
+            val tvVacioRetiro = TextView(this).apply {
+                text = "Sin equipos agregados"
+                textSize = 11f
+                setTextColor(android.graphics.Color.parseColor("#94A3B8"))
+            }
+            layoutVacioRetiro.addView(tvVacioRetiro)
+
+            // Layout lista retiro
+            val layoutListaRetiro = android.widget.LinearLayout(this).apply {
+                id = View.generateViewId()
+                orientation = android.widget.LinearLayout.VERTICAL
+                visibility = View.GONE
+                layoutParams = android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = (10 * resources.displayMetrics.density).toInt() }
+            }
+
+            // Botón agregar equipo viejo
+            val btnAgregarEquipoViejo = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER
+                setBackgroundColor(android.graphics.Color.parseColor("#FEF3C7"))
+                val dp10 = (10 * resources.displayMetrics.density).toInt()
+                setPadding(0, dp10, 0, dp10)
+                isClickable = true; isFocusable = true
+            }
+            val tvBtnAgregar = TextView(this).apply {
+                text = "+ Agregar equipo viejo"
+                textSize = 12f
+                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setTextColor(android.graphics.Color.parseColor("#92400E"))
+            }
+            btnAgregarEquipoViejo.addView(tvBtnAgregar)
+
+            innerLayout.addView(headerRow)
+            innerLayout.addView(layoutVacioRetiro)
+            innerLayout.addView(layoutListaRetiro)
+            innerLayout.addView(btnAgregarEquipoViejo)
+            cardEquipoViejo.addView(innerLayout)
+
+            // Insertar antes del cardMateriales
+            val indexCard = layoutPaso4?.indexOfChild(
+                layoutPaso4.findViewById(R.id.cardMateriales)
+            ) ?: 0
+            layoutPaso4?.addView(cardEquipoViejo, indexCard)
+
+            // Configurar el catálogo para las cards de retiro
+            inventarioVm.catalogo.observe(this) { catalogo ->
+                catalogoCache = catalogo ?: emptyList()
+            }
+            inventarioVm.cargarCatalogo()
+
+            btnAgregarEquipoViejo.setOnClickListener {
+                agregarCardEquipoRetiro(layoutListaRetiro, layoutVacioRetiro)
+            }
+
+            // Sección de materiales (equipo nuevo) — comportamiento normal
             inventarioVm.items.observe(this) { items ->
+
                 itemsInventarioCache = items ?: emptyList()
             }
             if (inventarioVm.items.value.isNullOrEmpty()) {
@@ -1631,12 +1755,16 @@ class InstalacionActivity : AppCompatActivity() {
 
     private val cardsRetiro = mutableListOf<android.view.View>()
 
-    private fun agregarCardEquipoRetiro() {
-        val layoutLista = findViewById<android.widget.LinearLayout>(R.id.layoutListaMateriales) ?: return
-        val layoutVacio = findViewById<android.widget.LinearLayout>(R.id.layoutMaterialesVacio) ?: return
 
-        layoutVacio.visibility = android.view.View.GONE
-        layoutLista.visibility = android.view.View.VISIBLE
+    private fun agregarCardEquipoRetiro(
+        layoutLista: android.widget.LinearLayout? = null,
+        layoutVacio: android.widget.LinearLayout? = null
+    ) {
+        val lista = layoutLista ?: findViewById<android.widget.LinearLayout>(R.id.layoutListaMateriales) ?: return
+        val vacio = layoutVacio ?: findViewById<android.widget.LinearLayout>(R.id.layoutMaterialesVacio) ?: return
+
+        vacio.visibility = android.view.View.GONE
+        lista.visibility = android.view.View.VISIBLE
 
         val numEquipo = cardsRetiro.size + 1
         val dp = resources.displayMetrics.density
@@ -1887,10 +2015,10 @@ class InstalacionActivity : AppCompatActivity() {
                 productoSelId?.let { nombresEquipos.remove(it) }
             }
             cardsRetiro.remove(card)
-            layoutLista.removeView(card)
-            if (layoutLista.childCount == 0) {
-                layoutVacio.visibility = android.view.View.VISIBLE
-                layoutLista.visibility = android.view.View.GONE
+            lista.removeView(card)
+            if (lista.childCount == 0) {
+                vacio.visibility = android.view.View.VISIBLE
+                lista.visibility = android.view.View.GONE
             }
             actualizarContadorMateriales()
         }
@@ -1900,7 +2028,7 @@ class InstalacionActivity : AppCompatActivity() {
         inner.addView(ponSection)
         card.addView(inner)
         cardsRetiro.add(card)
-        layoutLista.addView(card)
+        lista.addView(card)
 
         etBuscar.requestFocus()
         if (catalogoCache.isNotEmpty()) mostrarDropdown("")
