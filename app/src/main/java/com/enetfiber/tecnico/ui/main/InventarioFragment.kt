@@ -156,8 +156,8 @@ class InventarioFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        android.util.Log.d("InventarioFrag", "onResume → cargarMetricas")
-        vm.cargarMetricas(sincronizar = true)
+        android.util.Log.d("InventarioFrag", "onResume → forzarSync")
+        vm.forzarSync()
     }
 
     private fun setupListeners() {

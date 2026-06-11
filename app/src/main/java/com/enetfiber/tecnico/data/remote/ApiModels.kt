@@ -355,8 +355,9 @@ data class DevolucionRecojoDto(
     val codigoPon:      String?,
     val estado:         String,
     val nombreProducto: String? = null,
-    val contrato:       String? = null,  // ← reemplaza nServicio
+    val contrato:       String? = null,
     val abonado:        String? = null,
+    val grupoOrden:     String? = null,
 )
 
 data class DevolucionDto(
@@ -366,7 +367,7 @@ data class DevolucionDto(
     val fecha:         String?,
     val fechaRevision: String?,
     val detalles:      List<DevolucionDetalleDto>,
-    val recojos:       List<DevolucionRecojoDto> = emptyList()  // ← NUEVO
+    val recojos:       List<DevolucionRecojoDto> = emptyList()
 )
 
 data class RegistrarDevolucionResponse(

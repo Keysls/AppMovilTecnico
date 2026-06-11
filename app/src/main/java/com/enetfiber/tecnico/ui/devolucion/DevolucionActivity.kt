@@ -64,6 +64,7 @@ class DevolucionActivity : AppCompatActivity() {
         setupBotones()
         observar()
         agregarFila()
+        vm.forzarSync()
         vm.cargarDevoluciones()
         binding.swipeRefreshDevoluciones?.setOnRefreshListener {
             vm.forzarSync()
@@ -105,6 +106,7 @@ class DevolucionActivity : AppCompatActivity() {
         }
         vm.onus.observe(this) { onus: List<com.enetfiber.tecnico.data.local.InventarioOnuEntity>? ->
             onusAsignadas = onus ?: emptyList()
+            android.util.Log.d("DevolucionAct", "ONUs cargadas: ${onusAsignadas.size} — ${onusAsignadas.map { "${it.productoId}:${it.codigoPon}" }}")
         }
 
         vm.recojos.observe(this) { recojos ->
@@ -133,7 +135,8 @@ class DevolucionActivity : AppCompatActivity() {
                     binding.btnEnviarDevolucion.text = "Enviando..."
                 }
                 is InventarioViewModel.DevolucionState.Exito -> {
-                    Toast.makeText(this, "✅ Devolución enviada — esperando aprobación del admin", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "✅ Devolución enviada — las ONUs desaparecerán de tu inventario cuando el admin apruebe y actualices", Toast.LENGTH_LONG).show()
+
                     binding.layoutItems.removeAllViews()
                     filas.clear()
                     recojosSeleccionados.clear()
@@ -176,6 +179,8 @@ class DevolucionActivity : AppCompatActivity() {
         tvNumero.text = "ITEM #${index + 1}"
 
         btnSelector.setOnClickListener {
+            // Sincronizar ONUs frescas antes de mostrar el selector
+            vm.forzarSync()
             if (itemsDisponibles.isEmpty()) {
                 Toast.makeText(this, "No tienes ítems disponibles", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
@@ -219,7 +224,9 @@ class DevolucionActivity : AppCompatActivity() {
                     }
 
                     if (esOnu) {
-                        // Ocultar cantidad y mostrar chips de PON
+                        // Ocultar toda la sección de cantidad (el LinearLayout padre)
+                        val cantidadSection = etCantidad.parent?.parent as? LinearLayout
+                        cantidadSection?.visibility = View.GONE
                         etCantidad.visibility = View.GONE
                         tvUnidad.visibility   = View.GONE
                         tvDisp.visibility     = View.GONE
@@ -235,7 +242,10 @@ class DevolucionActivity : AppCompatActivity() {
                                     LinearLayout.LayoutParams.WRAP_CONTENT
                                 ).apply { topMargin = (8 * resources.displayMetrics.density).toInt() }
                             }
-                            (rowView as? LinearLayout)?.addView(chipsSection)
+                            // El rowView es MaterialCardView → su hijo directo es el LinearLayout interno
+                            val innerLayout = (rowView as? com.google.android.material.card.MaterialCardView)
+                                ?.getChildAt(0) as? LinearLayout
+                            innerLayout?.addView(chipsSection)
                         }
                         chipsSection.removeAllViews()
 
@@ -251,16 +261,31 @@ class DevolucionActivity : AppCompatActivity() {
                         }
                         chipsSection.addView(tvChipLabel)
 
-                        val chipsRow = LinearLayout(this).apply {
-                            orientation = LinearLayout.HORIZONTAL
+                        val chipsScroll = android.widget.HorizontalScrollView(this).apply {
                             layoutParams = LinearLayout.LayoutParams(
                                 LinearLayout.LayoutParams.MATCH_PARENT,
                                 LinearLayout.LayoutParams.WRAP_CONTENT
                             )
+                            isHorizontalScrollBarEnabled = false
                         }
-                        chipsSection.addView(chipsRow)
+                        val chipsRow = LinearLayout(this).apply {
+                            orientation = LinearLayout.HORIZONTAL
+                            layoutParams = LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.WRAP_CONTENT,
+                                LinearLayout.LayoutParams.WRAP_CONTENT
+                            )
+                            setPadding(0, 0, (8 * resources.displayMetrics.density).toInt(), 0)
+                        }
+                        chipsScroll.addView(chipsRow)
+                        chipsSection.addView(chipsScroll)
+
+                        android.util.Log.d("DevolucionAct", "Buscando ONUs para productoId=${item.productoId}, total onusAsignadas=${onusAsignadas.size}")
 
                         val onusDelProducto = onusAsignadas.filter { it.productoId == item.productoId }
+
+                        android.util.Log.d("DevolucionAct", "ONUs del producto: ${onusDelProducto.size}")
+
+
                         if (onusDelProducto.isEmpty()) {
                             chipsRow.addView(TextView(this).apply {
                                 text = "Sin ONUs disponibles"
@@ -284,29 +309,26 @@ class DevolucionActivity : AppCompatActivity() {
                                     ).apply { marginEnd = (8*dp).toInt() }
                                 }
                                 chip.setOnClickListener {
-                                    // Deseleccionar todos
-                                    for (j in 0 until chipsRow.childCount) {
-                                        val c = chipsRow.getChildAt(j) as? TextView
-                                        c?.setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
-                                        c?.background = getDrawable(R.drawable.input_bg)
+                                    val yaSeleccionado = onusSeleccionadas.contains(onu.id)
+                                    if (yaSeleccionado) {
+                                        // Deseleccionar
+                                        chip.setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
+                                        chip.background = getDrawable(R.drawable.input_bg)
+                                        onusSeleccionadas.remove(onu.id)
+                                    } else {
+                                        // Seleccionar
+                                        chip.setTextColor(android.graphics.Color.WHITE)
+                                        chip.setBackgroundColor(android.graphics.Color.parseColor("#7C3AED"))
+                                        onusSeleccionadas.add(onu.id)
                                     }
-                                    // Seleccionar este
-                                    chip.setTextColor(android.graphics.Color.WHITE)
-                                    chip.setBackgroundColor(android.graphics.Color.parseColor("#7C3AED"))
-                                    // Guardar el id de esta ONU para devolver
-                                    // Deseleccionar cualquier otra ONU del mismo producto
-                                    val idsDelProducto = onusAsignadas
-                                        .filter { it.productoId == item.productoId }
-                                        .map { it.id }.toSet()
-                                    onusSeleccionadas.removeAll(idsDelProducto)
-// Seleccionar esta
-                                    onusSeleccionadas.add(onu.id)
                                 }
                                 chipsRow.addView(chip)
                             }
                         }
                         fila.productoId = -1 // marcar como ONU — no tiene cantidad
                     } else {
+                        val cantidadSection = etCantidad.parent?.parent as? LinearLayout
+                        cantidadSection?.visibility = View.VISIBLE
                         etCantidad.visibility = View.VISIBLE
                         tvUnidad.visibility   = View.VISIBLE
                         tvDisp.visibility     = View.VISIBLE
@@ -398,6 +420,10 @@ class DevolucionActivity : AppCompatActivity() {
             }
             .setNegativeButton("Cancelar", null)
             .show()
+    }
+    override fun onResume() {
+        super.onResume()
+        vm.forzarSync()
     }
 }
 
@@ -494,12 +520,26 @@ class DevolucionHistorialAdapter :
             holder.tvFecha.text = dev.fecha ?: ""
         }
 
-        holder.tvItems.text = dev.detalles.joinToString(" · ") {
+        val textoDetalles = dev.detalles.joinToString(" · ") {
             "${it.cantidad.toInt()} ${it.unidad ?: "und"} ${it.nombre}"
         }
 
+// ONUs devueltas — vienen en dev.recojos con codigoPon
+        // ONUs devueltas aparecen como recojos con codigoPon
+        // ONUs asignadas devueltas — recojos sin grupoOrden creados por devolución
+        val textoOnus = dev.recojos
+            .filter { !it.codigoPon.isNullOrBlank() && it.grupoOrden == null }
+            .joinToString("\n") { "◈ ${it.nombreProducto ?: "ONU"} — ${it.codigoPon}" }
+        val textoFinal = listOf(textoDetalles, textoOnus)
+            .filter { it.isNotBlank() }
+            .joinToString("\n")
+
+        holder.tvItems.text = textoFinal.ifBlank { "Sin detalle" }
+        holder.tvItems.visibility = View.VISIBLE
+
         // Recojos devueltos
-        val recojos = dev.recojos
+        // Solo mostrar recojos reales (con grupoOrden) — no los artificiales de devolución de ONUs
+        val recojos = dev.recojos.filter { it.grupoOrden != null }
         if (recojos.isNotEmpty()) {
             holder.tvRecojos.text = recojos.joinToString("\n") {
                 buildString {
@@ -520,5 +560,8 @@ class DevolucionHistorialAdapter :
         } else {
             holder.tvComentario.visibility = View.GONE
         }
+
     }
+
 }
+
