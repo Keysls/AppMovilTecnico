@@ -68,6 +68,12 @@ class DetalleOrdenActivity : AppCompatActivity() {
                 binding.tvReferencia.visibility = View.VISIBLE
             }
 
+            val precinto = orden.contratoRef?.precinto
+            if (!precinto.isNullOrBlank()) {
+                binding.tvPrecinto.text          = precinto
+                binding.rowPrecinto.visibility   = View.VISIBLE
+            }
+
             if (!orden.observacion.isNullOrEmpty()) {
                 binding.tvObservacion.text          = orden.observacion
                 binding.cardObservacion.visibility  = View.VISIBLE
