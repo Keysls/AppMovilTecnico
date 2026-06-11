@@ -1472,10 +1472,47 @@ class InstalacionActivity : AppCompatActivity() {
         val cardDatos   = findViewById<CardView>(R.id.cardDatosEquipo)
         val cardResumen = findViewById<CardView>(R.id.cardResumenConfig)
 
+        val esCambioEquipoOrden = ordenActual != null && esCambioEquipo(ordenActual.tipoOrden)
+
         if (esRetiroOrden) {
             cardDatos?.visibility   = View.GONE
             cardResumen?.visibility = View.GONE
             configurarSeccionRetiro()
+        } else if (esCambioEquipoOrden) {
+            // CAMBIO_EQUIPO: primero retira el viejo, luego instala el nuevo
+            cardDatos?.visibility   = View.GONE
+            cardResumen?.visibility = View.GONE
+            configurarSeccionRetiro()  // sección de equipo a retirar
+            // Además mostrar sección de materiales para el equipo nuevo
+            inventarioVm.items.observe(this) { items ->
+                itemsInventarioCache = items ?: emptyList()
+            }
+            if (inventarioVm.items.value.isNullOrEmpty()) {
+                inventarioVm.cargarMetricas(sincronizar = true)
+            }
+            val btnAgregarMaterial = findViewById<View>(R.id.btnAgregarMaterial)
+            btnAgregarMaterial?.setOnClickListener {
+                val yaSeleccionados = mutableSetOf<Int>()
+                val layoutLista = findViewById<android.widget.LinearLayout>(R.id.layoutListaMateriales)
+                if (layoutLista != null) {
+                    for (i in 0 until layoutLista.childCount) {
+                        val row = layoutLista.getChildAt(i)
+                        val spinner = row?.findViewById<android.widget.Spinner>(R.id.spinnerItem)
+                        val productoId = spinner?.tag as? Int
+                        if (productoId != null) yaSeleccionados.add(productoId)
+                    }
+                }
+                val itemsFrescos = itemsInventarioCache.filter {
+                    (it.disponible > 0 || (it.esMedible && (it.disponibleMetros ?: 0.0) > 0))
+                            && it.productoId !in yaSeleccionados
+                }
+                if (itemsFrescos.isEmpty()) {
+                    inventarioVm.cargarMetricas(sincronizar = true)
+                    Toast.makeText(this, "Sin más ítems disponibles", Toast.LENGTH_SHORT).show()
+                } else {
+                    agregarFilaMaterial(itemsFrescos)
+                }
+            }
         } else {
             if (esInternet()) {
                 cardDatos?.visibility = View.VISIBLE
@@ -1559,6 +1596,12 @@ class InstalacionActivity : AppCompatActivity() {
             TipoOrden.RETIRO_EQUIPO_D,
             TipoOrden.BAJA_SERVICIO_I,
             TipoOrden.BAJA_SERVICIO_D
+        )
+
+    private fun esCambioEquipo(tipoOrden: String) =
+        tipoOrden in listOf(
+            TipoOrden.CAMBIO_EQUIPO_I,
+            TipoOrden.CAMBIO_EQUIPO_D,
         )
 
     // Cache del catálogo global para retiros
@@ -2354,7 +2397,7 @@ class InstalacionActivity : AppCompatActivity() {
             }
 
 // 3b. Registrar retiro de equipos (solo órdenes de retiro) — INDEPENDIENTE del if anterior
-            if (ordenActual != null && esRetiro(ordenActual.tipoOrden)) {
+            if (ordenActual != null && (esRetiro(ordenActual.tipoOrden) || esCambioEquipo(ordenActual.tipoOrden))) {
                 android.util.Log.d("InstalacionAct", "Registrando retiro: ${equiposRetirados.size} equipos, ordenId=$ordenId")
                 equiposRetirados.forEach { i ->
                     android.util.Log.d("InstalacionAct", "  equipo: productoId=${i.productoId} tipo=${i.tipoEquipo} pon=${i.codigoPon}")
