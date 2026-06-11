@@ -337,7 +337,8 @@ data class DevolucionItemRequest(
 
 data class RegistrarDevolucionRequest(
     val items:      List<DevolucionItemRequest>,
-    val recojos:    List<DevolucionRecojoRequest> = emptyList(),  // ← NUEVO
+    val recojos:    List<DevolucionRecojoRequest> = emptyList(),
+    val onuIds:     List<Int> = emptyList(),
     val comentario: String? = null
 )
 

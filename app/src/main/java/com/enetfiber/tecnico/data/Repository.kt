@@ -666,12 +666,13 @@ class Repository @Inject constructor(
     suspend fun registrarDevolucion(
         items:      List<DevolucionItemRequest>,
         recojos:    List<DevolucionRecojoRequest> = emptyList(),
+        onuIds:     List<Int> = emptyList(),
         comentario: String? = null
     ): Resultado<Int> {
         if (!isOnline()) return Resultado.Error("Sin conexión — las devoluciones requieren internet")
         return try {
             val res = api.registrarDevolucion(
-                RegistrarDevolucionRequest(items, recojos, comentario)
+                RegistrarDevolucionRequest(items, recojos, onuIds, comentario)
             )
             if (res.isSuccessful) {
                 val devolucionId = res.body()?.devolucionId ?: 0

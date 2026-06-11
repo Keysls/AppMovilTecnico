@@ -29,10 +29,13 @@ class DevolucionActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityDevolucionBinding
     private val vm: InventarioViewModel by viewModels()
+    private val inventarioVm: InventarioViewModel by viewModels()
 
     private var itemsDisponibles: List<InventarioItemEntity> = emptyList()
     private var recojosEnMano: List<RecojoDto> = emptyList()
+    private var onusAsignadas: List<com.enetfiber.tecnico.data.local.InventarioOnuEntity> = emptyList()
     private val recojosSeleccionados = mutableSetOf<Int>()
+    private val onusSeleccionadas = mutableSetOf<Int>() // ids de ONUs a devolver
 
     private data class FilaDevolucion(
         var productoId: Int    = -1,
@@ -47,6 +50,7 @@ class DevolucionActivity : AppCompatActivity() {
 
     private lateinit var historialAdapter: DevolucionHistorialAdapter
     private lateinit var recojosAdapter:   RecojoSeleccionAdapter
+    private lateinit var onusAdapter:      OnuSeleccionAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -85,6 +89,14 @@ class DevolucionActivity : AppCompatActivity() {
         binding.rvRecojos.layoutManager = LinearLayoutManager(this)
         binding.rvRecojos.adapter = recojosAdapter
         binding.rvRecojos.isNestedScrollingEnabled = false
+
+        onusAdapter = OnuSeleccionAdapter { onuId, seleccionado ->
+            if (seleccionado) onusSeleccionadas.add(onuId)
+            else              onusSeleccionadas.remove(onuId)
+        }
+        binding.rvOnus.layoutManager = LinearLayoutManager(this)
+        binding.rvOnus.adapter = onusAdapter
+        binding.rvOnus.isNestedScrollingEnabled = false
     }
 
     private fun setupBotones() {
@@ -98,6 +110,12 @@ class DevolucionActivity : AppCompatActivity() {
             itemsDisponibles = items?.filter {
                 it.disponible > 0 && it.productoId !in productosRecojos
             } ?: emptyList()
+        }
+        vm.onus.observe(this) { onus: List<com.enetfiber.tecnico.data.local.InventarioOnuEntity>? ->
+            onusAsignadas = onus ?: emptyList()
+            onusAdapter.submitList(onusAsignadas)
+            binding.sectionOnus.visibility =
+                if (onusAsignadas.isNotEmpty()) View.VISIBLE else View.GONE
         }
 
         vm.recojos.observe(this) { recojos ->
@@ -250,9 +268,10 @@ class DevolucionActivity : AppCompatActivity() {
 
         val itemsValidos   = filas.filter { it.productoId >= 0 && it.cantidad > 0 }
         val recojosValidos = recojosSeleccionados.toList()
+        val onusValidas    = onusSeleccionadas.toList()
 
-        if (itemsValidos.isEmpty() && recojosValidos.isEmpty()) {
-            Toast.makeText(this, "⚠ Agrega al menos un producto o equipo reciclado", Toast.LENGTH_SHORT).show()
+        if (itemsValidos.isEmpty() && recojosValidos.isEmpty() && onusValidas.isEmpty()) {
+            Toast.makeText(this, "⚠ Agrega al menos un producto, ONU o equipo reciclado", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -279,7 +298,7 @@ class DevolucionActivity : AppCompatActivity() {
                 }
                 val recojos    = recojosValidos.map { DevolucionRecojoRequest(it) }
                 val comentario = binding.etComentario.text?.toString()?.ifBlank { null }
-                vm.registrarDevolucion(items, recojos, comentario)
+                vm.registrarDevolucion(items, recojos, onusValidas, comentario)
             }
             .setNegativeButton("Cancelar", null)
             .show()
@@ -332,7 +351,50 @@ class RecojoSeleccionAdapter(
         }
     }
 }
+// ── Adapter: selección de ONUs asignadas ─────────────────────
+class OnuSeleccionAdapter(
+    private val onToggle: (onuId: Int, seleccionado: Boolean) -> Unit
+) : ListAdapter<com.enetfiber.tecnico.data.local.InventarioOnuEntity, OnuSeleccionAdapter.VH>(DIFF) {
 
+    companion object {
+        val DIFF = object : DiffUtil.ItemCallback<com.enetfiber.tecnico.data.local.InventarioOnuEntity>() {
+            override fun areItemsTheSame(a: com.enetfiber.tecnico.data.local.InventarioOnuEntity, b: com.enetfiber.tecnico.data.local.InventarioOnuEntity) = a.id == b.id
+            override fun areContentsTheSame(a: com.enetfiber.tecnico.data.local.InventarioOnuEntity, b: com.enetfiber.tecnico.data.local.InventarioOnuEntity) = a == b
+        }
+    }
+
+    private val seleccionados = mutableSetOf<Int>()
+
+    inner class VH(val view: View) : RecyclerView.ViewHolder(view) {
+        val tvNombre  : TextView = view.findViewById(R.id.tvRecojoNombreDev)
+        val tvPon     : TextView = view.findViewById(R.id.tvRecojoPonDev)
+        val checkbox  : CheckBox = view.findViewById(R.id.cbRecojoSeleccion)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+        val v = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_recojo_devolucion, parent, false)
+        return VH(v)
+    }
+
+    override fun onBindViewHolder(holder: VH, position: Int) {
+        val onu = getItem(position)
+        holder.tvNombre.text = onu.producto ?: "ONU"
+        if (!onu.codigoPon.isNullOrBlank()) {
+            holder.tvPon.text       = "◈ ${onu.codigoPon}"
+            holder.tvPon.visibility = View.VISIBLE
+        } else {
+            holder.tvPon.visibility = View.GONE
+        }
+        holder.checkbox.setOnCheckedChangeListener(null)
+        holder.checkbox.isChecked = onu.id in seleccionados
+        holder.checkbox.setOnCheckedChangeListener { _, checked ->
+            if (checked) seleccionados.add(onu.id)
+            else         seleccionados.remove(onu.id)
+            onToggle(onu.id, checked)
+        }
+    }
+}
 // ── Adapter historial ─────────────────────────────────────────
 class DevolucionHistorialAdapter :
     ListAdapter<DevolucionDto, DevolucionHistorialAdapter.VH>(DIFF) {

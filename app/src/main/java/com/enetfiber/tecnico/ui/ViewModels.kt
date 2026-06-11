@@ -766,11 +766,12 @@ class InventarioViewModel @Inject constructor(
     fun registrarDevolucion(
         items:      List<DevolucionItemRequest>,
         recojos:    List<DevolucionRecojoRequest> = emptyList(),
+        onuIds:     List<Int> = emptyList(),
         comentario: String? = null
     ) {
         viewModelScope.launch {
             _devolucionState.value = DevolucionState.Guardando
-            val r = repo.registrarDevolucion(items, recojos, comentario)
+            val r = repo.registrarDevolucion(items, recojos, onuIds, comentario)
             if (r is Resultado.Exito) {
                 cargarDevoluciones()
                 // Refrescar recojos — los que se devolvieron ya no están en_mano
