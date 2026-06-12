@@ -170,6 +170,38 @@ object TipoOrden {
 
     // Requiere configurar ONU: tipos que tienen componente Internet y no son solo-admin
     fun requiereConfigOnu(tipo: String) = tipo !in SIN_CONFIG_ONU && esInternet(tipo)
+
+    // ── Helpers dinámicos — leen de Room si está disponible ───
+    // Se inicializa desde el ViewModel/Repository cuando la BD tiene datos
+    // Fallback: usa los valores estáticos de arriba
+    private var _tipos: List<com.enetfiber.tecnico.data.local.ConfigTipoOrdenEntity> = emptyList()
+
+    fun cargarTiposDinamicos(tipos: List<com.enetfiber.tecnico.data.local.ConfigTipoOrdenEntity>) {
+        _tipos = tipos
+    }
+
+    fun labelDinamico(tipo: String): String {
+        val dinamico = _tipos.firstOrNull { it.codigo == tipo }?.label
+        return dinamico ?: label(tipo)  // fallback al estático
+    }
+
+    fun esRetiroDinamico(tipo: String): Boolean {
+        val dinamico = _tipos.firstOrNull { it.codigo == tipo }
+        return dinamico?.esRetiro ?: (tipo in listOf(
+            RETIRO_EQUIPO_I, RETIRO_EQUIPO_C, RETIRO_EQUIPO_D,
+            BAJA_SERVICIO_I, BAJA_SERVICIO_D
+        ))
+    }
+
+    fun esCambioEquipoDinamico(tipo: String): Boolean {
+        val dinamico = _tipos.firstOrNull { it.codigo == tipo }
+        return dinamico?.esCambioEquipo ?: (tipo in listOf(CAMBIO_EQUIPO_I, CAMBIO_EQUIPO_D))
+    }
+
+    fun requiereWanDinamico(tipo: String): Boolean {
+        val dinamico = _tipos.firstOrNull { it.codigo == tipo }
+        return dinamico?.requiereWan ?: false
+    }
 }
 
 object EstadoOrden {

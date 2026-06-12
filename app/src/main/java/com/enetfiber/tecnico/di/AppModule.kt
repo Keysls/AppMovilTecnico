@@ -40,7 +40,8 @@ object AppModule {
                 AppDatabase.MIGRATION_9_10,
                 AppDatabase.MIGRATION_10_11,
                 AppDatabase.MIGRATION_11_12,
-                AppDatabase.MIGRATION_12_13
+                AppDatabase.MIGRATION_12_13,
+                AppDatabase.MIGRATION_13_14
             )
             .apply {
                 if (BuildConfig.DEBUG) fallbackToDestructiveMigration()
@@ -129,4 +130,5 @@ object AppModule {
     @Provides fun provideConsumoPendienteDao(db: AppDatabase) = db.consumoPendienteDao()
     @Provides fun provideCatalogoProductoDao(db: AppDatabase)  = db.catalogoProductoDao()
     @Provides fun provideRetiroPendienteDao(db: AppDatabase) = db.retiroPendienteDao()
+    @Provides fun provideConfigTipoOrdenDao(db: AppDatabase) = db.configTipoOrdenDao()
 }

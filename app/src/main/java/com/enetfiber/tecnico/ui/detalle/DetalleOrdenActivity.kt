@@ -61,7 +61,7 @@ class DetalleOrdenActivity : AppCompatActivity() {
             binding.tvContrato.text  = orden.contrato ?: "—"
             binding.tvDireccion.text = orden.direccion
             binding.tvSector.text    = orden.sector ?: ""
-            binding.tvTipo.text      = TipoOrden.label(orden.tipoOrden)
+            binding.tvTipo.text      = TipoOrden.labelDinamico(orden.tipoOrden)
 
             if (!orden.referencia.isNullOrEmpty() && orden.referencia != "0") {
                 binding.tvReferencia.text       = orden.referencia

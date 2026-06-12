@@ -273,30 +273,19 @@ class UbicacionActivity : AppCompatActivity() {
                 longitud = lngActual
             )
             withContext(Dispatchers.Main) {
-                when {
-                    resultado.isExito() -> {
-                        Toast.makeText(
-                            this@UbicacionActivity,
-                            "✓ Ubicación guardada",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        // Devolver resultado al llamante
-                        setResult(RESULT_OK, Intent().apply {
-                            putExtra(RESULT_LAT, latActual)
-                            putExtra(RESULT_LNG, lngActual)
-                        })
-                        finish()
-                    }
-                    else -> {
-                        Toast.makeText(
-                            this@UbicacionActivity,
-                            "Error al guardar. Intenta de nuevo.",
-                            Toast.LENGTH_LONG
-                        ).show()
-                        binding.btnConfirmar.isEnabled = true
-                        binding.btnConfirmar.text      = "Confirmar"
-                    }
+                if (resultado.isExito()) {
+                    Toast.makeText(this@UbicacionActivity, "✓ Ubicación guardada", Toast.LENGTH_SHORT).show()
+                } else {
+                    // Sin internet — igual devolver las coordenadas al llamante
+                    // Se sincronizará cuando recupere conexión
+                    Toast.makeText(this@UbicacionActivity, "📡 Sin señal — ubicación guardada localmente", Toast.LENGTH_SHORT).show()
                 }
+                // Siempre devolver resultado y cerrar
+                setResult(RESULT_OK, Intent().apply {
+                    putExtra(RESULT_LAT, latActual)
+                    putExtra(RESULT_LNG, lngActual)
+                })
+                finish()
             }
         }
     }

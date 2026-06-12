@@ -53,6 +53,7 @@ class Repository @Inject constructor(
     private val consumoDao:       ConsumoPendienteDao,
     val catalogoDao:              CatalogoProductoDao,    // ← NUEVO
     private val retiroDao:        RetiroPendienteDao,
+    val configTipoOrdenDao:       ConfigTipoOrdenDao,     // ← tipos dinámicos
     private val session:          SessionDataStore,
     @ApplicationContext private val ctx: Context
 ) {
@@ -473,6 +474,45 @@ class Repository @Inject constructor(
                 Resultado.Exito(Unit)
             } else {
                 Resultado.Error("Error al obtener catálogo")
+            }
+        } catch (e: Exception) {
+            Resultado.Error(e.message ?: "Error")
+        }
+    }
+
+    // ── Tipos de orden dinámicos ──────────────────────────────
+    fun getTiposOrden() = configTipoOrdenDao.getAll()
+
+    suspend fun getTiposOrdenOnce() = configTipoOrdenDao.getAllOnce()
+
+    suspend fun sincronizarTiposOrden(): Resultado<Unit> {
+        if (!isOnline()) return Resultado.Error("Sin internet")
+        return try {
+            val res = api.getTiposOrden()
+            if (res.isSuccessful) {
+                val tipos = (res.body()?.tipos ?: emptyList()).map {
+                    ConfigTipoOrdenEntity(
+                        codigo         = it.codigo,
+                        label          = it.label,
+                        servicio       = it.servicio,
+                        flujo          = it.flujo,
+                        requiereWan    = it.requiereWan,
+                        autorizaOlt    = it.autorizaOlt,
+                        esRetiro       = it.esRetiro,
+                        esBaja         = it.esBaja,
+                        esInstalacion  = it.esInstalacion,
+                        esCorte        = it.esCorte,
+                        esCambioEquipo = it.esCambioEquipo,
+                        activo         = it.activo,
+                        orden          = it.orden,
+                    )
+                }
+                configTipoOrdenDao.clearAll()
+                configTipoOrdenDao.insertAll(tipos)
+                android.util.Log.d("Repository", "✓ ${tipos.size} tipos de orden sincronizados")
+                Resultado.Exito(Unit)
+            } else {
+                Resultado.Error("Error al obtener tipos de orden")
             }
         } catch (e: Exception) {
             Resultado.Error(e.message ?: "Error")

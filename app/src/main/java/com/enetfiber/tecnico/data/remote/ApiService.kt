@@ -80,6 +80,9 @@ interface ApiService {
     @GET("stock/catalogo")
     suspend fun getCatalogoTecnico(): retrofit2.Response<List<com.enetfiber.tecnico.data.remote.CatalogoProductoDto>>
 
+    @GET("tipos-orden")
+    suspend fun getTiposOrden(): retrofit2.Response<TiposOrdenResponse>
+
     @POST("stock/mi-retiro")
     suspend fun registrarRetiro(
         @Body request: RegistrarRetiroRequest

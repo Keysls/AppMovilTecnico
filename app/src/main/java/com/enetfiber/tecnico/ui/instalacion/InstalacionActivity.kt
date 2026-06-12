@@ -221,8 +221,7 @@ class InstalacionActivity : AppCompatActivity() {
 
     private fun esInternet(): Boolean {
         val orden = vm.orden.value ?: return false
-        if (orden.tipoOrden == TipoOrden.RETIRO_EQUIPO_I ||
-            orden.tipoOrden == TipoOrden.RETIRO_EQUIPO_C) return false
+        if (TipoOrden.esRetiroDinamico(orden.tipoOrden)) return false
         return TipoOrden.esInternet(orden.tipoOrden)
     }
 
@@ -1713,20 +1712,9 @@ class InstalacionActivity : AppCompatActivity() {
     private val equiposRetirados = mutableListOf<com.enetfiber.tecnico.data.remote.RetiroItemRequest>()
     private val nombresEquipos   = mutableMapOf<Int, String>()  // productoId → nombre para display
 
-    private fun esRetiro(tipoOrden: String) =
-        tipoOrden in listOf(
-            TipoOrden.RETIRO_EQUIPO_I,
-            TipoOrden.RETIRO_EQUIPO_C,
-            TipoOrden.RETIRO_EQUIPO_D,
-            TipoOrden.BAJA_SERVICIO_I,
-            TipoOrden.BAJA_SERVICIO_D
-        )
+    private fun esRetiro(tipoOrden: String) = TipoOrden.esRetiroDinamico(tipoOrden)
 
-    private fun esCambioEquipo(tipoOrden: String) =
-        tipoOrden in listOf(
-            TipoOrden.CAMBIO_EQUIPO_I,
-            TipoOrden.CAMBIO_EQUIPO_D,
-        )
+    private fun esCambioEquipo(tipoOrden: String) = TipoOrden.esCambioEquipoDinamico(tipoOrden)
 
     // Cache del catálogo global para retiros
     private var catalogoCache: List<com.enetfiber.tecnico.data.local.CatalogoProductoEntity> = emptyList()

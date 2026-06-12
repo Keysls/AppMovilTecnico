@@ -37,7 +37,7 @@ class OrdenAdapter(
             b.tvSector.text    = orden.sector ?: ""
             b.tvSector.visibility = if (orden.sector.isNullOrEmpty()) View.GONE else View.VISIBLE
 
-            b.tvTipo.text = com.enetfiber.tecnico.TipoOrden.label(orden.tipoOrden)
+            b.tvTipo.text = com.enetfiber.tecnico.TipoOrden.labelDinamico(orden.tipoOrden)
 
             val ctx = b.root.context
             when (orden.estado) {

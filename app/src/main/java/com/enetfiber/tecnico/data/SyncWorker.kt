@@ -26,14 +26,42 @@ class SyncWorker @AssistedInject constructor(
     private val aceptarDao:    AceptarPendienteDao,
     private val consumoDao:    ConsumoPendienteDao,
     private val inventarioDao: InventarioDao,
-    private val retiroDao:     RetiroPendienteDao,  // ← NUEVO
+    private val retiroDao:     RetiroPendienteDao,
+    private val configTipoOrdenDao: com.enetfiber.tecnico.data.local.ConfigTipoOrdenDao,
 
-) : CoroutineWorker(ctx, params) {
+    ) : CoroutineWorker(ctx, params) {
 
     override suspend fun doWork(): Result {
         val tag = "SyncWorker"
         return try {
             var huboFallo = false
+
+            // ── PASO 0a: sincronizar tipos de orden ───────────────────
+            runCatching {
+                val res = api.getTiposOrden()
+                if (res.isSuccessful) {
+                    val tipos = (res.body()?.tipos ?: emptyList()).map {
+                        com.enetfiber.tecnico.data.local.ConfigTipoOrdenEntity(
+                            codigo         = it.codigo,
+                            label          = it.label,
+                            servicio       = it.servicio,
+                            flujo          = it.flujo,
+                            requiereWan    = it.requiereWan,
+                            autorizaOlt    = it.autorizaOlt,
+                            esRetiro       = it.esRetiro,
+                            esBaja         = it.esBaja,
+                            esInstalacion  = it.esInstalacion,
+                            esCorte        = it.esCorte,
+                            esCambioEquipo = it.esCambioEquipo,
+                            activo         = it.activo,
+                            orden          = it.orden,
+                        )
+                    }
+                    configTipoOrdenDao.clearAll()
+                    configTipoOrdenDao.insertAll(tipos)
+                    android.util.Log.d(tag, "✓ ${tipos.size} tipos de orden actualizados")
+                }
+            }.onFailure { android.util.Log.w(tag, "tipos-orden sync falló (no crítico): ${it.message}") }
 
             // ── PASO -1: aceptaciones offline ─────────────────────────
             val aceptacionesPendientes = aceptarDao.getPendientes()

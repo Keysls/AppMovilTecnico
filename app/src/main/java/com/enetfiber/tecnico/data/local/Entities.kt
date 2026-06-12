@@ -166,3 +166,21 @@ data class RetiroPendienteEntity(
     val sincronizado: Boolean = false,
     val creadoEn:     Long = System.currentTimeMillis()
 )
+
+@androidx.room.Entity(tableName = "config_tipos_orden")
+data class ConfigTipoOrdenEntity(
+    @androidx.room.PrimaryKey val codigo:  String,
+    val label:          String,
+    val servicio:       String,   // "INTERNET" | "CABLE" | "DUO"
+    val flujo:          String,   // "NOC_TECNICO" | "SOLO_NOC" | "TECNICO_DIRECTO"
+    val requiereWan:    Boolean = false,
+    val autorizaOlt:    Boolean = false,
+    val esRetiro:       Boolean = false,
+    val esBaja:         Boolean = false,
+    val esInstalacion:  Boolean = false,
+    val esCorte:        Boolean = false,
+    val esCambioEquipo: Boolean = false,
+    val activo:         Boolean = true,
+    val orden:          Int     = 999,
+    val cachedAt:       Long    = System.currentTimeMillis()
+)

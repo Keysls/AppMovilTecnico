@@ -138,6 +138,22 @@ class OrdenesViewModel @Inject constructor(
     val pendientesCable    = repo.getPendientesCable()
     val pendientesDuo      = repo.getPendientesDuo()
 
+    // ── Tipos de orden dinámicos ──────────────────────────────
+    val tiposOrden = repo.getTiposOrden()
+
+    init {
+        viewModelScope.launch {
+            // Cargar de Room primero (rápido, offline-first)
+            val tiposLocales = repo.getTiposOrdenOnce()
+            if (tiposLocales.isNotEmpty()) TipoOrden.cargarTiposDinamicos(tiposLocales)
+
+            // Luego sincronizar del backend en background
+            repo.sincronizarTiposOrden()
+            val tiposFrescos = repo.getTiposOrdenOnce()
+            if (tiposFrescos.isNotEmpty()) TipoOrden.cargarTiposDinamicos(tiposFrescos)
+        }
+    }
+
     // "Todos" combina los tres tipos
     val pendientesTodas: androidx.lifecycle.LiveData<List<com.enetfiber.tecnico.data.local.OrdenEntity>> =
         androidx.lifecycle.MediatorLiveData<List<com.enetfiber.tecnico.data.local.OrdenEntity>>().also { mediator ->
@@ -265,6 +281,19 @@ class InstalacionViewModel @Inject constructor(
 
     private val _orden = MutableLiveData<OrdenDto?>()
     val orden: LiveData<OrdenDto?> = _orden
+
+    // ── Tipos de orden dinámicos ──────────────────────────────
+    val tiposOrden = repo.getTiposOrden()
+
+    init {
+        viewModelScope.launch {
+            val tiposLocales = repo.getTiposOrdenOnce()
+            if (tiposLocales.isNotEmpty()) TipoOrden.cargarTiposDinamicos(tiposLocales)
+            repo.sincronizarTiposOrden()
+            val tiposFrescos = repo.getTiposOrdenOnce()
+            if (tiposFrescos.isNotEmpty()) TipoOrden.cargarTiposDinamicos(tiposFrescos)
+        }
+    }
 
     private val _fotos = MutableLiveData<List<FotoTomada>>(emptyList())
     val fotos: LiveData<List<FotoTomada>> = _fotos

@@ -332,3 +332,23 @@ interface RetiroPendienteDao {
     @Query("UPDATE retiro_pendiente SET tecnicoId = :tecnicoId WHERE tecnicoId = ''")
     suspend fun actualizarTecnicoIdVacios(tecnicoId: String)
 }
+@androidx.room.Dao
+interface ConfigTipoOrdenDao {
+    @androidx.room.Query("SELECT * FROM config_tipos_orden WHERE activo = 1 ORDER BY orden ASC")
+    fun getAll(): androidx.lifecycle.LiveData<List<ConfigTipoOrdenEntity>>
+
+    @androidx.room.Query("SELECT * FROM config_tipos_orden WHERE activo = 1 ORDER BY orden ASC")
+    suspend fun getAllOnce(): List<ConfigTipoOrdenEntity>
+
+    @androidx.room.Query("SELECT * FROM config_tipos_orden WHERE codigo = :codigo LIMIT 1")
+    suspend fun getByCodigo(codigo: String): ConfigTipoOrdenEntity?
+
+    @androidx.room.Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<ConfigTipoOrdenEntity>)
+
+    @androidx.room.Query("DELETE FROM config_tipos_orden")
+    suspend fun clearAll()
+
+    @androidx.room.Query("SELECT COUNT(*) FROM config_tipos_orden")
+    suspend fun count(): Int
+}

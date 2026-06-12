@@ -18,8 +18,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ConsumoPendienteEntity::class,
         CatalogoProductoEntity::class,  // ← catálogo para retiros offline
         RetiroPendienteEntity::class,
+        ConfigTipoOrdenEntity::class,   // ← tipos de orden dinámicos
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -33,6 +34,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun consumoPendienteDao(): ConsumoPendienteDao
     abstract fun catalogoProductoDao(): CatalogoProductoDao
     abstract fun retiroPendienteDao(): RetiroPendienteDao   // ← NUEVO
+    abstract fun configTipoOrdenDao(): ConfigTipoOrdenDao  // ← tipos dinámicos
 
 
     companion object {
@@ -189,6 +191,29 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "ALTER TABLE inventario_onus ADD COLUMN productoId INTEGER"
                 )
+            }
+        }
+
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS config_tipos_orden (
+                        codigo          TEXT    NOT NULL PRIMARY KEY,
+                        label           TEXT    NOT NULL,
+                        servicio        TEXT    NOT NULL,
+                        flujo           TEXT    NOT NULL,
+                        requiereWan     INTEGER NOT NULL DEFAULT 0,
+                        autorizaOlt     INTEGER NOT NULL DEFAULT 0,
+                        esRetiro        INTEGER NOT NULL DEFAULT 0,
+                        esBaja          INTEGER NOT NULL DEFAULT 0,
+                        esInstalacion   INTEGER NOT NULL DEFAULT 0,
+                        esCorte         INTEGER NOT NULL DEFAULT 0,
+                        esCambioEquipo  INTEGER NOT NULL DEFAULT 0,
+                        activo          INTEGER NOT NULL DEFAULT 1,
+                        orden           INTEGER NOT NULL DEFAULT 999,
+                        cachedAt        INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
             }
         }
 

@@ -374,3 +374,25 @@ data class RegistrarDevolucionResponse(
     val ok:          Boolean,
     val devolucionId: Int
 )
+// ── Tipos de orden dinámicos ──────────────────────────────────
+data class ConfigTipoOrdenDto(
+    val codigo:         String,
+    val label:          String,
+    val servicio:       String,
+    val flujo:          String,
+    val requiereWan:    Boolean = false,
+    val autorizaOlt:    Boolean = false,
+    val esRetiro:       Boolean = false,
+    val esBaja:         Boolean = false,
+    val esInstalacion:  Boolean = false,
+    val esCorte:        Boolean = false,
+    val esCambioEquipo: Boolean = false,
+    val activo:         Boolean = true,
+    val orden:          Int     = 999,
+)
+
+data class TiposOrdenResponse(
+    val tipos:  List<ConfigTipoOrdenDto>,
+    val grupos: Map<String, List<String>>,
+    val labels: Map<String, String>,
+)
