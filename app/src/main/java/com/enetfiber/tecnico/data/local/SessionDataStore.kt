@@ -12,6 +12,22 @@ import javax.inject.Singleton
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "session")
 
+// Para producción usar EncryptedSharedPreferences
+fun createEncryptedDataStore(context: Context): DataStore<Preferences> {
+    val masterKey = androidx.security.crypto.MasterKey.Builder(context)
+        .setKeyScheme(androidx.security.crypto.MasterKey.KeyScheme.AES256_GCM)
+        .build()
+    return PreferenceDataStoreFactory.create {
+        androidx.security.crypto.EncryptedFile.Builder(
+            context,
+            context.dataDir.resolve("datastore/session.preferences_pb"),
+            masterKey,
+            androidx.security.crypto.EncryptedFile.FileEncryptionScheme.AES256_GCM_HKDF_4KB
+        ).build().also { it.openFileInput().close() }
+        context.dataDir.resolve("datastore/session.preferences_pb")
+    }
+}
+
 @Singleton
 class SessionDataStore @Inject constructor(
     @ApplicationContext private val context: Context

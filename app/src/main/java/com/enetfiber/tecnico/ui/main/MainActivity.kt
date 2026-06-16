@@ -28,6 +28,23 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     val vm: DashboardViewModel by viewModels()
 
+    private var ultimaActividad = System.currentTimeMillis()
+    private val TIMEOUT_MS = 8 * 60 * 60 * 1000L // 8 horas
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        ultimaActividad = System.currentTimeMillis()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val inactivo = System.currentTimeMillis() - ultimaActividad > TIMEOUT_MS
+        if (inactivo) {
+            Toast.makeText(this, "Sesión cerrada por inactividad", Toast.LENGTH_LONG).show()
+            logout()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -138,4 +155,6 @@ class MainActivity : AppCompatActivity() {
         @Suppress("DEPRECATION")
         super.onBackPressed()
     }
+
 }
+
