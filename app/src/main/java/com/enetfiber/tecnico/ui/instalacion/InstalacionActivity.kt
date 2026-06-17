@@ -2633,6 +2633,18 @@ class InstalacionActivity : AppCompatActivity() {
             val productoId = spinner.tag as? Int ?: continue
             val item = itemsInventarioCache.firstOrNull { it.productoId == productoId } ?: continue
 
+            // Las filas de ONU no usan etCant (está oculto) — su "cantidad" es fija (1) y
+            // su valor real es el código PON en onusSeleccionadas. Si se las trata igual que
+            // a un material normal, etCant.text está vacío y la fila se descarta silenciosamente
+            // (bug real: una ONU se perdía de materialesGastados al agregar otro material normal).
+            if (esProductoOnu(item)) {
+                if (onusSeleccionadas.containsKey(productoId)) {
+                    materialesGastados.add(Pair(productoId, 1.0))
+                    nombresProductos[productoId] = item.nombre
+                }
+                continue
+            }
+
             val cant = etCant.text.toString().toDoubleOrNull() ?: 0.0
             if (cant <= 0) continue
 
