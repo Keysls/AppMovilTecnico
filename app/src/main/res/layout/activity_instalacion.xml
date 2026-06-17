@@ -1738,6 +1738,42 @@
                                     android:layout_marginBottom="12dp"
                                     android:visibility="gone"/>
 
+                                <!-- Solo para TRASLADO/CAMBIO_DOMICILIO — la ONU ya está
+                                     instalada, no está en el inventario del técnico, así
+                                     que el código PON se escribe a mano (etiqueta del equipo). -->
+                                <LinearLayout
+                                    android:id="@+id/layoutOltCodigoManual"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="vertical"
+                                    android:visibility="gone"
+                                    android:layout_marginBottom="12dp">
+
+                                    <TextView
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:text="Código PON-SN (etiqueta de la ONU) *"
+                                        android:textSize="11sp"
+                                        android:textStyle="bold"
+                                        android:textColor="#64748B"
+                                        android:layout_marginBottom="6dp"
+                                        tools:ignore="HardcodedText"/>
+
+                                    <EditText
+                                        android:id="@+id/etOltCodigoManual"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:hint="Ej: ZTEGC1234567"
+                                        android:textSize="13sp"
+                                        android:textColor="#0F172A"
+                                        android:textColorHint="#94A3B8"
+                                        android:background="@drawable/input_bg"
+                                        android:padding="10dp"
+                                        android:inputType="textCapCharacters"
+                                        android:importantForAutofill="no"
+                                        tools:ignore="Autofill,HardcodedText"/>
+                                </LinearLayout>
+
                                 <com.google.android.material.button.MaterialButton
                                     android:id="@+id/btnAutorizarOlt"
                                     android:layout_width="match_parent"

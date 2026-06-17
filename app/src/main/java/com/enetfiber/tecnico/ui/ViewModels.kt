@@ -583,7 +583,41 @@ class InstalacionViewModel @Inject constructor(
     private val _estadoOlt = MutableLiveData<EstadoOltUi>(EstadoOltUi.Inactivo)
     val estadoOlt: LiveData<EstadoOltUi> = _estadoOlt
 
+    // Serial que quedó AUTORIZADA según el backend — la Activity lo usa para
+    // reconstruir onusSeleccionadas al reabrir la pantalla (ese mapa vive solo en memoria).
+    private val _serialAutorizadoInicial = MutableLiveData<String?>(null)
+    val serialAutorizadoInicial: LiveData<String?> = _serialAutorizadoInicial
+
     private var pollingJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * Consulta el estado real de la OLT al abrir la pantalla — necesario porque
+     * onusSeleccionadas y _estadoOlt solo viven en memoria de esta sesión. Si el
+     * técnico ya autenticó antes y cerró/reabrió la app, esto restaura ese estado.
+     *
+     * Solo se restaura AUTORIZADA. PENDIENTE_OLT/ERROR_OLT NO se retoma automáticamente
+     * al abrir la pantalla — un registro pendiente de un intento anterior (ej. pruebas)
+     * no debe forzar al técnico a quedar atrapado esperando al NOC sin haber hecho nada
+     * en esta sesión. Si el técnico vuelve a autenticar, el backend reintentará igual.
+     */
+    fun cargarEstadoOltInicial(instalacionId: String) {
+        viewModelScope.launch {
+            when (val r = repo.obtenerInstalacion(instalacionId)) {
+                is Resultado.Exito -> {
+                    val config = r.data.configOnu
+                    if (config?.estadoOlt == "AUTORIZADA") {
+                        _estadoOlt.value = EstadoOltUi.Autorizada(
+                            oltNombre      = config.olts?.nombre,
+                            puertoCompleto = config.puertoOlt,
+                            onuId          = config.onuIdOlt?.toIntOrNull()
+                        )
+                        _serialAutorizadoInicial.value = config.serialNumber
+                    }
+                }
+                is Resultado.Error -> { /* sin conexión — se queda en Inactivo, no es crítico */ }
+            }
+        }
+    }
 
     /**
      * Dispara la autorización manual en la OLT.
@@ -821,22 +855,43 @@ class InventarioViewModel @Inject constructor(
     ) {
         if (items.isEmpty()) return
         viewModelScope.launch {
-            _consumoState.value = ConsumoState.Guardando
-            val r = repo.registrarConsumo(items, motivo, descripcion, ordenId, nServicio, abonado, nombresMap)
-            if (r is Resultado.Exito) {
-                // Refrescar métricas locales después del descuento
-                val metricas = repo.getMetricasInventario()
-                _uiState.value = _uiState.value?.copy(
-                    totalAsignados   = metricas.totalAsignados,
-                    totalUtilizados  = metricas.totalUtilizados,
-                    totalDisponibles = metricas.totalDisponibles,
-                    totalSinStock    = metricas.totalSinStock
-                )
-                _consumoState.value = ConsumoState.Exito
-            } else {
-                _consumoState.value = ConsumoState.Error((r as Resultado.Error).mensaje)
-            }
+            registrarConsumoSuspend(items, motivo, descripcion, ordenId, nServicio, abonado, nombresMap)
         }
+    }
+
+    /**
+     * Versión suspend de registrarConsumo — para llamadores (como InstalacionActivity.completar())
+     * que necesitan GARANTIZAR que el consumo se confirme en el backend antes de continuar,
+     * en vez de lanzarlo en viewModelScope y seguir de largo. Necesario porque si la Activity
+     * hace finish() justo después (ej. al completar una orden y navegar), viewModelScope se
+     * cancela junto con la Activity y mata cualquier corutina fire-and-forget en curso.
+     */
+    suspend fun registrarConsumoSuspend(
+        items:       List<ConsumoItemRequest>,
+        motivo:      String = "SERVICIO",
+        descripcion: String? = null,
+        ordenId:     String? = null,
+        nServicio:   String? = null,
+        abonado:     String? = null,
+        nombresMap:  Map<Int, String> = emptyMap()
+    ): Resultado<Unit> {
+        if (items.isEmpty()) return Resultado.Exito(Unit)
+        _consumoState.value = ConsumoState.Guardando
+        val r = repo.registrarConsumo(items, motivo, descripcion, ordenId, nServicio, abonado, nombresMap)
+        if (r is Resultado.Exito) {
+            // Refrescar métricas locales después del descuento
+            val metricas = repo.getMetricasInventario()
+            _uiState.value = _uiState.value?.copy(
+                totalAsignados   = metricas.totalAsignados,
+                totalUtilizados  = metricas.totalUtilizados,
+                totalDisponibles = metricas.totalDisponibles,
+                totalSinStock    = metricas.totalSinStock
+            )
+            _consumoState.value = ConsumoState.Exito
+        } else {
+            _consumoState.value = ConsumoState.Error((r as Resultado.Error).mensaje)
+        }
+        return r
     }
 
     fun limpiarMensaje() { _uiState.value = _uiState.value?.copy(mensaje = null) }
@@ -848,21 +903,34 @@ class InventarioViewModel @Inject constructor(
         ordenId: String? = null,
     ) {
         viewModelScope.launch {
-            android.util.Log.d("InventarioVM", "registrarRetiro: ${items.size} items, ordenId=$ordenId")
-            items.forEach { i ->
-                android.util.Log.d("InventarioVM", "  item: productoId=${i.productoId} tipo=${i.tipoEquipo} pon=${i.codigoPon}")
-            }
-            val resultado = repo.registrarRetiro(items, ordenId)
-            android.util.Log.d("InventarioVM", "registrarRetiro resultado: $resultado")
-            // Refrescar métricas locales
-            val metricas = repo.getMetricasInventario()
-            _uiState.value = _uiState.value?.copy(
-                totalAsignados   = metricas.totalAsignados,
-                totalUtilizados  = metricas.totalUtilizados,
-                totalDisponibles = metricas.totalDisponibles,
-                totalSinStock    = metricas.totalSinStock
-            )
+            registrarRetiroSuspend(items, ordenId)
         }
+    }
+
+    /**
+     * Versión suspend de registrarRetiro — mismo motivo que registrarConsumoSuspend: permite
+     * que InstalacionActivity.completar() espere la confirmación del backend antes de navegar
+     * y hacer finish(), evitando que viewModelScope cancele el registro a mitad de camino.
+     */
+    suspend fun registrarRetiroSuspend(
+        items:   List<com.enetfiber.tecnico.data.remote.RetiroItemRequest>,
+        ordenId: String? = null,
+    ): Resultado<Unit> {
+        android.util.Log.d("InventarioVM", "registrarRetiro: ${items.size} items, ordenId=$ordenId")
+        items.forEach { i ->
+            android.util.Log.d("InventarioVM", "  item: productoId=${i.productoId} tipo=${i.tipoEquipo} pon=${i.codigoPon}")
+        }
+        val resultado = repo.registrarRetiro(items, ordenId)
+        android.util.Log.d("InventarioVM", "registrarRetiro resultado: $resultado")
+        // Refrescar métricas locales
+        val metricas = repo.getMetricasInventario()
+        _uiState.value = _uiState.value?.copy(
+            totalAsignados   = metricas.totalAsignados,
+            totalUtilizados  = metricas.totalUtilizados,
+            totalDisponibles = metricas.totalDisponibles,
+            totalSinStock    = metricas.totalSinStock
+        )
+        return resultado
     }
 
     // Estado de devolución

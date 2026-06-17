@@ -60,6 +60,7 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.overlay.Marker
 import javax.inject.Inject
 import com.enetfiber.tecnico.data.Repository
+import com.enetfiber.tecnico.data.Resultado
 import com.enetfiber.tecnico.data.remote.ConsumoItemRequest
 import com.enetfiber.tecnico.ui.InventarioViewModel
 import com.google.android.material.textfield.TextInputEditText as TIEditText
@@ -226,6 +227,33 @@ class InstalacionActivity : AppCompatActivity() {
         return TipoOrden.esInternet(orden.tipoOrden)
     }
 
+    /**
+     * Solo estos tipos de orden requieren autorización OLT — lista intencionalmente
+     * más restringida que esInternet(), que se usa para otras cosas (mostrar pasos de
+     * configuración WiFi, cards de equipo) y abarca tipos como AVERIA_I o CAMBIO_PLAN_I
+     * que no necesitan autenticar la ONU en la OLT.
+     */
+    private fun requiereOltDinamico(): Boolean {
+        val orden = vm.orden.value ?: return false
+        return orden.tipoOrden in listOf(
+            TipoOrden.INSTALACION_I, TipoOrden.CAMBIO_EQUIPO_I, TipoOrden.RECONEXION_I, TipoOrden.TRASLADO_I, TipoOrden.CAMBIO_DOMICILIO_I,
+            TipoOrden.INSTALACION_D, TipoOrden.CAMBIO_EQUIPO_D, TipoOrden.RECONEXION_D, TipoOrden.TRASLADO_D, TipoOrden.CAMBIO_DOMICILIO_D
+        )
+    }
+
+    /**
+     * TRASLADO/CAMBIO_DOMICILIO: la ONU ya está instalada en casa del cliente desde antes —
+     * no está en el inventario del técnico, así que no hay chip que elegir en Materiales.
+     * El código PON se escribe a mano, leído de la etiqueta del equipo ya instalado.
+     */
+    private fun esTrasladoOCambioDomicilio(): Boolean {
+        val orden = vm.orden.value ?: return false
+        return orden.tipoOrden in listOf(
+            TipoOrden.TRASLADO_I, TipoOrden.CAMBIO_DOMICILIO_I,
+            TipoOrden.TRASLADO_D, TipoOrden.CAMBIO_DOMICILIO_D
+        )
+    }
+
     // ═════════════════════════════════════════════════════════
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -240,6 +268,7 @@ class InstalacionActivity : AppCompatActivity() {
 
         vm.instalacionId = instalacionId
         vm.cargarOrden(ordenId)
+        vm.cargarEstadoOltInicial(instalacionId)
 
         bindOverlayViews()
         bindConfigViews()
@@ -264,72 +293,80 @@ class InstalacionActivity : AppCompatActivity() {
 
         // Observer global de ONUs — actualiza chips del producto actualmente visible
         inventarioVm.onus.observe(this) { onus ->
-            val layoutLista = findViewById<android.widget.LinearLayout>(R.id.layoutListaMateriales) ?: return@observe
-            for (i in 0 until layoutLista.childCount) {
-                val row = layoutLista.getChildAt(i) ?: continue
-                val spinner = row.findViewById<android.widget.Spinner>(R.id.spinnerItem) ?: continue
-                val productoId = spinner.tag as? Int ?: continue
-                //val chipsRow = row.findViewWithTag<android.widget.LinearLayout>("chips_row_$productoId") ?: continue
-                val chipsRow = row.findViewWithTag<android.widget.LinearLayout>("chips_row") ?: continue
-                // val onuSection = row.findViewWithTag<android.widget.LinearLayout>("onu_section_$productoId") ?: continue
-                val onuSection = row.findViewWithTag<android.widget.LinearLayout>("onu_section") ?: continue
-                if (onuSection.visibility != android.view.View.VISIBLE) continue
-                chipsRow.removeAllViews()
-                val filtradas = (onus ?: emptyList()).filter { it.productoId == productoId }
-                if (filtradas.isEmpty()) {
-                    chipsRow.addView(android.widget.TextView(this).apply {
-                        text = "Sin ONUs disponibles"; textSize = 12f
-                        setTextColor(android.graphics.Color.parseColor("#94A3B8"))
-                    })
-                } else {
-                    val dp = resources.displayMetrics.density
-                    filtradas.forEach { onu ->
-                        val yaBloqueado = vm.estadoOlt.value is EstadoOltUi.Autorizada
-                        val esElSeleccionado = onusSeleccionadas[productoId] == onu.codigoPon
-                        val chip = android.widget.TextView(this).apply {
-                            text = onu.codigoPon ?: "SIN CÓDIGO"; textSize = 12f
-                            typeface = android.graphics.Typeface.MONOSPACE
-                            if (esElSeleccionado) {
-                                setTextColor(android.graphics.Color.WHITE)
-                                setBackgroundColor(android.graphics.Color.parseColor("#7C3AED"))
-                            } else {
-                                setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
-                                background = getDrawable(R.drawable.input_bg)
-                            }
-                            alpha = if (yaBloqueado && !esElSeleccionado) 0.4f else 1f
-                            setPadding((10*dp).toInt(),(6*dp).toInt(),(10*dp).toInt(),(6*dp).toInt())
-                            isClickable = true; isFocusable = true
-                            layoutParams = android.widget.LinearLayout.LayoutParams(
-                                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-                                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-                            ).apply { marginEnd = (8*dp).toInt() }
+            repintarChipsVisibles(onus ?: emptyList())
+        }
+    }
+
+    /**
+     * Repinta los chips de código PON de todas las filas de Materiales que estén
+     * mostrando la sección ONU actualmente. Reutilizable desde el observer de
+     * inventario y desde "Cambiar equipo", que también cambia onusSeleccionadas
+     * sin pasar por un click de chip.
+     */
+    private fun repintarChipsVisibles(onus: List<com.enetfiber.tecnico.data.local.InventarioOnuEntity>) {
+        val layoutLista = findViewById<android.widget.LinearLayout>(R.id.layoutListaMateriales) ?: return
+        for (i in 0 until layoutLista.childCount) {
+            val row = layoutLista.getChildAt(i) ?: continue
+            val spinner = row.findViewById<android.widget.Spinner>(R.id.spinnerItem) ?: continue
+            val productoId = spinner.tag as? Int ?: continue
+            val chipsRow = row.findViewWithTag<android.widget.LinearLayout>("chips_row") ?: continue
+            val onuSection = row.findViewWithTag<android.widget.LinearLayout>("onu_section") ?: continue
+            if (onuSection.visibility != android.view.View.VISIBLE) continue
+            chipsRow.removeAllViews()
+            val filtradas = onus.filter { it.productoId == productoId }
+            if (filtradas.isEmpty()) {
+                chipsRow.addView(android.widget.TextView(this).apply {
+                    text = "Sin ONUs disponibles"; textSize = 12f
+                    setTextColor(android.graphics.Color.parseColor("#94A3B8"))
+                })
+            } else {
+                val dp = resources.displayMetrics.density
+                filtradas.forEach { onu ->
+                    val yaBloqueado = vm.estadoOlt.value is EstadoOltUi.Autorizada
+                    val esElSeleccionado = onusSeleccionadas[productoId] == onu.codigoPon
+                    val chip = android.widget.TextView(this).apply {
+                        text = onu.codigoPon ?: "SIN CÓDIGO"; textSize = 12f
+                        typeface = android.graphics.Typeface.MONOSPACE
+                        if (esElSeleccionado) {
+                            setTextColor(android.graphics.Color.WHITE)
+                            setBackgroundColor(android.graphics.Color.parseColor("#7C3AED"))
+                        } else {
+                            setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
+                            background = getDrawable(R.drawable.input_bg)
                         }
-                        chip.setOnClickListener {
-                            if (vm.estadoOlt.value is EstadoOltUi.Autorizada) {
-                                Toast.makeText(
-                                    this,
-                                    "Ya autenticaste esta ONU con la OLT. Usa \"Cambiar equipo\" si necesitas usar otra.",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                                return@setOnClickListener
-                            }
-                            for (j in 0 until chipsRow.childCount) {
-                                val c = chipsRow.getChildAt(j) as? android.widget.TextView
-                                c?.setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
-                                c?.background = getDrawable(R.drawable.input_bg)
-                            }
-                            chip.setTextColor(android.graphics.Color.WHITE)
-                            chip.setBackgroundColor(android.graphics.Color.parseColor("#7C3AED"))
-                            onu.codigoPon?.let { onusSeleccionadas[productoId] = it }
-                            val idx = materialesGastados.indexOfFirst { it.first == productoId }
-                            val nombre = itemsInventarioCache.firstOrNull { it.productoId == productoId }?.nombre ?: ""
-                            if (idx >= 0) materialesGastados[idx] = Pair(productoId, 1.0)
-                            else { materialesGastados.add(Pair(productoId, 1.0)); nombresProductos[productoId] = nombre }
-                            actualizarContadorMateriales()
-                            actualizarCardOltInactiva()
-                        }
-                        chipsRow.addView(chip)
+                        alpha = if (yaBloqueado && !esElSeleccionado) 0.4f else 1f
+                        setPadding((10*dp).toInt(),(6*dp).toInt(),(10*dp).toInt(),(6*dp).toInt())
+                        isClickable = true; isFocusable = true
+                        layoutParams = android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { marginEnd = (8*dp).toInt() }
                     }
+                    chip.setOnClickListener {
+                        if (vm.estadoOlt.value is EstadoOltUi.Autorizada) {
+                            Toast.makeText(
+                                this,
+                                "Ya autenticaste esta ONU con la OLT. Usa \"Cambiar equipo\" si necesitas usar otra.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            return@setOnClickListener
+                        }
+                        for (j in 0 until chipsRow.childCount) {
+                            val c = chipsRow.getChildAt(j) as? android.widget.TextView
+                            c?.setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
+                            c?.background = getDrawable(R.drawable.input_bg)
+                        }
+                        chip.setTextColor(android.graphics.Color.WHITE)
+                        chip.setBackgroundColor(android.graphics.Color.parseColor("#7C3AED"))
+                        onu.codigoPon?.let { onusSeleccionadas[productoId] = it }
+                        val idx = materialesGastados.indexOfFirst { it.first == productoId }
+                        val nombre = itemsInventarioCache.firstOrNull { it.productoId == productoId }?.nombre ?: ""
+                        if (idx >= 0) materialesGastados[idx] = Pair(productoId, 1.0)
+                        else { materialesGastados.add(Pair(productoId, 1.0)); nombresProductos[productoId] = nombre }
+                        actualizarContadorMateriales()
+                        actualizarCardOltInactiva()
+                    }
+                    chipsRow.addView(chip)
                 }
             }
         }
@@ -584,28 +621,42 @@ class InstalacionActivity : AppCompatActivity() {
         findViewById<MaterialButton>(R.id.btnCambiarEquipoDesdeAutorizada).setOnClickListener {
             abrirCambiarEquipo()
         }
+        findViewById<android.widget.EditText>(R.id.etOltCodigoManual)?.addTextChangedListener(
+            object : android.text.TextWatcher {
+                override fun afterTextChanged(s: android.text.Editable?) = actualizarCardOltInactiva()
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            }
+        )
         actualizarCardOltInactiva()
     }
 
     /**
-     * Refresca la card "Inactivo" de la OLT con el código PON elegido en Materiales.
-     * Se llama cada vez que cambia la selección de ONU en Materiales (chips) y al entrar a Paso 4.
+     * Refresca la card "Inactivo" de la OLT. Para órdenes normales muestra el código PON
+     * elegido en Materiales (solo lectura). Para TRASLADO/CAMBIO_DOMICILIO muestra el
+     * campo de texto manual en su lugar, ya que la ONU no está en el inventario.
      */
     private fun actualizarCardOltInactiva() {
         val sn = serialActualParaOlt()
-        val tvCodigo = findViewById<TextView>(R.id.tvOltCodigoPendiente)
-        val btn      = findViewById<MaterialButton>(R.id.btnAutorizarOlt)
+        val tvCodigo      = findViewById<TextView>(R.id.tvOltCodigoPendiente)
+        val layoutManual  = findViewById<android.widget.LinearLayout>(R.id.layoutOltCodigoManual)
+        val btn           = findViewById<MaterialButton>(R.id.btnAutorizarOlt)
 
-        if (sn.isNullOrBlank()) {
+        if (esTrasladoOCambioDomicilio()) {
             tvCodigo.visibility = View.GONE
-            btn.isEnabled = false
-            btn.alpha = 0.5f
+            layoutManual.visibility = View.VISIBLE
         } else {
-            tvCodigo.text = "Se autenticará: $sn"
-            tvCodigo.visibility = View.VISIBLE
-            btn.isEnabled = true
-            btn.alpha = 1f
+            layoutManual.visibility = View.GONE
+            if (sn.isNullOrBlank()) {
+                tvCodigo.visibility = View.GONE
+            } else {
+                tvCodigo.text = "Se autenticará: $sn"
+                tvCodigo.visibility = View.VISIBLE
+            }
         }
+
+        btn.isEnabled = !sn.isNullOrBlank()
+        btn.alpha = if (sn.isNullOrBlank()) 0.5f else 1f
     }
 
     /** Detecta si un item del catálogo es un producto tipo ONU/ONT (por categoría o nombre). */
@@ -614,15 +665,27 @@ class InstalacionActivity : AppCompatActivity() {
                 item.nombre.lowercase().let { it.contains("onu") || it.contains("ont") }
     }
 
-    /** Código PON elegido en Materiales — ahora es la única fuente de verdad para la OLT. */
+    /**
+     * Código PON a usar para la OLT. Para TRASLADO/CAMBIO_DOMICILIO viene del campo
+     * manual (la ONU no está en el inventario del técnico); para el resto, del chip
+     * elegido en Materiales.
+     */
     private fun serialActualParaOlt(): String? {
+        if (esTrasladoOCambioDomicilio()) {
+            return findViewById<android.widget.EditText>(R.id.etOltCodigoManual)
+                ?.text?.toString()?.trim()?.ifBlank { null }
+        }
         return onusSeleccionadas.values.firstOrNull()?.ifBlank { null }
     }
 
     private fun iniciarAutorizacionOlt() {
         val sn = serialActualParaOlt()
         if (sn.isNullOrBlank()) {
-            Toast.makeText(this, "Primero selecciona el código PON de la ONU en Materiales utilizados.", Toast.LENGTH_LONG).show()
+            val msg = if (esTrasladoOCambioDomicilio())
+                "Escribe el código PON de la ONU antes de autenticar."
+            else
+                "Primero selecciona el código PON de la ONU en Materiales utilizados."
+            Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
             return
         }
         // Persistir la config ONU (con el SN actual) ANTES de autorizar —
@@ -650,9 +713,31 @@ class InstalacionActivity : AppCompatActivity() {
     }
 
     private fun observarEstadoOlt() {
+        // Si el backend ya tenía esta ONU autorizada/pendiente de una sesión anterior,
+        // reconstruir onusSeleccionadas para que la UI (chips, card OLT) quede coherente.
+        vm.serialAutorizadoInicial.observe(this) { serial ->
+            if (serial.isNullOrBlank()) return@observe
+            if (onusSeleccionadas.containsValue(serial)) return@observe // ya está, no duplicar
+
+            fun intentarRestaurar() {
+                val onu = inventarioVm.onus.value?.firstOrNull { it.codigoPon == serial } ?: return
+                val pid = onu.productoId ?: return
+                onusSeleccionadas[pid] = serial
+                nombresProductos[pid] = onu.producto
+                actualizarCardOltInactiva()
+            }
+
+            if (!inventarioVm.onus.value.isNullOrEmpty()) {
+                intentarRestaurar()
+            } else {
+                // El inventario aún no cargó — observar una vez a que llegue
+                inventarioVm.onus.observe(this) { intentarRestaurar() }
+            }
+        }
+
         vm.estadoOlt.observe(this) { estado ->
             findViewById<CardView>(R.id.cardAutorizarOlt)?.visibility =
-                if (esInternet()) View.VISIBLE else View.GONE
+                if (requiereOltDinamico()) View.VISIBLE else View.GONE
 
             layoutOltInactivo.visibility    = View.GONE
             layoutOltAutorizando.visibility = View.GONE
@@ -689,7 +774,7 @@ class InstalacionActivity : AppCompatActivity() {
 
     /** Habilita o bloquea el botón Completar. Solo aplica el bloqueo en órdenes que requieren OLT. */
     private fun habilitarCompletar(autorizada: Boolean) {
-        if (!esInternet()) {
+        if (!requiereOltDinamico()) {
             binding.btnCompletar.isEnabled = true
             return
         }
@@ -697,132 +782,64 @@ class InstalacionActivity : AppCompatActivity() {
         binding.btnCompletar.alpha = if (autorizada) 1f else 0.5f
     }
 
-    // ── Cambio de equipo (ONU defectuosa) ──────────────────────
-    // Producto de la nueva ONU seleccionada — para mantener el material gastado consistente
-    private var onuViejaProductoId: Int? = null
-    private var onuViejaCodigoPon:  String? = null
+    // ── Cambio de equipo (resetea selección, sin mover inventario) ──
 
     private fun abrirCambiarEquipo() {
-        val onusDisponibles = (inventarioVm.onus.value ?: emptyList())
-            .filter { it.codigoPon != null }
-
-        if (onusDisponibles.isEmpty()) {
-            Toast.makeText(this, "No tienes otra ONU disponible en tu inventario", Toast.LENGTH_LONG).show()
-            return
-        }
-
-        val codigosVisibles = onusDisponibles.map { "${it.producto} — ${it.codigoPon}" }.toTypedArray()
-        var seleccionIdx = -1
-
-        val dialogView = layoutInflater.inflate(R.layout.dialog_cambiar_equipo, null)
-        val etMotivo = dialogView.findViewById<android.widget.EditText>(R.id.etMotivoCambio)
-        val tvSeleccion = dialogView.findViewById<TextView>(R.id.tvOnuSeleccionada)
-
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Cambiar equipo")
-            .setView(dialogView)
-            .setPositiveButton("Continuar", null)   // override abajo para validar antes de cerrar
+            .setMessage("Se quitará la ONU seleccionada de Materiales y deberás volver a elegir el equipo. Ningún material se descuenta de tu inventario hasta que completes el servicio.")
+            .setPositiveButton("Sí, cambiar") { _, _ -> ejecutarCambioEquipo() }
             .setNegativeButton("Cancelar", null)
-            .create()
-            .apply {
-                setOnShowListener { dialog ->
-                    tvSeleccion.setOnClickListener {
-                        androidx.appcompat.app.AlertDialog.Builder(this@InstalacionActivity)
-                            .setTitle("Selecciona la nueva ONU")
-                            .setItems(codigosVisibles) { _, which ->
-                                seleccionIdx = which
-                                tvSeleccion.text = codigosVisibles[which]
-                            }
-                            .show()
-                    }
-                    getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                        val motivo = etMotivo.text?.toString()?.trim().orEmpty()
-                        if (seleccionIdx < 0) {
-                            Toast.makeText(this@InstalacionActivity, "Selecciona la nueva ONU", Toast.LENGTH_SHORT).show()
-                            return@setOnClickListener
-                        }
-                        if (motivo.isBlank()) {
-                            Toast.makeText(this@InstalacionActivity, "Indica el motivo del cambio", Toast.LENGTH_SHORT).show()
-                            return@setOnClickListener
-                        }
-                        val nuevaOnu = onusDisponibles[seleccionIdx]
-                        ejecutarCambioEquipo(nuevaOnu, motivo)
-                        dialog.dismiss()
-                    }
-                }
-            }
             .show()
     }
 
-    private fun ejecutarCambioEquipo(
-        nuevaOnu: com.enetfiber.tecnico.data.local.InventarioOnuEntity,
-        motivo: String
-    ) {
-        // 1. Detener cualquier polling en curso — vamos a reintentar con el equipo nuevo
+    /**
+     * Resetea la selección de ONU para volver a elegir equipo desde cero.
+     * No mueve inventario (ni retiro ni consumo) — eso solo ocurre al Completar.
+     * Borra la fila completa de Materiales que tenía la ONU, igual que si el
+     * técnico la hubiera eliminado manualmente con el botón de la fila.
+     */
+    private fun ejecutarCambioEquipo() {
+        // 1. Detener cualquier polling/espera en curso
         vm.cancelarEsperaOlt()
 
-        val snVieja = serialActualParaOlt()
+        val snActual = serialActualParaOlt()
+        val productoIdActual = onusSeleccionadas.entries
+            .find { it.value == snActual }?.key
 
-        // Identificar el productoId de la ONU vieja: el que ya estaba seleccionado
-        // en materiales (onusSeleccionadas), no una variable aparte que aún no existe.
-        val productoIdViejo = onusSeleccionadas.entries
-            .find { it.value == snVieja }?.key
-
-        // 2. Devolver la ONU vieja al inventario del técnico (retiro)
-        if (!snVieja.isNullOrBlank()) {
-            inventarioVm.registrarRetiro(
-                items = listOf(
-                    com.enetfiber.tecnico.data.remote.RetiroItemRequest(
-                        productoId = productoIdViejo,
-                        tipoEquipo = "ONU",
-                        codigoPon  = snVieja
-                    )
-                ),
-                ordenId = ordenId
-            )
-            android.util.Log.d("InstalacionAct", "Cambio de equipo — motivo: $motivo — SN viejo devuelto: $snVieja (productoId=$productoIdViejo)")
+        // 2. Limpiar el estado local — sin tocar inventario
+        if (productoIdActual != null) {
+            onusSeleccionadas.remove(productoIdActual)
+            materialesGastados.removeAll { it.first == productoIdActual }
+            nombresProductos.remove(productoIdActual)
         }
-
-        // 3. Consumir la ONU nueva de una vez — no esperar a completar(), porque si el
-        //    productoId no estaba ya en materialesGastados nunca se hubiera descontado.
-        val pidNuevo = nuevaOnu.productoId
-        val ponNuevo = nuevaOnu.codigoPon
-        if (pidNuevo != null && ponNuevo != null) {
-            inventarioVm.registrarConsumo(
-                items       = listOf(ConsumoItemRequest(productoId = pidNuevo, cantidad = 1.0, codigoPon = ponNuevo)),
-                motivo      = "SERVICIO",
-                descripcion = "Orden: $ordenId — cambio de equipo: $motivo",
-                ordenId     = ordenId,
-                nServicio   = vm.orden.value?.nServicio,
-                abonado     = vm.orden.value?.abonado,
-                nombresMap  = nombresProductos
-            )
-        }
-
-        // 4. Actualizar el estado local: quitar el producto viejo de materialesGastados/onusSeleccionadas
-        //    (si estaba) y registrar el nuevo, para que completar() no vuelva a duplicar el consumo.
-        if (productoIdViejo != null) {
-            onusSeleccionadas.remove(productoIdViejo)
-            materialesGastados.removeAll { it.first == productoIdViejo }
-        }
-        if (pidNuevo != null && ponNuevo != null) {
-            onusSeleccionadas[pidNuevo] = ponNuevo
-            // No se agrega a materialesGastados — ya se consumió arriba, en el paso 3.
-            // Si se agregara, completar() lo volvería a enviar y duplicaría el consumo.
-            nombresProductos[pidNuevo] = nuevaOnu.producto
-        }
+        binding.etSerial.setText("")
         actualizarContadorMateriales()
 
-        // 5. Adoptar el nuevo serial como el activo para autorizar en la OLT
-        onuViejaProductoId = pidNuevo
-        onuViejaCodigoPon  = ponNuevo
-        binding.etSerial.setText(ponNuevo)
+        // 3. Eliminar la fila completa de Materiales que tenía esa ONU
+        val layoutLista = findViewById<android.widget.LinearLayout>(R.id.layoutListaMateriales)
+        val layoutVacio = findViewById<android.widget.LinearLayout>(R.id.layoutMaterialesVacio)
+        if (layoutLista != null && productoIdActual != null) {
+            for (i in 0 until layoutLista.childCount) {
+                val row = layoutLista.getChildAt(i) ?: continue
+                val spinner = row.findViewById<android.widget.Spinner>(R.id.spinnerItem) ?: continue
+                if (spinner.tag as? Int == productoIdActual) {
+                    layoutLista.removeView(row)
+                    break
+                }
+            }
+            if (layoutLista.childCount == 0) {
+                layoutVacio?.visibility = android.view.View.VISIBLE
+                layoutLista.visibility = android.view.View.GONE
+            }
+        }
 
-        Toast.makeText(this, "Equipo actualizado — vuelve a autenticar con la OLT", Toast.LENGTH_LONG).show()
+        // 4. Volver la card de OLT a su estado inicial (sin código PON elegido)
+        actualizarCardOltInactiva()
 
-        // 6. Volver al estado inicial para que el técnico le dé "Autenticar con OLT" de nuevo
-        vm.cancelarEsperaOlt()
+        Toast.makeText(this, "Vuelve a seleccionar la ONU en Materiales utilizados", Toast.LENGTH_LONG).show()
     }
+
 
     // ═════════════════════════════════════════════════════════
     //  PASO 2: SELECCIONAR EQUIPO
@@ -1982,7 +1999,7 @@ class InstalacionActivity : AppCompatActivity() {
 
         // Mostrar/ocultar la card de autorización OLT según el tipo de orden actual
         findViewById<CardView>(R.id.cardAutorizarOlt)?.visibility =
-            if (esInternet()) View.VISIBLE else View.GONE
+            if (requiereOltDinamico()) View.VISIBLE else View.GONE
         habilitarCompletar(vm.estadoOlt.value is EstadoOltUi.Autorizada)
     }
     // ── Paso 4: materiales gastados ───────────────────────────
@@ -2748,7 +2765,7 @@ class InstalacionActivity : AppCompatActivity() {
             return
         }
         // Defensa adicional: si la orden requiere OLT, no se puede completar sin autorización confirmada
-        if (esInternet() && vm.estadoOlt.value !is EstadoOltUi.Autorizada) {
+        if (requiereOltDinamico() && vm.estadoOlt.value !is EstadoOltUi.Autorizada) {
             Toast.makeText(this, "Primero debes autenticar la ONU con la OLT", Toast.LENGTH_LONG).show()
             return
         }
@@ -2813,6 +2830,9 @@ class InstalacionActivity : AppCompatActivity() {
                  }
      */
             // 3a. Registrar materiales gastados (solo instalaciones)
+            // IMPORTANTE: se espera (suspend) antes de continuar — si esto fuera
+            // fire-and-forget, el finish() del paso 4 podría cancelar la corutina
+            // a mitad de camino y el inventario nunca se descontaría (bug real detectado).
             val ordenActual = vm.orden.value
             if (materialesGastados.isNotEmpty()) {
                 val consumoItems = materialesGastados.map { (productoId, cantidad) ->
@@ -2822,7 +2842,7 @@ class InstalacionActivity : AppCompatActivity() {
                         codigoPon  = onusSeleccionadas[productoId]
                     )
                 }
-                inventarioVm.registrarConsumo(
+                val resultadoConsumo = inventarioVm.registrarConsumoSuspend(
                     items       = consumoItems,
                     motivo      = "SERVICIO",
                     descripcion = "Orden: $ordenId",
@@ -2831,6 +2851,9 @@ class InstalacionActivity : AppCompatActivity() {
                     abonado     = ordenActual?.abonado,
                     nombresMap  = nombresProductos
                 )
+                if (resultadoConsumo is Resultado.Error) {
+                    android.util.Log.w("InstalacionAct", "⚠ Error registrando consumo: ${resultadoConsumo.mensaje}")
+                }
             }
 
 // 3b. Registrar retiro de equipos (solo órdenes de retiro) — INDEPENDIENTE del if anterior
@@ -2840,10 +2863,13 @@ class InstalacionActivity : AppCompatActivity() {
                     android.util.Log.d("InstalacionAct", "  equipo: productoId=${i.productoId} tipo=${i.tipoEquipo} pon=${i.codigoPon}")
                 }
                 if (equiposRetirados.isNotEmpty()) {
-                    inventarioVm.registrarRetiro(
+                    val resultadoRetiro = inventarioVm.registrarRetiroSuspend(
                         items   = equiposRetirados.toList(),
                         ordenId = ordenId,
                     )
+                    if (resultadoRetiro is Resultado.Error) {
+                        android.util.Log.w("InstalacionAct", "⚠ Error registrando retiro: ${resultadoRetiro.mensaje}")
+                    }
                 } else {
                     android.util.Log.w("InstalacionAct", "⚠ Retiro sin equipos registrados")
                 }
@@ -2896,6 +2922,12 @@ class InstalacionActivity : AppCompatActivity() {
                 binding.tvWanInfo.visibility = View.VISIBLE
                 binding.tvWanInfo.text = "WAN: ${orden.ipWan} / ${orden.mascara} → ${orden.gateway}"
             }
+            // La orden puede llegar DESPUÉS de que estadoOlt ya haya emitido (ej. un estado
+            // Pendiente restaurado de una sesión anterior) — sin esto, requiereOltDinamico()
+            // habría evaluado false en ese momento y la card de OLT se habría quedado oculta
+            // para siempre en esta sesión, sin importar lo que diga estadoOlt después.
+            findViewById<CardView>(R.id.cardAutorizarOlt)?.visibility =
+                if (requiereOltDinamico()) View.VISIBLE else View.GONE
         }
         vm.fotos.observe(this) { _ ->
             actualizarListaFotos()
