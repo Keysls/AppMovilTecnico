@@ -1388,32 +1388,6 @@
                     android:orientation="vertical"
                     android:visibility="gone">
 
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/cardResumenConfig"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        android:visibility="gone"
-                        app:cardBackgroundColor="#F0FDF4"
-                        app:cardCornerRadius="12dp"
-                        app:cardElevation="0dp"
-                        app:strokeColor="#86EFAC"
-                        app:strokeWidth="1dp">
-                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:orientation="vertical" android:padding="14dp">
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                android:text="✓ Equipo configurado" android:textSize="13sp"
-                                android:textStyle="bold" android:textColor="#14532D"
-                                android:layout_marginBottom="6dp" tools:ignore="HardcodedText"/>
-                            <TextView android:id="@+id/tvResumenSsid" android:layout_width="wrap_content"
-                                android:layout_height="wrap_content" android:textSize="12sp"
-                                android:textColor="#14532D" android:fontFamily="monospace"/>
-                            <TextView android:id="@+id/tvResumenSn" android:layout_width="wrap_content"
-                                android:layout_height="wrap_content" android:textSize="12sp"
-                                android:textColor="#14532D" android:fontFamily="monospace"/>
-                        </LinearLayout>
-                    </androidx.cardview.widget.CardView>
-
                     <!-- ── Card Registro Fotográfico ── -->
                     <com.google.android.material.card.MaterialCardView
                         android:layout_width="match_parent"
@@ -1703,103 +1677,6 @@
 
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
-
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/cardDatosEquipo"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="12dp"
-                        android:visibility="gone"
-                        app:cardBackgroundColor="#FFFFFF"
-                        app:cardCornerRadius="16dp"
-                        app:cardElevation="2dp">
-                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:orientation="vertical" android:padding="16dp">
-
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                android:text="Datos del equipo" android:textSize="13sp" android:textStyle="bold"
-                                android:textColor="#0D1B2A" android:layout_marginBottom="12dp" tools:ignore="HardcodedText"/>
-
-                            <com.google.android.material.textfield.TextInputLayout
-                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                                android:layout_width="match_parent" android:layout_height="wrap_content"
-                                android:hint="WiFi 2.4 GHz (SSID)" android:layout_marginBottom="10dp">
-                                <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/etSsid" android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"/>
-                            </com.google.android.material.textfield.TextInputLayout>
-
-                            <com.google.android.material.textfield.TextInputLayout
-                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                                android:layout_width="match_parent" android:layout_height="wrap_content"
-                                android:hint="Contraseña WiFi" app:passwordToggleEnabled="true"
-                                android:layout_marginBottom="10dp">
-                                <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/etSsidPass" android:layout_width="match_parent"
-                                    android:layout_height="wrap_content" android:inputType="textPassword"/>
-                            </com.google.android.material.textfield.TextInputLayout>
-
-                            <com.google.android.material.textfield.TextInputLayout
-                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                                android:layout_width="match_parent" android:layout_height="wrap_content"
-                                android:hint="SSID 5GHz (opcional)" android:layout_marginBottom="10dp">
-                                <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/etSsid5ghz" android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"/>
-                            </com.google.android.material.textfield.TextInputLayout>
-
-                            <com.google.android.material.textfield.TextInputLayout
-                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                                android:layout_width="match_parent" android:layout_height="wrap_content"
-                                android:hint="Contraseña 5GHz" app:passwordToggleEnabled="true"
-                                android:layout_marginBottom="10dp">
-                                <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/etSsidPass5ghz" android:layout_width="match_parent"
-                                    android:layout_height="wrap_content" android:inputType="textPassword"/>
-                            </com.google.android.material.textfield.TextInputLayout>
-
-                            <com.google.android.material.textfield.TextInputLayout
-                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                                android:layout_width="match_parent" android:layout_height="wrap_content"
-                                android:hint="N° de serie (SN)" android:layout_marginBottom="10dp">
-                                <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/etSerial" android:layout_width="match_parent"
-                                    android:layout_height="wrap_content" android:inputType="textCapCharacters"
-                                    android:fontFamily="monospace"/>
-                            </com.google.android.material.textfield.TextInputLayout>
-
-                        </LinearLayout>
-                    </androidx.cardview.widget.CardView>
-
-                    <androidx.cardview.widget.CardView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="16dp"
-                        app:cardBackgroundColor="#FFFFFF"
-                        app:cardCornerRadius="16dp"
-                        app:cardElevation="2dp">
-                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:orientation="vertical" android:padding="24dp" android:gravity="center">
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                android:text="🎉" android:textSize="48sp" android:layout_marginBottom="12dp"/>
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                                android:text="¡Todo listo!" android:textSize="20sp" android:textStyle="bold"
-                                android:textColor="#0D1B2A" android:layout_marginBottom="6dp" tools:ignore="HardcodedText"/>
-                            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                                android:text="Verifica los datos antes de completar." android:textSize="13sp"
-                                android:textColor="#5A7A9A" android:gravity="center"
-                                android:layout_marginBottom="20dp" tools:ignore="HardcodedText"/>
-                            <com.google.android.material.textfield.TextInputLayout
-                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                                android:layout_width="match_parent" android:layout_height="wrap_content"
-                                android:hint="Observaciones (opcional)">
-                                <com.google.android.material.textfield.TextInputEditText
-                                    android:id="@+id/etObservaciones" android:layout_width="match_parent"
-                                    android:layout_height="wrap_content" android:minLines="3"/>
-                            </com.google.android.material.textfield.TextInputLayout>
-                        </LinearLayout>
-                    </androidx.cardview.widget.CardView>
-
                     <!-- ══════════════════════════════════════
                          CARD: AUTORIZACIÓN ONU EN LA OLT
                     ══════════════════════════════════════ -->
@@ -1839,13 +1716,27 @@
                                     tools:ignore="HardcodedText"/>
 
                                 <TextView
+                                    android:id="@+id/tvOltSubtitulo"
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:text="Antes de completar, autentica la ONU en la OLT para confirmar que el servicio quedó conectado."
                                     android:textSize="12sp"
                                     android:textColor="#64748B"
-                                    android:layout_marginBottom="12dp"
+                                    android:layout_marginBottom="10dp"
                                     tools:ignore="HardcodedText"/>
+
+                                <TextView
+                                    android:id="@+id/tvOltCodigoPendiente"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:textSize="12sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#1E3A8A"
+                                    android:fontFamily="monospace"
+                                    android:background="@drawable/input_bg"
+                                    android:padding="10dp"
+                                    android:layout_marginBottom="12dp"
+                                    android:visibility="gone"/>
 
                                 <com.google.android.material.button.MaterialButton
                                     android:id="@+id/btnAutorizarOlt"
@@ -2012,6 +1903,126 @@
 
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/cardResumenConfig"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        android:visibility="gone"
+                        app:cardBackgroundColor="#F0FDF4"
+                        app:cardCornerRadius="12dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="#86EFAC"
+                        app:strokeWidth="1dp">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:orientation="vertical" android:padding="14dp">
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="✓ Equipo configurado" android:textSize="13sp"
+                                android:textStyle="bold" android:textColor="#14532D"
+                                android:layout_marginBottom="6dp" tools:ignore="HardcodedText"/>
+                            <TextView android:id="@+id/tvResumenSsid" android:layout_width="wrap_content"
+                                android:layout_height="wrap_content" android:textSize="12sp"
+                                android:textColor="#14532D" android:fontFamily="monospace"/>
+                            <TextView android:id="@+id/tvResumenSn" android:layout_width="wrap_content"
+                                android:layout_height="wrap_content" android:textSize="12sp"
+                                android:textColor="#14532D" android:fontFamily="monospace"/>
+                        </LinearLayout>
+                    </androidx.cardview.widget.CardView>
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/cardDatosEquipo"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        android:visibility="gone"
+                        app:cardBackgroundColor="#FFFFFF"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:orientation="vertical" android:padding="16dp">
+
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="Datos del equipo" android:textSize="13sp" android:textStyle="bold"
+                                android:textColor="#0D1B2A" android:layout_marginBottom="12dp" tools:ignore="HardcodedText"/>
+
+                            <com.google.android.material.textfield.TextInputLayout
+                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:hint="WiFi 2.4 GHz (SSID)" android:layout_marginBottom="10dp">
+                                <com.google.android.material.textfield.TextInputEditText
+                                    android:id="@+id/etSsid" android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"/>
+                            </com.google.android.material.textfield.TextInputLayout>
+
+                            <com.google.android.material.textfield.TextInputLayout
+                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:hint="Contraseña WiFi" app:passwordToggleEnabled="true"
+                                android:layout_marginBottom="10dp">
+                                <com.google.android.material.textfield.TextInputEditText
+                                    android:id="@+id/etSsidPass" android:layout_width="match_parent"
+                                    android:layout_height="wrap_content" android:inputType="textPassword"/>
+                            </com.google.android.material.textfield.TextInputLayout>
+
+                            <com.google.android.material.textfield.TextInputLayout
+                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:hint="SSID 5GHz (opcional)" android:layout_marginBottom="10dp">
+                                <com.google.android.material.textfield.TextInputEditText
+                                    android:id="@+id/etSsid5ghz" android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"/>
+                            </com.google.android.material.textfield.TextInputLayout>
+
+                            <com.google.android.material.textfield.TextInputLayout
+                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:hint="Contraseña 5GHz" app:passwordToggleEnabled="true"
+                                android:layout_marginBottom="10dp">
+                                <com.google.android.material.textfield.TextInputEditText
+                                    android:id="@+id/etSsidPass5ghz" android:layout_width="match_parent"
+                                    android:layout_height="wrap_content" android:inputType="textPassword"/>
+                            </com.google.android.material.textfield.TextInputLayout>
+
+                            <com.google.android.material.textfield.TextInputLayout
+                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:hint="N° de serie (SN)" android:layout_marginBottom="10dp">
+                                <com.google.android.material.textfield.TextInputEditText
+                                    android:id="@+id/etSerial" android:layout_width="match_parent"
+                                    android:layout_height="wrap_content" android:inputType="textCapCharacters"
+                                    android:fontFamily="monospace"/>
+                            </com.google.android.material.textfield.TextInputLayout>
+
+                        </LinearLayout>
+                    </androidx.cardview.widget.CardView>
+
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="16dp"
+                        app:cardBackgroundColor="#FFFFFF"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="2dp">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                            android:orientation="vertical" android:padding="24dp" android:gravity="center">
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="🎉" android:textSize="48sp" android:layout_marginBottom="12dp"/>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                                android:text="¡Todo listo!" android:textSize="20sp" android:textStyle="bold"
+                                android:textColor="#0D1B2A" android:layout_marginBottom="6dp" tools:ignore="HardcodedText"/>
+                            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:text="Verifica los datos antes de completar." android:textSize="13sp"
+                                android:textColor="#5A7A9A" android:gravity="center"
+                                android:layout_marginBottom="20dp" tools:ignore="HardcodedText"/>
+                            <com.google.android.material.textfield.TextInputLayout
+                                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                                android:layout_width="match_parent" android:layout_height="wrap_content"
+                                android:hint="Observaciones (opcional)">
+                                <com.google.android.material.textfield.TextInputEditText
+                                    android:id="@+id/etObservaciones" android:layout_width="match_parent"
+                                    android:layout_height="wrap_content" android:minLines="3"/>
+                            </com.google.android.material.textfield.TextInputLayout>
+                        </LinearLayout>
+                    </androidx.cardview.widget.CardView>
 
                     <ProgressBar
                         android:id="@+id/progressCompletar"

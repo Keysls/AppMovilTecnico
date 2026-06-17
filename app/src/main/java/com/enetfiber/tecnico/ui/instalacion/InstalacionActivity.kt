@@ -284,11 +284,19 @@ class InstalacionActivity : AppCompatActivity() {
                 } else {
                     val dp = resources.displayMetrics.density
                     filtradas.forEach { onu ->
+                        val yaBloqueado = vm.estadoOlt.value is EstadoOltUi.Autorizada
+                        val esElSeleccionado = onusSeleccionadas[productoId] == onu.codigoPon
                         val chip = android.widget.TextView(this).apply {
                             text = onu.codigoPon ?: "SIN CÓDIGO"; textSize = 12f
                             typeface = android.graphics.Typeface.MONOSPACE
-                            setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
-                            background = getDrawable(R.drawable.input_bg)
+                            if (esElSeleccionado) {
+                                setTextColor(android.graphics.Color.WHITE)
+                                setBackgroundColor(android.graphics.Color.parseColor("#7C3AED"))
+                            } else {
+                                setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
+                                background = getDrawable(R.drawable.input_bg)
+                            }
+                            alpha = if (yaBloqueado && !esElSeleccionado) 0.4f else 1f
                             setPadding((10*dp).toInt(),(6*dp).toInt(),(10*dp).toInt(),(6*dp).toInt())
                             isClickable = true; isFocusable = true
                             layoutParams = android.widget.LinearLayout.LayoutParams(
@@ -297,6 +305,14 @@ class InstalacionActivity : AppCompatActivity() {
                             ).apply { marginEnd = (8*dp).toInt() }
                         }
                         chip.setOnClickListener {
+                            if (vm.estadoOlt.value is EstadoOltUi.Autorizada) {
+                                Toast.makeText(
+                                    this,
+                                    "Ya autenticaste esta ONU con la OLT. Usa \"Cambiar equipo\" si necesitas usar otra.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                return@setOnClickListener
+                            }
                             for (j in 0 until chipsRow.childCount) {
                                 val c = chipsRow.getChildAt(j) as? android.widget.TextView
                                 c?.setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
@@ -310,6 +326,7 @@ class InstalacionActivity : AppCompatActivity() {
                             if (idx >= 0) materialesGastados[idx] = Pair(productoId, 1.0)
                             else { materialesGastados.add(Pair(productoId, 1.0)); nombresProductos[productoId] = nombre }
                             actualizarContadorMateriales()
+                            actualizarCardOltInactiva()
                         }
                         chipsRow.addView(chip)
                     }
@@ -567,17 +584,45 @@ class InstalacionActivity : AppCompatActivity() {
         findViewById<MaterialButton>(R.id.btnCambiarEquipoDesdeAutorizada).setOnClickListener {
             abrirCambiarEquipo()
         }
+        actualizarCardOltInactiva()
     }
 
-    /** Serial actual a autorizar — siempre lee de etSerial, que se actualiza tanto por el configurador como por un cambio de equipo. */
+    /**
+     * Refresca la card "Inactivo" de la OLT con el código PON elegido en Materiales.
+     * Se llama cada vez que cambia la selección de ONU en Materiales (chips) y al entrar a Paso 4.
+     */
+    private fun actualizarCardOltInactiva() {
+        val sn = serialActualParaOlt()
+        val tvCodigo = findViewById<TextView>(R.id.tvOltCodigoPendiente)
+        val btn      = findViewById<MaterialButton>(R.id.btnAutorizarOlt)
+
+        if (sn.isNullOrBlank()) {
+            tvCodigo.visibility = View.GONE
+            btn.isEnabled = false
+            btn.alpha = 0.5f
+        } else {
+            tvCodigo.text = "Se autenticará: $sn"
+            tvCodigo.visibility = View.VISIBLE
+            btn.isEnabled = true
+            btn.alpha = 1f
+        }
+    }
+
+    /** Detecta si un item del catálogo es un producto tipo ONU/ONT (por categoría o nombre). */
+    private fun esProductoOnu(item: com.enetfiber.tecnico.data.local.InventarioItemEntity): Boolean {
+        return item.categoria?.lowercase()?.let { it.contains("onu") || it.contains("ont") } == true ||
+                item.nombre.lowercase().let { it.contains("onu") || it.contains("ont") }
+    }
+
+    /** Código PON elegido en Materiales — ahora es la única fuente de verdad para la OLT. */
     private fun serialActualParaOlt(): String? {
-        return binding.etSerial.text?.toString()?.ifBlank { null }
+        return onusSeleccionadas.values.firstOrNull()?.ifBlank { null }
     }
 
     private fun iniciarAutorizacionOlt() {
         val sn = serialActualParaOlt()
         if (sn.isNullOrBlank()) {
-            Toast.makeText(this, "No se detectó el número de serie de la ONU. Configura el equipo en el Paso 3.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Primero selecciona el código PON de la ONU en Materiales utilizados.", Toast.LENGTH_LONG).show()
             return
         }
         // Persistir la config ONU (con el SN actual) ANTES de autorizar —
@@ -617,6 +662,7 @@ class InstalacionActivity : AppCompatActivity() {
             when (estado) {
                 is EstadoOltUi.Inactivo -> {
                     layoutOltInactivo.visibility = View.VISIBLE
+                    actualizarCardOltInactiva()
                     habilitarCompletar(false)
                 }
                 is EstadoOltUi.Autorizando -> {
@@ -2290,9 +2336,17 @@ class InstalacionActivity : AppCompatActivity() {
 
 
 
+        // Si ya hay una ONU seleccionada en otra fila, no ofrecer más productos ONU/ONT
+        // en este spinner — solo puede haber un código PON activo para autorizar en la OLT.
+        val itemsDisponibles = if (onusSeleccionadas.isNotEmpty()) {
+            items.filter { !esProductoOnu(it) }
+        } else {
+            items
+        }
+
         // Llenar spinner con "Nombre — disp: X unidad" (o metros si es medible)
         val opciones = listOf("Seleccionar ítem...") +
-                items.map { item ->
+                itemsDisponibles.map { item ->
                     if (item.esMedible && item.metrosPorUnidad != null && item.disponibleMetros != null) {
                         "${item.nombre} — disp: ${item.disponibleMetros.toInt()} m"
                     } else {
@@ -2326,16 +2380,12 @@ class InstalacionActivity : AppCompatActivity() {
             override fun onItemSelected(parent: android.widget.AdapterView<*>, v: android.view.View?, pos: Int, id: Long) {
 
                 if (pos == 0) { tvHint.visibility = android.view.View.GONE; return }
-                val item = items[pos - 1]
+                val item = itemsDisponibles[pos - 1]
                 spinner.tag = item.productoId
 
 // ── Sección ONU: mostrar chips de códigos PON ─────────────
                 val dp = resources.displayMetrics.density
-                val esOnuProducto = item.categoria?.lowercase()?.let {
-                    it.contains("onu") || it.contains("ont")
-                } == true || item.nombre.lowercase().let {
-                    it.contains("onu") || it.contains("ont")
-                }
+                val esOnuProducto = esProductoOnu(item)
 
 // Buscar o crear la onuSection dentro del rowView
                 /* var onuSection = rowView.findViewWithTag<android.widget.LinearLayout>("onu_section_${item.productoId}")
@@ -2413,12 +2463,20 @@ class InstalacionActivity : AppCompatActivity() {
                             chipsRow.addView(tvVacio)
                         } else {
                             onusDelProducto.forEach { onu ->
+                                val yaBloqueado = vm.estadoOlt.value is EstadoOltUi.Autorizada
+                                val esElSeleccionado = onusSeleccionadas[item.productoId] == onu.codigoPon
                                 val chip = android.widget.TextView(this@InstalacionActivity).apply {
                                     text = onu.codigoPon ?: "SIN CÓDIGO"
                                     textSize = 12f
                                     typeface = android.graphics.Typeface.MONOSPACE
-                                    setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
-                                    background = getDrawable(R.drawable.input_bg)
+                                    if (esElSeleccionado) {
+                                        setTextColor(android.graphics.Color.WHITE)
+                                        setBackgroundColor(android.graphics.Color.parseColor("#7C3AED"))
+                                    } else {
+                                        setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
+                                        background = getDrawable(R.drawable.input_bg)
+                                    }
+                                    alpha = if (yaBloqueado && !esElSeleccionado) 0.4f else 1f
                                     setPadding(
                                         (10 * dp).toInt(), (6 * dp).toInt(),
                                         (10 * dp).toInt(), (6 * dp).toInt()
@@ -2430,6 +2488,16 @@ class InstalacionActivity : AppCompatActivity() {
                                     ).apply { marginEnd = (8 * dp).toInt() }
                                 }
                                 chip.setOnClickListener {
+                                    // Si ya se autenticó con OLT, no se puede cambiar el código PON
+                                    // libremente — hay que usar "Cambiar equipo" en la card de OLT.
+                                    if (vm.estadoOlt.value is EstadoOltUi.Autorizada) {
+                                        Toast.makeText(
+                                            this@InstalacionActivity,
+                                            "Ya autenticaste esta ONU con la OLT. Usa \"Cambiar equipo\" si necesitas usar otra.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        return@setOnClickListener
+                                    }
                                     for (i in 0 until chipsRow.childCount) {
                                         val c = chipsRow.getChildAt(i) as? android.widget.TextView
                                         c?.setTextColor(android.graphics.Color.parseColor("#1E3A5F"))
@@ -2447,6 +2515,7 @@ class InstalacionActivity : AppCompatActivity() {
                                         nombresProductos[item.productoId] = item.nombre
                                     }
                                     actualizarContadorMateriales()
+                                    actualizarCardOltInactiva()
                                 }
                                 chipsRow.addView(chip)
                             }
@@ -2514,6 +2583,10 @@ class InstalacionActivity : AppCompatActivity() {
 
         // Eliminar fila
         btnElim.setOnClickListener {
+            val productoIdEliminado = spinner.tag as? Int
+            if (productoIdEliminado != null) {
+                onusSeleccionadas.remove(productoIdEliminado)
+            }
             layoutLista.removeView(rowView)
             sincronizarFilas(layoutLista, items)
             if (layoutLista.childCount == 0) {
@@ -2521,6 +2594,7 @@ class InstalacionActivity : AppCompatActivity() {
                 layoutLista.visibility = android.view.View.GONE
             }
             actualizarContadorMateriales()
+            actualizarCardOltInactiva()
         }
 
         layoutLista.addView(rowView)
@@ -2691,7 +2765,7 @@ class InstalacionActivity : AppCompatActivity() {
                     ssidPassword     = binding.etSsidPass.text.toString().ifBlank { null },
                     ssid5ghz         = binding.etSsid5ghz.text.toString().ifBlank { null },
                     ssidPassword5ghz = binding.etSsidPass5ghz.text.toString().ifBlank { null },
-                    serialNumber     = binding.etSerial.text.toString().ifBlank { null },
+                    serialNumber     = (serialActualParaOlt() ?: binding.etSerial.text.toString()).ifBlank { null },
                     mac              = null,
                     potenciaRx       = resultRx.toFloatOrNull(),
                     potenciaTx       = resultTx.toFloatOrNull(),
