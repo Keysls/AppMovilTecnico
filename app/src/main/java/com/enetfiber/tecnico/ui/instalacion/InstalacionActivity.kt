@@ -715,35 +715,66 @@ class InstalacionActivity : AppCompatActivity() {
         // 1. Detener cualquier polling en curso — vamos a reintentar con el equipo nuevo
         vm.cancelarEsperaOlt()
 
-        // 2. Devolver la ONU vieja al inventario del técnico (si la teníamos identificada)
         val snVieja = serialActualParaOlt()
+
+        // Identificar el productoId de la ONU vieja: el que ya estaba seleccionado
+        // en materiales (onusSeleccionadas), no una variable aparte que aún no existe.
+        val productoIdViejo = onusSeleccionadas.entries
+            .find { it.value == snVieja }?.key
+
+        // 2. Devolver la ONU vieja al inventario del técnico (retiro)
         if (!snVieja.isNullOrBlank()) {
             inventarioVm.registrarRetiro(
                 items = listOf(
                     com.enetfiber.tecnico.data.remote.RetiroItemRequest(
-                        productoId = onuViejaProductoId,
+                        productoId = productoIdViejo,
                         tipoEquipo = "ONU",
                         codigoPon  = snVieja
                     )
                 ),
                 ordenId = ordenId
             )
-            android.util.Log.d("InstalacionAct", "Cambio de equipo — motivo: $motivo — SN viejo devuelto: $snVieja")
+            android.util.Log.d("InstalacionAct", "Cambio de equipo — motivo: $motivo — SN viejo devuelto: $snVieja (productoId=$productoIdViejo)")
         }
 
-        // 3. Adoptar el nuevo serial como el activo para autorizar en la OLT
-        onuViejaProductoId = nuevaOnu.productoId
-        onuViejaCodigoPon  = nuevaOnu.codigoPon
-        binding.etSerial.setText(nuevaOnu.codigoPon)
-
-        // 4. Actualizar también el material gastado / chip seleccionado, si corresponde
-        nuevaOnu.productoId?.let { pid ->
-            nuevaOnu.codigoPon?.let { pon -> onusSeleccionadas[pid] = pon }
+        // 3. Consumir la ONU nueva de una vez — no esperar a completar(), porque si el
+        //    productoId no estaba ya en materialesGastados nunca se hubiera descontado.
+        val pidNuevo = nuevaOnu.productoId
+        val ponNuevo = nuevaOnu.codigoPon
+        if (pidNuevo != null && ponNuevo != null) {
+            inventarioVm.registrarConsumo(
+                items       = listOf(ConsumoItemRequest(productoId = pidNuevo, cantidad = 1.0, codigoPon = ponNuevo)),
+                motivo      = "SERVICIO",
+                descripcion = "Orden: $ordenId — cambio de equipo: $motivo",
+                ordenId     = ordenId,
+                nServicio   = vm.orden.value?.nServicio,
+                abonado     = vm.orden.value?.abonado,
+                nombresMap  = nombresProductos
+            )
         }
+
+        // 4. Actualizar el estado local: quitar el producto viejo de materialesGastados/onusSeleccionadas
+        //    (si estaba) y registrar el nuevo, para que completar() no vuelva a duplicar el consumo.
+        if (productoIdViejo != null) {
+            onusSeleccionadas.remove(productoIdViejo)
+            materialesGastados.removeAll { it.first == productoIdViejo }
+        }
+        if (pidNuevo != null && ponNuevo != null) {
+            onusSeleccionadas[pidNuevo] = ponNuevo
+            // No se agrega a materialesGastados — ya se consumió arriba, en el paso 3.
+            // Si se agregara, completar() lo volvería a enviar y duplicaría el consumo.
+            nombresProductos[pidNuevo] = nuevaOnu.producto
+        }
+        actualizarContadorMateriales()
+
+        // 5. Adoptar el nuevo serial como el activo para autorizar en la OLT
+        onuViejaProductoId = pidNuevo
+        onuViejaCodigoPon  = ponNuevo
+        binding.etSerial.setText(ponNuevo)
 
         Toast.makeText(this, "Equipo actualizado — vuelve a autenticar con la OLT", Toast.LENGTH_LONG).show()
 
-        // 5. Volver al estado inicial para que el técnico le dé "Autenticar con OLT" de nuevo
+        // 6. Volver al estado inicial para que el técnico le dé "Autenticar con OLT" de nuevo
         vm.cancelarEsperaOlt()
     }
 
