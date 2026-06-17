@@ -153,7 +153,35 @@ data class ConfigOnuDto(
     val estado:          String?,
     val pppoeUser:       String?,
     val pppoePassword:   String?,
-    val wanPrecargada:   Boolean
+    val wanPrecargada:   Boolean,
+
+    // ── Estado de autorización en la OLT ──────────────────────
+    val estadoOlt:        String? = null,   // AUTORIZADA | PENDIENTE_OLT | ERROR_OLT
+    val errorOlt:         String? = null,
+    val puertoOlt:        String? = null,
+    val onuIdOlt:         String? = null,
+    val fechaAutorizacion:String? = null,
+    val olts:             OltRefDto? = null
+)
+
+data class OltRefDto(
+    val nombre: String
+)
+
+// ── Autorización manual de ONU en la OLT (Paso 4 app) ──────────
+data class AutorizarOltRequest(
+    val serialNumber: String? = null,   // si viene, corrige/reemplaza el SN antes de autorizar
+    val omitirOlt:    Boolean = false
+)
+
+data class AutorizarOltResponse(
+    val ok:             Boolean,
+    val mensaje:        String?,
+    val error:          String?      = null,
+    val oltNombre:      String?      = null,
+    val puertoCompleto: String?      = null,
+    val onuId:          Int?         = null,
+    val omitirOlt:      Boolean?     = null
 )
 
 data class FotoDto(

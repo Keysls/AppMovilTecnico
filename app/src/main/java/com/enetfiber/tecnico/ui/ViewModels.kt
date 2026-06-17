@@ -257,6 +257,18 @@ sealed class InstalacionState {
     data class Error(val msg: String) : InstalacionState()
 }
 
+// ── Estado de autorización en la OLT (Paso 4) ──────────────────
+sealed class EstadoOltUi {
+    object Inactivo    : EstadoOltUi()              // aún no se intentó autorizar
+    object Autorizando : EstadoOltUi()              // llamada en curso
+    object Pendiente    : EstadoOltUi()             // PENDIENTE_OLT — esperando al NOC (polling activo)
+    data class Autorizada(
+        val oltNombre:      String?,
+        val puertoCompleto: String?,
+        val onuId:          Int?
+    ) : EstadoOltUi()
+}
+
 const val MAX_FOTOS = 8
 
 data class FotoTomada(
@@ -565,6 +577,82 @@ class InstalacionViewModel @Inject constructor(
     suspend fun guardarConfigSuspend(config: ConfigOnuRequest) {
         val id = instalacionId ?: return
         repo.guardarConfigOnu(id, config)   // online o guarda en config_offline
+    }
+
+    // ── Autorización ONU en la OLT (Paso 4) ───────────────────
+    private val _estadoOlt = MutableLiveData<EstadoOltUi>(EstadoOltUi.Inactivo)
+    val estadoOlt: LiveData<EstadoOltUi> = _estadoOlt
+
+    private var pollingJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * Dispara la autorización manual en la OLT.
+     * Si queda PENDIENTE_OLT, entra en polling activo hasta que el NOC la resuelva
+     * o el técnico cancele (ej. para cambiar de equipo).
+     */
+    fun autorizarOlt(serialNumber: String? = null) {
+        val id = instalacionId ?: return
+        pollingJob?.cancel()
+        _estadoOlt.value = EstadoOltUi.Autorizando
+
+        viewModelScope.launch {
+            when (val r = repo.autorizarOlt(id, serialNumber)) {
+                is Resultado.Exito -> {
+                    val body = r.data
+                    if (body.ok) {
+                        _estadoOlt.value = EstadoOltUi.Autorizada(
+                            oltNombre      = body.oltNombre,
+                            puertoCompleto = body.puertoCompleto,
+                            onuId          = body.onuId
+                        )
+                    } else {
+                        // ok=false con 200 no debería pasar, pero por si acaso
+                        iniciarPollingPendiente(id)
+                    }
+                }
+                is Resultado.Error -> {
+                    // 422 del backend = quedó PENDIENTE_OLT — entra en espera activa
+                    iniciarPollingPendiente(id)
+                }
+            }
+        }
+    }
+
+    private fun iniciarPollingPendiente(id: String) {
+        _estadoOlt.value = EstadoOltUi.Pendiente
+        pollingJob = viewModelScope.launch {
+            // Consulta cada 12s hasta que el NOC la resuelva o se cancele
+            while (true) {
+                kotlinx.coroutines.delay(12_000)
+                when (val r = repo.obtenerInstalacion(id)) {
+                    is Resultado.Exito -> {
+                        val estado = r.data.configOnu?.estadoOlt
+                        if (estado == "AUTORIZADA") {
+                            _estadoOlt.value = EstadoOltUi.Autorizada(
+                                oltNombre      = r.data.configOnu?.olts?.nombre,
+                                puertoCompleto = r.data.configOnu?.puertoOlt,
+                                onuId          = r.data.configOnu?.onuIdOlt?.toIntOrNull()
+                            )
+                            return@launch
+                        }
+                        // sigue PENDIENTE_OLT o ERROR_OLT → seguir esperando
+                    }
+                    is Resultado.Error -> { /* sin conexión momentánea, reintenta en el próximo ciclo */ }
+                }
+            }
+        }
+    }
+
+    /** Cancela la espera activa (ej. el técnico decide cambiar de equipo). */
+    fun cancelarEsperaOlt() {
+        pollingJob?.cancel()
+        pollingJob = null
+        _estadoOlt.value = EstadoOltUi.Inactivo
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        pollingJob?.cancel()
     }
 
     /** Versión suspend: sube las fotos pendientes y devuelve si todas subieron. */

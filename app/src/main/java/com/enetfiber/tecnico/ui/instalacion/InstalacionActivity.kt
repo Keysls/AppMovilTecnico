@@ -38,6 +38,7 @@ import com.enetfiber.tecnico.equipos.ZteDeviceInfo
 import com.enetfiber.tecnico.equipos.ZteResult
 import com.enetfiber.tecnico.equipos.ZteWifiBand
 import com.enetfiber.tecnico.ui.InstalacionState
+import com.enetfiber.tecnico.ui.EstadoOltUi
 import com.enetfiber.tecnico.ui.InstalacionViewModel
 import com.enetfiber.tecnico.ui.main.MainActivity
 import com.google.android.material.button.MaterialButton
@@ -251,7 +252,9 @@ class InstalacionActivity : AppCompatActivity() {
         setupBotonConfigurar()
         setupBotonCargarConfig()
         botonesGenerales()
+        bindOltViews()
         observar()
+        observarEstadoOlt()
         inicializarOsmdroid()
         setupCardUbicacion()
         setupCardPrecinto()
@@ -268,7 +271,7 @@ class InstalacionActivity : AppCompatActivity() {
                 val productoId = spinner.tag as? Int ?: continue
                 //val chipsRow = row.findViewWithTag<android.widget.LinearLayout>("chips_row_$productoId") ?: continue
                 val chipsRow = row.findViewWithTag<android.widget.LinearLayout>("chips_row") ?: continue
-               // val onuSection = row.findViewWithTag<android.widget.LinearLayout>("onu_section_$productoId") ?: continue
+                // val onuSection = row.findViewWithTag<android.widget.LinearLayout>("onu_section_$productoId") ?: continue
                 val onuSection = row.findViewWithTag<android.widget.LinearLayout>("onu_section") ?: continue
                 if (onuSection.visibility != android.view.View.VISIBLE) continue
                 chipsRow.removeAllViews()
@@ -539,6 +542,209 @@ class InstalacionActivity : AppCompatActivity() {
             rellenarPaso4()
             mostrarPaso(4)
         }
+    }
+
+    // ═════════════════════════════════════════════════════════
+    //  PASO 4: AUTORIZACIÓN ONU EN LA OLT
+    // ═════════════════════════════════════════════════════════
+    private lateinit var layoutOltInactivo:    android.widget.LinearLayout
+    private lateinit var layoutOltAutorizando: android.widget.LinearLayout
+    private lateinit var layoutOltPendiente:   android.widget.LinearLayout
+    private lateinit var layoutOltAutorizada:  android.widget.LinearLayout
+
+    private fun bindOltViews() {
+        layoutOltInactivo    = findViewById(R.id.layoutOltInactivo)
+        layoutOltAutorizando = findViewById(R.id.layoutOltAutorizando)
+        layoutOltPendiente   = findViewById(R.id.layoutOltPendiente)
+        layoutOltAutorizada  = findViewById(R.id.layoutOltAutorizada)
+
+        findViewById<MaterialButton>(R.id.btnAutorizarOlt).setOnClickListener {
+            iniciarAutorizacionOlt()
+        }
+        findViewById<MaterialButton>(R.id.btnCambiarEquipoDesdePendiente).setOnClickListener {
+            abrirCambiarEquipo()
+        }
+        findViewById<MaterialButton>(R.id.btnCambiarEquipoDesdeAutorizada).setOnClickListener {
+            abrirCambiarEquipo()
+        }
+    }
+
+    /** Serial actual a autorizar — siempre lee de etSerial, que se actualiza tanto por el configurador como por un cambio de equipo. */
+    private fun serialActualParaOlt(): String? {
+        return binding.etSerial.text?.toString()?.ifBlank { null }
+    }
+
+    private fun iniciarAutorizacionOlt() {
+        val sn = serialActualParaOlt()
+        if (sn.isNullOrBlank()) {
+            Toast.makeText(this, "No se detectó el número de serie de la ONU. Configura el equipo en el Paso 3.", Toast.LENGTH_LONG).show()
+            return
+        }
+        // Persistir la config ONU (con el SN actual) ANTES de autorizar —
+        // el backend lee el serialNumber desde ConfigOnu, no desde el request.
+        lifecycleScope.launch {
+            val config = ConfigOnuRequest(
+                ssid             = binding.etSsid.text.toString().ifBlank { null },
+                ssidPassword     = binding.etSsidPass.text.toString().ifBlank { null },
+                ssid5ghz         = binding.etSsid5ghz.text.toString().ifBlank { null },
+                ssidPassword5ghz = binding.etSsidPass5ghz.text.toString().ifBlank { null },
+                serialNumber     = sn,
+                mac              = null,
+                potenciaRx       = resultRx.toFloatOrNull(),
+                potenciaTx       = resultTx.toFloatOrNull(),
+                temperatura      = null,
+                estado           = "ONLINE",
+                pppoeUser        = null,
+                pppoePassword    = null,
+                vlan             = resultVlan,
+                offline          = !vm.isOnline
+            )
+            vm.guardarConfigSuspend(config)
+            vm.autorizarOlt(serialNumber = sn)
+        }
+    }
+
+    private fun observarEstadoOlt() {
+        vm.estadoOlt.observe(this) { estado ->
+            findViewById<CardView>(R.id.cardAutorizarOlt)?.visibility =
+                if (esInternet()) View.VISIBLE else View.GONE
+
+            layoutOltInactivo.visibility    = View.GONE
+            layoutOltAutorizando.visibility = View.GONE
+            layoutOltPendiente.visibility   = View.GONE
+            layoutOltAutorizada.visibility  = View.GONE
+
+            when (estado) {
+                is EstadoOltUi.Inactivo -> {
+                    layoutOltInactivo.visibility = View.VISIBLE
+                    habilitarCompletar(false)
+                }
+                is EstadoOltUi.Autorizando -> {
+                    layoutOltAutorizando.visibility = View.VISIBLE
+                    habilitarCompletar(false)
+                }
+                is EstadoOltUi.Pendiente -> {
+                    layoutOltPendiente.visibility = View.VISIBLE
+                    habilitarCompletar(false)
+                }
+                is EstadoOltUi.Autorizada -> {
+                    layoutOltAutorizada.visibility = View.VISIBLE
+                    val puerto = estado.puertoCompleto ?: "—"
+                    val olt    = estado.oltNombre ?: "OLT"
+                    val onuId  = estado.onuId?.toString() ?: "—"
+                    findViewById<TextView>(R.id.tvOltDetalle).text =
+                        "$olt  ·  puerto $puerto  ·  ID $onuId"
+                    habilitarCompletar(true)
+                }
+                else -> { /* no-op */ }
+            }
+        }
+    }
+
+    /** Habilita o bloquea el botón Completar. Solo aplica el bloqueo en órdenes que requieren OLT. */
+    private fun habilitarCompletar(autorizada: Boolean) {
+        if (!esInternet()) {
+            binding.btnCompletar.isEnabled = true
+            return
+        }
+        binding.btnCompletar.isEnabled = autorizada
+        binding.btnCompletar.alpha = if (autorizada) 1f else 0.5f
+    }
+
+    // ── Cambio de equipo (ONU defectuosa) ──────────────────────
+    // Producto de la nueva ONU seleccionada — para mantener el material gastado consistente
+    private var onuViejaProductoId: Int? = null
+    private var onuViejaCodigoPon:  String? = null
+
+    private fun abrirCambiarEquipo() {
+        val onusDisponibles = (inventarioVm.onus.value ?: emptyList())
+            .filter { it.codigoPon != null }
+
+        if (onusDisponibles.isEmpty()) {
+            Toast.makeText(this, "No tienes otra ONU disponible en tu inventario", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val codigosVisibles = onusDisponibles.map { "${it.producto} — ${it.codigoPon}" }.toTypedArray()
+        var seleccionIdx = -1
+
+        val dialogView = layoutInflater.inflate(R.layout.dialog_cambiar_equipo, null)
+        val etMotivo = dialogView.findViewById<android.widget.EditText>(R.id.etMotivoCambio)
+        val tvSeleccion = dialogView.findViewById<TextView>(R.id.tvOnuSeleccionada)
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Cambiar equipo")
+            .setView(dialogView)
+            .setPositiveButton("Continuar", null)   // override abajo para validar antes de cerrar
+            .setNegativeButton("Cancelar", null)
+            .create()
+            .apply {
+                setOnShowListener { dialog ->
+                    tvSeleccion.setOnClickListener {
+                        androidx.appcompat.app.AlertDialog.Builder(this@InstalacionActivity)
+                            .setTitle("Selecciona la nueva ONU")
+                            .setItems(codigosVisibles) { _, which ->
+                                seleccionIdx = which
+                                tvSeleccion.text = codigosVisibles[which]
+                            }
+                            .show()
+                    }
+                    getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val motivo = etMotivo.text?.toString()?.trim().orEmpty()
+                        if (seleccionIdx < 0) {
+                            Toast.makeText(this@InstalacionActivity, "Selecciona la nueva ONU", Toast.LENGTH_SHORT).show()
+                            return@setOnClickListener
+                        }
+                        if (motivo.isBlank()) {
+                            Toast.makeText(this@InstalacionActivity, "Indica el motivo del cambio", Toast.LENGTH_SHORT).show()
+                            return@setOnClickListener
+                        }
+                        val nuevaOnu = onusDisponibles[seleccionIdx]
+                        ejecutarCambioEquipo(nuevaOnu, motivo)
+                        dialog.dismiss()
+                    }
+                }
+            }
+            .show()
+    }
+
+    private fun ejecutarCambioEquipo(
+        nuevaOnu: com.enetfiber.tecnico.data.local.InventarioOnuEntity,
+        motivo: String
+    ) {
+        // 1. Detener cualquier polling en curso — vamos a reintentar con el equipo nuevo
+        vm.cancelarEsperaOlt()
+
+        // 2. Devolver la ONU vieja al inventario del técnico (si la teníamos identificada)
+        val snVieja = serialActualParaOlt()
+        if (!snVieja.isNullOrBlank()) {
+            inventarioVm.registrarRetiro(
+                items = listOf(
+                    com.enetfiber.tecnico.data.remote.RetiroItemRequest(
+                        productoId = onuViejaProductoId,
+                        tipoEquipo = "ONU",
+                        codigoPon  = snVieja
+                    )
+                ),
+                ordenId = ordenId
+            )
+            android.util.Log.d("InstalacionAct", "Cambio de equipo — motivo: $motivo — SN viejo devuelto: $snVieja")
+        }
+
+        // 3. Adoptar el nuevo serial como el activo para autorizar en la OLT
+        onuViejaProductoId = nuevaOnu.productoId
+        onuViejaCodigoPon  = nuevaOnu.codigoPon
+        binding.etSerial.setText(nuevaOnu.codigoPon)
+
+        // 4. Actualizar también el material gastado / chip seleccionado, si corresponde
+        nuevaOnu.productoId?.let { pid ->
+            nuevaOnu.codigoPon?.let { pon -> onusSeleccionadas[pid] = pon }
+        }
+
+        Toast.makeText(this, "Equipo actualizado — vuelve a autenticar con la OLT", Toast.LENGTH_LONG).show()
+
+        // 5. Volver al estado inicial para que el técnico le dé "Autenticar con OLT" de nuevo
+        vm.cancelarEsperaOlt()
     }
 
     // ═════════════════════════════════════════════════════════
@@ -1402,67 +1608,67 @@ class InstalacionActivity : AppCompatActivity() {
     // ═════════════════════════════════════════════════════════
     //  PASO 4
     // ═════════════════════════════════════════════════════════
- /*   private fun rellenarPaso4() {
-        val ordenActual = vm.orden.value
-        val esRetiroOrden = ordenActual != null && esRetiro(ordenActual.tipoOrden)
+    /*   private fun rellenarPaso4() {
+           val ordenActual = vm.orden.value
+           val esRetiroOrden = ordenActual != null && esRetiro(ordenActual.tipoOrden)
 
-        val cardDatos   = findViewById<CardView>(R.id.cardDatosEquipo)
-        val cardResumen = findViewById<CardView>(R.id.cardResumenConfig)
+           val cardDatos   = findViewById<CardView>(R.id.cardDatosEquipo)
+           val cardResumen = findViewById<CardView>(R.id.cardResumenConfig)
 
-        if (esRetiroOrden) {
-            // Retiro: ocultar cards de config ONU
-            cardDatos?.visibility   = View.GONE
-            cardResumen?.visibility = View.GONE
-            // Configurar sección de equipos recogidos
-            configurarSeccionRetiro()
-        } else {
-            if (esInternet()) {
-                cardDatos?.visibility = View.VISIBLE
-                if (resultSsid.isNotBlank())  binding.etSsid.setText(resultSsid)
-                if (resultPass.isNotBlank())  binding.etSsidPass.setText(resultPass)
-                if (resultSsid5.isNotBlank()) binding.etSsid5ghz.setText(resultSsid5)
-                if (resultPass5.isNotBlank()) binding.etSsidPass5ghz.setText(resultPass5)
-                if (resultSn.isNotBlank())    binding.etSerial.setText(resultSn)
-                val tvSsid = findViewById<TextView>(R.id.tvResumenSsid)
-                val tvSn   = findViewById<TextView>(R.id.tvResumenSn)
-                if (resultSsid.isNotBlank() || resultSn.isNotBlank()) {
-                    cardResumen?.visibility = View.VISIBLE
-                    tvSsid?.text = "WiFi: $resultSsid"
-                    tvSn?.text   = if (resultSn.isNotBlank()) "SN: $resultSn  ·  RX: $resultRx dBm" else ""
-                }
-            } else {
-                cardDatos?.visibility   = View.GONE
-                cardResumen?.visibility = View.GONE
-            }
+           if (esRetiroOrden) {
+               // Retiro: ocultar cards de config ONU
+               cardDatos?.visibility   = View.GONE
+               cardResumen?.visibility = View.GONE
+               // Configurar sección de equipos recogidos
+               configurarSeccionRetiro()
+           } else {
+               if (esInternet()) {
+                   cardDatos?.visibility = View.VISIBLE
+                   if (resultSsid.isNotBlank())  binding.etSsid.setText(resultSsid)
+                   if (resultPass.isNotBlank())  binding.etSsidPass.setText(resultPass)
+                   if (resultSsid5.isNotBlank()) binding.etSsid5ghz.setText(resultSsid5)
+                   if (resultPass5.isNotBlank()) binding.etSsidPass5ghz.setText(resultPass5)
+                   if (resultSn.isNotBlank())    binding.etSerial.setText(resultSn)
+                   val tvSsid = findViewById<TextView>(R.id.tvResumenSsid)
+                   val tvSn   = findViewById<TextView>(R.id.tvResumenSn)
+                   if (resultSsid.isNotBlank() || resultSn.isNotBlank()) {
+                       cardResumen?.visibility = View.VISIBLE
+                       tvSsid?.text = "WiFi: $resultSsid"
+                       tvSn?.text   = if (resultSn.isNotBlank()) "SN: $resultSn  ·  RX: $resultRx dBm" else ""
+                   }
+               } else {
+                   cardDatos?.visibility   = View.GONE
+                   cardResumen?.visibility = View.GONE
+               }
 
-            // ── Botón agregar material (solo para no-retiros) ──
-            inventarioVm.items.observe(this) { items ->
-                itemsInventarioCache = items ?: emptyList()
-            }
-            if (inventarioVm.items.value.isNullOrEmpty()) {
-                inventarioVm.cargarMetricas(sincronizar = true)
-            }
-            val btnAgregarMaterial = findViewById<View>(R.id.btnAgregarMaterial)
-            btnAgregarMaterial?.setOnClickListener {
-                val itemsFrescos = itemsInventarioCache.filter { it.disponible > 0 || (it.esMedible && (it.disponibleMetros ?: 0.0) > 0) }
-                if (itemsFrescos.isEmpty()) {
-                    inventarioVm.cargarMetricas(sincronizar = true)
-                    Toast.makeText(this, "Cargando inventario, intenta en un momento...", Toast.LENGTH_SHORT).show()
-                } else {
-                    agregarFilaMaterial(itemsFrescos)
-                }
-            }
-        }
+               // ── Botón agregar material (solo para no-retiros) ──
+               inventarioVm.items.observe(this) { items ->
+                   itemsInventarioCache = items ?: emptyList()
+               }
+               if (inventarioVm.items.value.isNullOrEmpty()) {
+                   inventarioVm.cargarMetricas(sincronizar = true)
+               }
+               val btnAgregarMaterial = findViewById<View>(R.id.btnAgregarMaterial)
+               btnAgregarMaterial?.setOnClickListener {
+                   val itemsFrescos = itemsInventarioCache.filter { it.disponible > 0 || (it.esMedible && (it.disponibleMetros ?: 0.0) > 0) }
+                   if (itemsFrescos.isEmpty()) {
+                       inventarioVm.cargarMetricas(sincronizar = true)
+                       Toast.makeText(this, "Cargando inventario, intenta en un momento...", Toast.LENGTH_SHORT).show()
+                   } else {
+                       agregarFilaMaterial(itemsFrescos)
+                   }
+               }
+           }
 
-        // Solo actualizar lista para instalaciones; los retiros gestionan sus cards directamente
-        val tipoActual = vm.orden.value?.tipoOrden ?: ""
-        if (!esRetiro(tipoActual)) {
-            actualizarListaMateriales()
-        } else {
-            actualizarContadorMateriales()
-        }
-    }
-*/
+           // Solo actualizar lista para instalaciones; los retiros gestionan sus cards directamente
+           val tipoActual = vm.orden.value?.tipoOrden ?: ""
+           if (!esRetiro(tipoActual)) {
+               actualizarListaMateriales()
+           } else {
+               actualizarContadorMateriales()
+           }
+       }
+   */
 
     private fun rellenarPaso4() {
         val ordenActual = vm.orden.value
@@ -1696,6 +1902,11 @@ class InstalacionActivity : AppCompatActivity() {
         } else {
             actualizarContadorMateriales()
         }
+
+        // Mostrar/ocultar la card de autorización OLT según el tipo de orden actual
+        findViewById<CardView>(R.id.cardAutorizarOlt)?.visibility =
+            if (esInternet()) View.VISIBLE else View.GONE
+        habilitarCompletar(vm.estadoOlt.value is EstadoOltUi.Autorizada)
     }
     // ── Paso 4: materiales gastados ───────────────────────────
     private val inventarioVm: InventarioViewModel by viewModels()
@@ -2096,19 +2307,19 @@ class InstalacionActivity : AppCompatActivity() {
                 }
 
 // Buscar o crear la onuSection dentro del rowView
-               /* var onuSection = rowView.findViewWithTag<android.widget.LinearLayout>("onu_section_${item.productoId}")
-                if (onuSection == null) {
-                    onuSection = android.widget.LinearLayout(this@InstalacionActivity).apply {
-                        tag = "onu_section_${item.productoId}"
-                        orientation = android.widget.LinearLayout.VERTICAL
-                        visibility = android.view.View.GONE
-                        layoutParams = android.widget.LinearLayout.LayoutParams(
-                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-                        ).apply { topMargin = (10 * dp).toInt() }
-                    }
-                    (rowView as? android.widget.LinearLayout)?.addView(onuSection)
-                }*/
+                /* var onuSection = rowView.findViewWithTag<android.widget.LinearLayout>("onu_section_${item.productoId}")
+                 if (onuSection == null) {
+                     onuSection = android.widget.LinearLayout(this@InstalacionActivity).apply {
+                         tag = "onu_section_${item.productoId}"
+                         orientation = android.widget.LinearLayout.VERTICAL
+                         visibility = android.view.View.GONE
+                         layoutParams = android.widget.LinearLayout.LayoutParams(
+                             android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                             android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                         ).apply { topMargin = (10 * dp).toInt() }
+                     }
+                     (rowView as? android.widget.LinearLayout)?.addView(onuSection)
+                 }*/
 
                 // Buscar o crear la onuSection dentro del rowView — TAG FIJO
                 var onuSection = rowView.findViewWithTag<android.widget.LinearLayout>("onu_section")
@@ -2431,6 +2642,11 @@ class InstalacionActivity : AppCompatActivity() {
             Toast.makeText(this, "Debes tomar al menos una foto", Toast.LENGTH_SHORT).show()
             return
         }
+        // Defensa adicional: si la orden requiere OLT, no se puede completar sin autorización confirmada
+        if (esInternet() && vm.estadoOlt.value !is EstadoOltUi.Autorizada) {
+            Toast.makeText(this, "Primero debes autenticar la ONU con la OLT", Toast.LENGTH_LONG).show()
+            return
+        }
         binding.btnCompletar.isEnabled = false
         binding.progressCompletar.visibility = View.VISIBLE
 
@@ -2462,35 +2678,35 @@ class InstalacionActivity : AppCompatActivity() {
             val fotosOk = vm.subirFotosPendientesSuspend()
 
             // 3. Registrar materiales gastados (offline-first — siempre)
-       /*     if (materialesGastados.isNotEmpty()) {
-                val consumoItems = materialesGastados.map { (productoId, cantidad) ->
-                    ConsumoItemRequest(productoId, cantidad)
-                }
-                val ordenInfo = vm.orden.value
-                inventarioVm.registrarConsumo(
-                    items       = consumoItems,
-                    motivo      = "SERVICIO",
-                    descripcion = "Orden: $ordenId",
-                    ordenId     = ordenId,
-                    nServicio   = ordenInfo?.nServicio,
-                    abonado     = ordenInfo?.abonado,
-                    nombresMap  = nombresProductos
-                )
-                val ordenActual = vm.orden.value
-                android.util.Log.d("InstalacionAct", "Al completar — esRetiro=${ordenActual?.let { esRetiro(it.tipoOrden) }}, equiposRetirados=${equiposRetirados.size}")
-                equiposRetirados.forEach { i ->
-                    android.util.Log.d("InstalacionAct", "  equipo: productoId=${i.productoId} tipo=${i.tipoEquipo} pon=${i.codigoPon}")
-                }
-                if (ordenActual != null && esRetiro(ordenActual.tipoOrden) &&
-                    equiposRetirados.isNotEmpty()) {
-                    inventarioVm.registrarRetiro(
-                        items   = equiposRetirados.toList(),
-                        ordenId = ordenId,
-                    )
-                }
+            /*     if (materialesGastados.isNotEmpty()) {
+                     val consumoItems = materialesGastados.map { (productoId, cantidad) ->
+                         ConsumoItemRequest(productoId, cantidad)
+                     }
+                     val ordenInfo = vm.orden.value
+                     inventarioVm.registrarConsumo(
+                         items       = consumoItems,
+                         motivo      = "SERVICIO",
+                         descripcion = "Orden: $ordenId",
+                         ordenId     = ordenId,
+                         nServicio   = ordenInfo?.nServicio,
+                         abonado     = ordenInfo?.abonado,
+                         nombresMap  = nombresProductos
+                     )
+                     val ordenActual = vm.orden.value
+                     android.util.Log.d("InstalacionAct", "Al completar — esRetiro=${ordenActual?.let { esRetiro(it.tipoOrden) }}, equiposRetirados=${equiposRetirados.size}")
+                     equiposRetirados.forEach { i ->
+                         android.util.Log.d("InstalacionAct", "  equipo: productoId=${i.productoId} tipo=${i.tipoEquipo} pon=${i.codigoPon}")
+                     }
+                     if (ordenActual != null && esRetiro(ordenActual.tipoOrden) &&
+                         equiposRetirados.isNotEmpty()) {
+                         inventarioVm.registrarRetiro(
+                             items   = equiposRetirados.toList(),
+                             ordenId = ordenId,
+                         )
+                     }
 
-            }
-*/
+                 }
+     */
             // 3a. Registrar materiales gastados (solo instalaciones)
             val ordenActual = vm.orden.value
             if (materialesGastados.isNotEmpty()) {

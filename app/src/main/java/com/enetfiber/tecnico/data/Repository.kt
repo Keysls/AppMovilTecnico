@@ -337,6 +337,47 @@ class Repository @Inject constructor(
         }
     }
 
+    /** Consulta el estado actual de la instalación (usado para polling del estado OLT). */
+    suspend fun obtenerInstalacion(instalacionId: String): Resultado<InstalacionDto> {
+        return try {
+            val res = api.obtenerInstalacion(instalacionId)
+            if (res.isSuccessful && res.body() != null) Resultado.Exito(res.body()!!)
+            else Resultado.Error("No se pudo consultar la instalación")
+        } catch (e: Exception) {
+            Resultado.Error("Sin conexión: ${e.message}")
+        }
+    }
+
+    /**
+     * Autoriza manualmente la ONU en la OLT desde Paso 4 de la app.
+     * Si serialNumber viene, corrige el SN antes de autorizar (caso de cambio de equipo).
+     */
+    suspend fun autorizarOlt(
+        instalacionId: String,
+        serialNumber: String? = null
+    ): Resultado<AutorizarOltResponse> {
+        if (!isOnline()) return Resultado.Error("Sin conexión a internet")
+        return try {
+            val res = api.autorizarOlt(
+                instalacionId,
+                AutorizarOltRequest(serialNumber = serialNumber)
+            )
+            val body = res.body()
+            if (res.isSuccessful && body != null) {
+                Resultado.Exito(body)
+            } else {
+                // El backend devuelve 422 con { ok:false, error, mensaje } cuando queda pendiente
+                val errorBody = res.errorBody()?.string()
+                val mensaje = try {
+                    com.google.gson.Gson().fromJson(errorBody, AutorizarOltResponse::class.java)?.error
+                } catch (e: Exception) { null }
+                Resultado.Error(mensaje ?: "No se pudo autorizar la ONU en la OLT")
+            }
+        } catch (e: Exception) {
+            Resultado.Error("Sin conexión: ${e.message}")
+        }
+    }
+
     private suspend fun encolarCompletar(instalacionId: String, ordenId: String, obs: String?) {
         completarDao.insert(
             CompletarPendienteEntity(

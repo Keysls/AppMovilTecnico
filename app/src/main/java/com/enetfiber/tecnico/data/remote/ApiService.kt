@@ -56,6 +56,17 @@ interface ApiService {
         @Body request: CompletarRequest
     ): Response<InstalacionDto>
 
+    @GET("instalaciones/{id}")
+    suspend fun obtenerInstalacion(
+        @Path("id") instalacionId: String
+    ): Response<InstalacionDto>
+
+    @POST("instalaciones/{id}/autorizar-olt")
+    suspend fun autorizarOlt(
+        @Path("id") instalacionId: String,
+        @Body request: AutorizarOltRequest
+    ): Response<AutorizarOltResponse>
+
 
     @PATCH("contratos/{numero}/ubicacion")
     suspend fun actualizarUbicacionContrato(

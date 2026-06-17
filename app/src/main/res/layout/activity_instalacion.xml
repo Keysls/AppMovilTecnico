@@ -1800,6 +1800,219 @@
                         </LinearLayout>
                     </androidx.cardview.widget.CardView>
 
+                    <!-- ══════════════════════════════════════
+                         CARD: AUTORIZACIÓN ONU EN LA OLT
+                    ══════════════════════════════════════ -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardAutorizarOlt"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="14dp"
+                        android:visibility="gone"
+                        app:cardBackgroundColor="#FFFFFF"
+                        app:cardCornerRadius="14dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="#F1F5F9"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <!-- Estado: INACTIVO — botón inicial -->
+                            <LinearLayout
+                                android:id="@+id/layoutOltInactivo"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="📡 Autorización en la OLT"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#0D1B2A"
+                                    android:layout_marginBottom="4dp"
+                                    tools:ignore="HardcodedText"/>
+
+                                <TextView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="Antes de completar, autentica la ONU en la OLT para confirmar que el servicio quedó conectado."
+                                    android:textSize="12sp"
+                                    android:textColor="#64748B"
+                                    android:layout_marginBottom="12dp"
+                                    tools:ignore="HardcodedText"/>
+
+                                <com.google.android.material.button.MaterialButton
+                                    android:id="@+id/btnAutorizarOlt"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="48dp"
+                                    android:text="Autenticar con OLT"
+                                    android:textColor="@color/white"
+                                    android:textSize="13sp"
+                                    android:textStyle="bold"
+                                    app:backgroundTint="#1E3A8A"
+                                    app:cornerRadius="12dp"
+                                    app:icon="@drawable/ic_wifi"
+                                    app:iconGravity="textStart"
+                                    tools:ignore="HardcodedText"/>
+                            </LinearLayout>
+
+                            <!-- Estado: AUTORIZANDO — loading bloqueante -->
+                            <LinearLayout
+                                android:id="@+id/layoutOltAutorizando"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:gravity="center"
+                                android:visibility="gone">
+
+                                <ProgressBar
+                                    android:layout_width="30dp"
+                                    android:layout_height="30dp"
+                                    android:indeterminateTint="#1E3A8A"
+                                    android:layout_marginBottom="10dp"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Conectando con la OLT..."
+                                    android:textSize="13sp"
+                                    android:textStyle="bold"
+                                    android:textColor="#0D1B2A"
+                                    tools:ignore="HardcodedText"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Esto puede tardar unos segundos"
+                                    android:textSize="11sp"
+                                    android:textColor="#94A3B8"
+                                    android:layout_marginTop="2dp"
+                                    tools:ignore="HardcodedText"/>
+                            </LinearLayout>
+
+                            <!-- Estado: PENDIENTE — esperando al NOC (polling activo) -->
+                            <LinearLayout
+                                android:id="@+id/layoutOltPendiente"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:visibility="gone">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical"
+                                    android:layout_marginBottom="8dp">
+
+                                    <ProgressBar
+                                        android:layout_width="18dp"
+                                        android:layout_height="18dp"
+                                        android:indeterminateTint="#D97706"
+                                        android:layout_marginEnd="8dp"/>
+
+                                    <TextView
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:text="⏳ Esperando autorización del NOC..."
+                                        android:textSize="13sp"
+                                        android:textStyle="bold"
+                                        android:textColor="#92400E"
+                                        tools:ignore="HardcodedText"/>
+                                </LinearLayout>
+
+                                <TextView
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="No se encontró el equipo automáticamente en la OLT. El NOC fue notificado y lo está revisando. Esta pantalla se actualizará sola."
+                                    android:textSize="12sp"
+                                    android:textColor="#92400E"
+                                    android:layout_marginBottom="12dp"
+                                    tools:ignore="HardcodedText"/>
+
+                                <com.google.android.material.button.MaterialButton
+                                    android:id="@+id/btnCambiarEquipoDesdePendiente"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="44dp"
+                                    android:text="¿El equipo está malo? Cambiar equipo"
+                                    android:textColor="#92400E"
+                                    android:textSize="12sp"
+                                    app:strokeColor="#FDE68A"
+                                    app:strokeWidth="1dp"
+                                    app:backgroundTint="#FFFFFF"
+                                    app:cornerRadius="10dp"
+                                    tools:ignore="HardcodedText"/>
+                            </LinearLayout>
+
+                            <!-- Estado: AUTORIZADA — confirmación + opción cambiar equipo -->
+                            <LinearLayout
+                                android:id="@+id/layoutOltAutorizada"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:visibility="gone">
+
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical"
+                                    android:layout_marginBottom="4dp">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="✓"
+                                        android:textSize="16sp"
+                                        android:textStyle="bold"
+                                        android:textColor="#16A34A"
+                                        android:layout_marginEnd="6dp"
+                                        tools:ignore="HardcodedText"/>
+
+                                    <TextView
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:text="ONU autorizada en la OLT"
+                                        android:textSize="13sp"
+                                        android:textStyle="bold"
+                                        android:textColor="#14532D"
+                                        tools:ignore="HardcodedText"/>
+                                </LinearLayout>
+
+                                <TextView
+                                    android:id="@+id/tvOltDetalle"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:textSize="12sp"
+                                    android:textColor="#15803D"
+                                    android:fontFamily="monospace"
+                                    android:layout_marginBottom="12dp"/>
+
+                                <com.google.android.material.button.MaterialButton
+                                    android:id="@+id/btnCambiarEquipoDesdeAutorizada"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="40dp"
+                                    android:text="Cambiar equipo"
+                                    android:textColor="#64748B"
+                                    android:textSize="12sp"
+                                    app:strokeColor="#E2E8F0"
+                                    app:strokeWidth="1dp"
+                                    app:backgroundTint="#FFFFFF"
+                                    app:cornerRadius="10dp"
+                                    tools:ignore="HardcodedText"/>
+                            </LinearLayout>
+
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
                     <ProgressBar
                         android:id="@+id/progressCompletar"
                         android:layout_width="36dp"

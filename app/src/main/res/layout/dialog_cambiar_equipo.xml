@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="22dp"
+    android:paddingEnd="22dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="La ONU anterior volverá a tu inventario. Selecciona el nuevo equipo a usar."
+        android:textSize="13sp"
+        android:textColor="#64748B"
+        android:layout_marginBottom="16dp"
+        tools:ignore="HardcodedText" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Nueva ONU"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:textColor="#94A3B8"
+        android:letterSpacing="0.05"
+        android:layout_marginBottom="6dp"
+        tools:ignore="HardcodedText" />
+
+    <TextView
+        android:id="@+id/tvOnuSeleccionada"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:background="@drawable/input_bg"
+        android:text="Toca para seleccionar..."
+        android:textSize="13sp"
+        android:textColor="#94A3B8"
+        android:layout_marginBottom="16dp"
+        android:clickable="true"
+        android:focusable="true"
+        tools:ignore="HardcodedText" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Motivo del cambio"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:textColor="#94A3B8"
+        android:letterSpacing="0.05"
+        android:layout_marginBottom="6dp"
+        tools:ignore="HardcodedText" />
+
+    <EditText
+        android:id="@+id/etMotivoCambio"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minLines="2"
+        android:gravity="top|start"
+        android:padding="12dp"
+        android:background="@drawable/input_bg"
+        android:hint="Ej: la ONU no conecta a la OLT, equipo defectuoso..."
+        android:textSize="13sp"
+        android:textColorHint="#94A3B8"
+        android:inputType="textMultiLine" />
+
+</LinearLayout>
