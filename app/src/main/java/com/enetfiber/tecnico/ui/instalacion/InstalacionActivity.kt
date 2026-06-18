@@ -93,6 +93,12 @@ class InstalacionActivity : AppCompatActivity() {
     private var resultSsid5 = ""
     private var resultPass5 = ""
 
+    // IDs generados dinámicamente para la card de código PON manual
+    // (TRASLADO/CAMBIO_DOMICILIO) — se crean en rellenarPaso4() y se
+    // leen en serialActualParaOlt() y actualizarCardOltInactiva().
+    private var idEtOltCodigoManual: Int = View.NO_ID
+    private var idTvOltCodigoManualConfirmacion: Int = View.NO_ID
+
     private var resultLanIp     = ""
     private var resultDhcpStart = ""
     private var resultDhcpEnd   = ""
@@ -621,13 +627,6 @@ class InstalacionActivity : AppCompatActivity() {
         findViewById<MaterialButton>(R.id.btnCambiarEquipoDesdeAutorizada).setOnClickListener {
             abrirCambiarEquipo()
         }
-        findViewById<android.widget.EditText>(R.id.etOltCodigoManual)?.addTextChangedListener(
-            object : android.text.TextWatcher {
-                override fun afterTextChanged(s: android.text.Editable?) = actualizarCardOltInactiva()
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            }
-        )
         actualizarCardOltInactiva()
     }
 
@@ -637,31 +636,16 @@ class InstalacionActivity : AppCompatActivity() {
      * campo de texto manual en su lugar, ya que la ONU no está en el inventario.
      */
     private fun actualizarCardOltInactiva() {
-        val sn = serialActualParaOlt()
-        val tvCodigo      = findViewById<TextView>(R.id.tvOltCodigoPendiente)
-        val layoutManual  = findViewById<android.widget.LinearLayout>(R.id.layoutOltCodigoManual)
-        val tvConfirmManual = findViewById<TextView>(R.id.tvOltCodigoManualConfirmacion)
-        val btn           = findViewById<MaterialButton>(R.id.btnAutorizarOlt)
+        val sn       = serialActualParaOlt()
+        val tvCodigo = findViewById<TextView>(R.id.tvOltCodigoPendiente)
+        val btn      = findViewById<MaterialButton>(R.id.btnAutorizarOlt)
 
-        if (esTrasladoOCambioDomicilio()) {
+        if (sn.isNullOrBlank()) {
             tvCodigo.visibility = View.GONE
-            layoutManual.visibility = View.VISIBLE
-            if (sn.isNullOrBlank()) {
-                tvConfirmManual.visibility = View.GONE
-            } else {
-                tvConfirmManual.text = "Se autenticará: $sn"
-                tvConfirmManual.visibility = View.VISIBLE
-            }
         } else {
-            layoutManual.visibility = View.GONE
-            if (sn.isNullOrBlank()) {
-                tvCodigo.visibility = View.GONE
-            } else {
-                tvCodigo.text = "Se autenticará: $sn"
-                tvCodigo.visibility = View.VISIBLE
-            }
+            tvCodigo.text = "Se autenticará: $sn"
+            tvCodigo.visibility = View.VISIBLE
         }
-
         btn.isEnabled = !sn.isNullOrBlank()
         btn.alpha = if (sn.isNullOrBlank()) 0.5f else 1f
     }
@@ -679,7 +663,8 @@ class InstalacionActivity : AppCompatActivity() {
      */
     private fun serialActualParaOlt(): String? {
         if (esTrasladoOCambioDomicilio()) {
-            return findViewById<android.widget.EditText>(R.id.etOltCodigoManual)
+            if (idEtOltCodigoManual == View.NO_ID) return null
+            return findViewById<android.widget.EditText>(idEtOltCodigoManual)
                 ?.text?.toString()?.trim()?.ifBlank { null }
         }
         return onusSeleccionadas.values.firstOrNull()?.ifBlank { null }
@@ -1944,23 +1929,107 @@ class InstalacionActivity : AppCompatActivity() {
                 }
             }
         } else {
-            if (esInternet()) {
-                cardDatos?.visibility = View.VISIBLE
-                if (resultSsid.isNotBlank())  binding.etSsid.setText(resultSsid)
-                if (resultPass.isNotBlank())  binding.etSsidPass.setText(resultPass)
-                if (resultSsid5.isNotBlank()) binding.etSsid5ghz.setText(resultSsid5)
-                if (resultPass5.isNotBlank()) binding.etSsidPass5ghz.setText(resultPass5)
-                if (resultSn.isNotBlank())    binding.etSerial.setText(resultSn)
-                val tvSsid = findViewById<TextView>(R.id.tvResumenSsid)
-                val tvSn   = findViewById<TextView>(R.id.tvResumenSn)
-                if (resultSsid.isNotBlank() || resultSn.isNotBlank()) {
-                    cardResumen?.visibility = View.VISIBLE
-                    tvSsid?.text = "WiFi: $resultSsid"
-                    tvSn?.text   = if (resultSn.isNotBlank()) "SN: $resultSn  ·  RX: $resultRx dBm" else ""
+            // cardDatosEquipo (SSID/contraseña/serial) se quitó — ya no se muestra en Paso 4
+            cardDatos?.visibility   = View.GONE
+            cardResumen?.visibility = View.GONE
+
+            // Para TRASLADO/CAMBIO_DOMICILIO: agregar card de ingreso de código PON
+            // debajo de la card de Materiales — la ONU ya está en casa del cliente,
+            // su código se escribe aquí y se muestra en la card OLT en modo solo lectura.
+            if (esTrasladoOCambioDomicilio()) {
+                val layoutPaso4 = findViewById<android.widget.LinearLayout>(R.id.layoutPaso4)
+                val cardMateriales = layoutPaso4?.findViewById<android.view.View>(R.id.cardMateriales)
+                val indexMateriales = layoutPaso4?.indexOfChild(cardMateriales) ?: -1
+
+                val dp = resources.displayMetrics.density
+                val cardPon = com.google.android.material.card.MaterialCardView(this).apply {
+                    id = View.generateViewId()
+                    radius = (14 * dp)
+                    strokeWidth = 1
+                    strokeColor = android.graphics.Color.parseColor("#C7D2FE")
+                    cardElevation = 0f
+                    setCardBackgroundColor(android.graphics.Color.parseColor("#EEF2FF"))
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { topMargin = (12 * dp).toInt() }
                 }
-            } else {
-                cardDatos?.visibility   = View.GONE
-                cardResumen?.visibility = View.GONE
+                val innerPon = android.widget.LinearLayout(this).apply {
+                    orientation = android.widget.LinearLayout.VERTICAL
+                    setPadding((14*dp).toInt(), (14*dp).toInt(), (14*dp).toInt(), (14*dp).toInt())
+                }
+                val tvPonHeader = android.widget.LinearLayout(this).apply {
+                    orientation = android.widget.LinearLayout.HORIZONTAL
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { bottomMargin = (10*dp).toInt() }
+                }
+                val tvPonIcon = TextView(this).apply {
+                    text = "◈  "; textSize = 14f
+                    setTextColor(android.graphics.Color.parseColor("#4F46E5"))
+                }
+                val tvPonTitle = TextView(this).apply {
+                    text = "Ingresa el código PON de la ONU a autenticar"
+                    textSize = 13f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    setTextColor(android.graphics.Color.parseColor("#1E1B4B"))
+                    layoutParams = android.widget.LinearLayout.LayoutParams(0,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                }
+                tvPonHeader.addView(tvPonIcon); tvPonHeader.addView(tvPonTitle)
+
+                val etPon = android.widget.EditText(this).apply {
+                    idEtOltCodigoManual = View.generateViewId()
+                    id = idEtOltCodigoManual
+                    hint = "Ej: ZTEGC1234567"; textSize = 13f
+                    setTextColor(android.graphics.Color.parseColor("#0F172A"))
+                    setHintTextColor(android.graphics.Color.parseColor("#94A3B8"))
+                    background = getDrawable(R.drawable.input_bg)
+                    setPadding((12*dp).toInt(), (10*dp).toInt(), (12*dp).toInt(), (10*dp).toInt())
+                    inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                            android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+                    importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { bottomMargin = (8*dp).toInt() }
+                }
+                val tvConfirm = TextView(this).apply {
+                    idTvOltCodigoManualConfirmacion = View.generateViewId()
+                    id = idTvOltCodigoManualConfirmacion
+                    textSize = 12f; typeface = android.graphics.Typeface.MONOSPACE
+                    setTextColor(android.graphics.Color.parseColor("#1E3A8A"))
+                    visibility = View.GONE
+                }
+                etPon.addTextChangedListener(object : android.text.TextWatcher {
+                    override fun afterTextChanged(s: android.text.Editable?) {
+                        val codigo = s?.toString()?.trim() ?: ""
+                        if (codigo.isBlank()) {
+                            tvConfirm.visibility = View.GONE
+                        } else {
+                            tvConfirm.text = "Se autenticará: $codigo"
+                            tvConfirm.visibility = View.VISIBLE
+                        }
+                        actualizarCardOltInactiva()
+                    }
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                })
+
+                innerPon.addView(tvPonHeader)
+                innerPon.addView(etPon)
+                innerPon.addView(tvConfirm)
+                cardPon.addView(innerPon)
+
+                if (indexMateriales >= 0) {
+                    layoutPaso4?.addView(cardPon, indexMateriales + 1)
+                } else {
+                    layoutPaso4?.addView(cardPon)
+                }
+
+                // El campo tiene el mismo id dinámico guardado en idEtOltCodigoManual, así que
+                // serialActualParaOlt() lo encuentra correctamente por ese ID.
             }
 
             // ✅ FUERA del if(esInternet()) — aplica a cable, duo, internet
@@ -2364,7 +2433,7 @@ class InstalacionActivity : AppCompatActivity() {
         // en este spinner — solo puede haber un código PON activo para autorizar en la OLT.
         // Para TRASLADO/CAMBIO_DOMICILIO, los productos ONU/ONT se excluyen siempre: esa
         // ONU ya está instalada en casa del cliente, no está en el inventario del técnico,
-        // y su código se ingresa a mano en la card de OLT (etOltCodigoManual).
+        // y su código se ingresa a mano en la card PON que aparece debajo de Materiales.
         val itemsDisponibles = if (esTrasladoOCambioDomicilio()) {
             items.filter { !esProductoOnu(it) }
         } else if (onusSeleccionadas.isNotEmpty()) {
