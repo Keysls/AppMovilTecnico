@@ -640,11 +640,18 @@ class InstalacionActivity : AppCompatActivity() {
         val sn = serialActualParaOlt()
         val tvCodigo      = findViewById<TextView>(R.id.tvOltCodigoPendiente)
         val layoutManual  = findViewById<android.widget.LinearLayout>(R.id.layoutOltCodigoManual)
+        val tvConfirmManual = findViewById<TextView>(R.id.tvOltCodigoManualConfirmacion)
         val btn           = findViewById<MaterialButton>(R.id.btnAutorizarOlt)
 
         if (esTrasladoOCambioDomicilio()) {
             tvCodigo.visibility = View.GONE
             layoutManual.visibility = View.VISIBLE
+            if (sn.isNullOrBlank()) {
+                tvConfirmManual.visibility = View.GONE
+            } else {
+                tvConfirmManual.text = "Se autenticará: $sn"
+                tvConfirmManual.visibility = View.VISIBLE
+            }
         } else {
             layoutManual.visibility = View.GONE
             if (sn.isNullOrBlank()) {
@@ -2355,7 +2362,12 @@ class InstalacionActivity : AppCompatActivity() {
 
         // Si ya hay una ONU seleccionada en otra fila, no ofrecer más productos ONU/ONT
         // en este spinner — solo puede haber un código PON activo para autorizar en la OLT.
-        val itemsDisponibles = if (onusSeleccionadas.isNotEmpty()) {
+        // Para TRASLADO/CAMBIO_DOMICILIO, los productos ONU/ONT se excluyen siempre: esa
+        // ONU ya está instalada en casa del cliente, no está en el inventario del técnico,
+        // y su código se ingresa a mano en la card de OLT (etOltCodigoManual).
+        val itemsDisponibles = if (esTrasladoOCambioDomicilio()) {
+            items.filter { !esProductoOnu(it) }
+        } else if (onusSeleccionadas.isNotEmpty()) {
             items.filter { !esProductoOnu(it) }
         } else {
             items

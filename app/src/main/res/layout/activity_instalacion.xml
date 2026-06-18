@@ -1772,6 +1772,17 @@
                                         android:inputType="textCapCharacters"
                                         android:importantForAutofill="no"
                                         tools:ignore="Autofill,HardcodedText"/>
+
+                                    <TextView
+                                        android:id="@+id/tvOltCodigoManualConfirmacion"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="wrap_content"
+                                        android:textSize="12sp"
+                                        android:textStyle="bold"
+                                        android:textColor="#1E3A8A"
+                                        android:fontFamily="monospace"
+                                        android:layout_marginTop="6dp"
+                                        android:visibility="gone"/>
                                 </LinearLayout>
 
                                 <com.google.android.material.button.MaterialButton
