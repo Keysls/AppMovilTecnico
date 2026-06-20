@@ -99,17 +99,22 @@ class InventarioFragment : Fragment() {
         }
 
         vm.items.observe(viewLifecycleOwner) { items ->
-            itemsAdapter.submitList(items)
+            // Ordenar: primero los que tienen stock disponible, sin stock al final.
+            // Dentro de cada grupo, los demás criterios (nombre, etc.) se preservan
+            // en el orden en que ya vienen del backend.
+            val ordenados = items.sortedBy { it.sinStock }
+            itemsAdapter.submitList(ordenados)
 
             // Contar items con stock — el rollo de fibra cuenta como 1 item aunque sea medible
-            val conStock = items.count { !it.sinStock }
+            // Contar items con stock — el rollo de fibra cuenta como 1 item aunque sea medible
+            val conStock = ordenados.count { !it.sinStock }
             binding.tvDisponibles.text       = conStock.toString()
             binding.tvDisponiblesHeader.text = "$conStock disponibles"
 
             binding.tvEmptyItems.visibility =
-                if (items.isEmpty()) View.VISIBLE else View.GONE
+                if (ordenados.isEmpty()) View.VISIBLE else View.GONE
 
-            val sinStockLst = items.filter { it.sinStock }
+            val sinStockLst = ordenados.filter { it.sinStock }
             if (sinStockLst.isNotEmpty()) {
                 binding.bannerSinStock.visibility = View.VISIBLE
                 binding.tvListaSinStock.text = sinStockLst.joinToString(", ") { it.nombre } +

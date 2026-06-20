@@ -825,6 +825,15 @@ class InstalacionActivity : AppCompatActivity() {
             nombresProductos.remove(productoIdActual)
         }
         binding.etSerial.setText("")
+
+        // 2b. Limpiar también el código PON manual (TRASLADO/CAMBIO_DOMICILIO/RECONEXION) —
+        // sin esto, el código viejo queda guardado en ese EditText y serialActualParaOlt()
+        // sigue devolviéndolo aunque el técnico ya haya pasado a elegir otra ONU.
+        if (idEtOltCodigoManual != View.NO_ID) {
+            findViewById<android.widget.EditText>(idEtOltCodigoManual)?.setText("")
+        }
+        equipoOnuAveriadaRetirado = null
+
         actualizarContadorMateriales()
 
         // 3. Eliminar la fila completa de Materiales que tenía esa ONU
@@ -1839,11 +1848,27 @@ class InstalacionActivity : AppCompatActivity() {
         card.addView(row)
         layoutPaso4.addView(card, indexMateriales)
 
-        switch.setOnCheckedChangeListener { _, checked ->
+        switch.setOnCheckedChangeListener { sw, checked ->
+            val swMaterial = sw as com.google.android.material.switchmaterial.SwitchMaterial
+            // Si ya se autenticó con la OLT (con el código manual o con un chip), no se
+            // puede cambiar de ruta sin pasar primero por "Cambiar equipo" — mismo
+            // candado que ya protege los chips de ONU normales.
+            if (vm.estadoOlt.value is EstadoOltUi.Autorizada) {
+                swMaterial.setOnCheckedChangeListener(null)
+                swMaterial.isChecked = onuClienteAveriadaEnReconexion
+                agregarSwitchOnuAveriadaListener(swMaterial)
+                Toast.makeText(
+                    this,
+                    "Ya autenticaste una ONU con la OLT. Usa \"Cambiar equipo\" si necesitas cambiar.",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@setOnCheckedChangeListener
+            }
+
             onuClienteAveriadaEnReconexion = checked
 
             if (checked) {
-                mostrarDialogoOnuAveriada(switch)
+                mostrarDialogoOnuAveriada(swMaterial)
             } else {
                 onusSeleccionadas.clear()
                 materialesGastados.removeAll { par ->
@@ -1859,6 +1884,40 @@ class InstalacionActivity : AppCompatActivity() {
                 }
             idEtOltCodigoManual = View.NO_ID
 
+            rellenarPaso4()
+        }
+    }
+
+    /** Reinstala el listener del switch tras desactivarlo temporalmente para revertir su valor. */
+    private fun agregarSwitchOnuAveriadaListener(switch: com.google.android.material.switchmaterial.SwitchMaterial) {
+        switch.setOnCheckedChangeListener { sw, checked ->
+            val swMaterial = sw as com.google.android.material.switchmaterial.SwitchMaterial
+            if (vm.estadoOlt.value is EstadoOltUi.Autorizada) {
+                swMaterial.setOnCheckedChangeListener(null)
+                swMaterial.isChecked = onuClienteAveriadaEnReconexion
+                agregarSwitchOnuAveriadaListener(swMaterial)
+                Toast.makeText(
+                    this,
+                    "Ya autenticaste una ONU con la OLT. Usa \"Cambiar equipo\" si necesitas cambiar.",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@setOnCheckedChangeListener
+            }
+            onuClienteAveriadaEnReconexion = checked
+            if (checked) {
+                mostrarDialogoOnuAveriada(swMaterial)
+            } else {
+                onusSeleccionadas.clear()
+                materialesGastados.removeAll { par ->
+                    nombresProductos[par.first]?.let { esOnu(it, null) } == true
+                }
+                equipoOnuAveriadaRetirado = null
+            }
+            findViewById<android.widget.LinearLayout>(R.id.layoutPaso4)
+                ?.findViewWithTag<View>("card_pon_manual")?.let {
+                    (it.parent as? android.widget.LinearLayout)?.removeView(it)
+                }
+            idEtOltCodigoManual = View.NO_ID
             rellenarPaso4()
         }
     }
@@ -2369,7 +2428,7 @@ class InstalacionActivity : AppCompatActivity() {
     private fun configurarSeccionRetiro() {
         val btnAgregar = findViewById<android.widget.LinearLayout>(R.id.btnAgregarMaterial)
         val tvBtnTexto = btnAgregar?.getChildAt(1) as? TextView
-        tvBtnTexto?.text = "+ Agregar equipo"
+        tvBtnTexto?.text = "+ Agregar equipos recogidos "
 
         // Cargar catálogo offline-first
         inventarioVm.catalogo.observe(this) { catalogo ->
