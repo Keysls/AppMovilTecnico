@@ -248,17 +248,36 @@ class InstalacionActivity : AppCompatActivity() {
     }
 
     /**
-     * TRASLADO/CAMBIO_DOMICILIO: la ONU ya está instalada en casa del cliente desde antes —
-     * no está en el inventario del técnico, así que no hay chip que elegir en Materiales.
-     * El código PON se escribe a mano, leído de la etiqueta del equipo ya instalado.
+     * TRASLADO/CAMBIO_DOMICILIO: la ONU ya está instalada en casa del cliente desde
+     * antes — no está en el inventario del técnico, así que no hay chip que elegir
+     * en Materiales. El código PON se escribe a mano.
+     *
+     * RECONEXION es distinto: normalmente la ONU del cliente sigue ahí y se reutiliza
+     * (mismo comportamiento, código manual) — PERO si está averiada, el técnico activa
+     * el switch "ONU averiada" y el flujo cambia a elegir una ONU nueva del inventario.
      */
     private fun esTrasladoOCambioDomicilio(): Boolean {
         val orden = vm.orden.value ?: return false
+        if (esReconexion(orden.tipoOrden) && onuClienteAveriadaEnReconexion) return false
         return orden.tipoOrden in listOf(
-            TipoOrden.TRASLADO_I, TipoOrden.CAMBIO_DOMICILIO_I,
-            TipoOrden.TRASLADO_D, TipoOrden.CAMBIO_DOMICILIO_D
+            TipoOrden.TRASLADO_I, TipoOrden.CAMBIO_DOMICILIO_I, TipoOrden.RECONEXION_I,
+            TipoOrden.TRASLADO_D, TipoOrden.CAMBIO_DOMICILIO_D, TipoOrden.RECONEXION_D
         )
     }
+
+    /** true si el tipo de orden es RECONEXION (Internet o Dúo). */
+    private fun esReconexion(tipoOrden: String) = tipoOrden in listOf(
+        TipoOrden.RECONEXION_I, TipoOrden.RECONEXION_D
+    )
+
+    /**
+     * Solo relevante en RECONEXION: true si el técnico marcó que la ONU del cliente
+     * está averiada. Por defecto false (se asume que la ONU sigue sirviendo).
+     */
+    private var onuClienteAveriadaEnReconexion: Boolean = false
+
+    /** ONU vieja averiada que se registra como retiro al completar (si aplica). */
+    private var equipoOnuAveriadaRetirado: com.enetfiber.tecnico.data.remote.RetiroItemRequest? = null
 
     // ═════════════════════════════════════════════════════════
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -1756,6 +1775,238 @@ class InstalacionActivity : AppCompatActivity() {
        }
    */
 
+    /**
+     * Agrega (una sola vez) el switch "ONU del cliente averiada" arriba de la card
+     * de Materiales, visible solo en órdenes de RECONEXION. Al activarlo, pide el
+     * código PON de la ONU vieja y refresca las cards para comportarse como una
+     * instalación normal (elegir ONU del inventario en vez de código manual).
+     */
+    private fun agregarSwitchOnuAveriada() {
+        val layoutPaso4 = findViewById<android.widget.LinearLayout>(R.id.layoutPaso4) ?: return
+        if (layoutPaso4.findViewWithTag<View>("switch_onu_averiada") != null) return
+
+        val cardMateriales = layoutPaso4.findViewById<android.view.View>(R.id.cardMateriales)
+        val indexMateriales = layoutPaso4.indexOfChild(cardMateriales).coerceAtLeast(0)
+
+        val dp = resources.displayMetrics.density
+        val card = com.google.android.material.card.MaterialCardView(this).apply {
+            tag = "switch_onu_averiada"
+            radius = 14 * dp
+            strokeWidth = 1
+            strokeColor = android.graphics.Color.parseColor("#FECACA")
+            cardElevation = 0f
+            setCardBackgroundColor(android.graphics.Color.parseColor("#FEF2F2"))
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = (12 * dp).toInt() }
+        }
+
+        val row = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding((14 * dp).toInt(), (12 * dp).toInt(), (14 * dp).toInt(), (12 * dp).toInt())
+        }
+        val textos = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+            )
+        }
+        val tvTitulo = TextView(this).apply {
+            text = "⚠ La ONU del cliente está averiada"
+            textSize = 13f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(android.graphics.Color.parseColor("#991B1B"))
+        }
+        val tvSub = TextView(this).apply {
+            text = "Actívalo para usar una ONU nueva de tu inventario y registrar la vieja como retiro"
+            textSize = 11f
+            setTextColor(android.graphics.Color.parseColor("#B91C1C"))
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = (2 * dp).toInt() }
+        }
+        textos.addView(tvTitulo); textos.addView(tvSub)
+
+        val switch = com.google.android.material.switchmaterial.SwitchMaterial(this).apply {
+            isChecked = onuClienteAveriadaEnReconexion
+        }
+
+        row.addView(textos)
+        row.addView(switch)
+        card.addView(row)
+        layoutPaso4.addView(card, indexMateriales)
+
+        switch.setOnCheckedChangeListener { _, checked ->
+            onuClienteAveriadaEnReconexion = checked
+
+            if (checked) {
+                mostrarDialogoOnuAveriada(switch)
+            } else {
+                onusSeleccionadas.clear()
+                materialesGastados.removeAll { par ->
+                    nombresProductos[par.first]?.let { esOnu(it, null) } == true
+                }
+                equipoOnuAveriadaRetirado = null
+            }
+
+            // Quitar la card PON dinámica anterior si existía (se recrea según el nuevo estado)
+            findViewById<android.widget.LinearLayout>(R.id.layoutPaso4)
+                ?.findViewWithTag<View>("card_pon_manual")?.let {
+                    (it.parent as? android.widget.LinearLayout)?.removeView(it)
+                }
+            idEtOltCodigoManual = View.NO_ID
+
+            rellenarPaso4()
+        }
+    }
+
+
+    /**
+     * Diálogo para capturar la ONU vieja averiada: modelo (catálogo, igual que en
+     * retiros normales) + código PON. Sin el productoId, el backend no puede sumar
+     * correctamente el stock del modelo correspondiente cuando se aprueba el retiro.
+     */
+    private fun mostrarDialogoOnuAveriada(switch: com.google.android.material.switchmaterial.SwitchMaterial) {
+        val dp = resources.displayMetrics.density
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding((20*dp).toInt(), (8*dp).toInt(), (20*dp).toInt(), 0)
+        }
+
+        val tvLabelModelo = TextView(this).apply {
+            text = "Modelo de la ONU *"
+            textSize = 11f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(android.graphics.Color.parseColor("#64748B"))
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = (6*dp).toInt() }
+        }
+        val etBuscarModelo = android.widget.EditText(this).apply {
+            hint = "Buscar modelo en catálogo..."
+            textSize = 13f
+            background = getDrawable(R.drawable.input_bg)
+            setPadding((12*dp).toInt(), (10*dp).toInt(), (12*dp).toInt(), (10*dp).toInt())
+            importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO
+        }
+        val dropdown = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            visibility = android.view.View.GONE
+            background = getDrawable(R.drawable.input_bg)
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = (4*dp).toInt() }
+        }
+
+        val tvLabelPon = TextView(this).apply {
+            text = "Código PON *"
+            textSize = 11f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(android.graphics.Color.parseColor("#64748B"))
+            layoutParams = android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = (14*dp).toInt(); bottomMargin = (6*dp).toInt() }
+        }
+        val etPon = android.widget.EditText(this).apply {
+            hint = "Ej: ZTEGC1234567"
+            textSize = 13f
+            background = getDrawable(R.drawable.input_bg)
+            setPadding((12*dp).toInt(), (10*dp).toInt(), (12*dp).toInt(), (10*dp).toInt())
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                    android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+            importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO
+        }
+
+        var modeloSelId: Int? = null
+        var modeloSelNombre: String? = null
+
+        fun mostrarOpciones(query: String) {
+            dropdown.removeAllViews()
+            // Solo productos ONU/ONT del catálogo
+            val candidatos = catalogoCache.filter { esOnu(it.nombre, it.categoria) }
+            val resultados = if (query.isBlank()) candidatos.take(8)
+            else candidatos.filter { it.nombre.contains(query, ignoreCase = true) }.take(8)
+
+            if (resultados.isEmpty()) { dropdown.visibility = android.view.View.GONE; return }
+            resultados.forEach { prod ->
+                val item = TextView(this).apply {
+                    text = prod.nombre
+                    textSize = 13f
+                    setPadding((12*dp).toInt(), (10*dp).toInt(), (12*dp).toInt(), (10*dp).toInt())
+                    isClickable = true; isFocusable = true
+                    setBackgroundColor(android.graphics.Color.WHITE)
+                }
+                item.setOnClickListener {
+                    modeloSelId = prod.id
+                    modeloSelNombre = prod.nombre
+                    etBuscarModelo.setText(prod.nombre)
+                    etBuscarModelo.clearFocus()
+                    dropdown.visibility = android.view.View.GONE
+                }
+                dropdown.addView(item)
+            }
+            dropdown.visibility = android.view.View.VISIBLE
+        }
+
+        etBuscarModelo.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val q = s?.toString() ?: ""
+                if (modeloSelNombre != null && q == modeloSelNombre) return
+                modeloSelId = null; modeloSelNombre = null
+                mostrarOpciones(q)
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+        etBuscarModelo.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) mostrarOpciones(etBuscarModelo.text.toString())
+        }
+
+        container.addView(tvLabelModelo)
+        container.addView(etBuscarModelo)
+        container.addView(dropdown)
+        container.addView(tvLabelPon)
+        container.addView(etPon)
+
+        // Asegurar catálogo cargado
+        if (catalogoCache.isEmpty()) {
+            inventarioVm.catalogo.observe(this) { catalogoCache = it ?: emptyList() }
+            inventarioVm.cargarCatalogo()
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("ONU averiada a retirar")
+            .setView(container)
+            .setCancelable(false)
+            .setPositiveButton("Confirmar") { _, _ ->
+                val codigo = etPon.text.toString().trim().uppercase()
+                if (modeloSelId == null) {
+                    Toast.makeText(this, "Selecciona el modelo de la ONU", Toast.LENGTH_SHORT).show()
+                    switch.isChecked = false
+                    return@setPositiveButton
+                }
+                if (codigo.isBlank()) {
+                    Toast.makeText(this, "Debes ingresar el código PON", Toast.LENGTH_SHORT).show()
+                    switch.isChecked = false
+                    return@setPositiveButton
+                }
+                equipoOnuAveriadaRetirado = com.enetfiber.tecnico.data.remote.RetiroItemRequest(
+                    productoId = modeloSelId,
+                    tipoEquipo = "ONU",
+                    codigoPon  = codigo,
+                )
+                Toast.makeText(this, "Se registrará el retiro de $codigo", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancelar") { _, _ ->
+                switch.isChecked = false
+            }
+            .show()
+    }
+
     private fun rellenarPaso4() {
         val ordenActual = vm.orden.value
         val esRetiroOrden = ordenActual != null && esRetiro(ordenActual.tipoOrden)
@@ -1929,22 +2180,31 @@ class InstalacionActivity : AppCompatActivity() {
                 }
             }
         } else {
-            // cardDatosEquipo (SSID/contraseña/serial) se quitó — ya no se muestra en Paso 4
-            cardDatos?.visibility   = View.GONE
-            cardResumen?.visibility = View.GONE
+        // cardDatosEquipo (SSID/contraseña/serial) se quitó — ya no se muestra en Paso 4
+        cardDatos?.visibility   = View.GONE
+        cardResumen?.visibility = View.GONE
 
-            // Para TRASLADO/CAMBIO_DOMICILIO: agregar card de ingreso de código PON
-            // debajo de la card de Materiales — la ONU ya está en casa del cliente,
-            // su código se escribe aquí y se muestra en la card OLT en modo solo lectura.
-            if (esTrasladoOCambioDomicilio()) {
+        // RECONEXION: switch "ONU del cliente averiada" — visible solo en este tipo.
+        if (ordenActual != null && esReconexion(ordenActual.tipoOrden)) {
+            agregarSwitchOnuAveriada()
+        }
+
+        // Para TRASLADO/CAMBIO_DOMICILIO (o RECONEXION sin marcar averiada): agregar
+        // card de ingreso de código PON debajo de la card de Materiales — la ONU ya
+        // está en casa del cliente, su código se escribe aquí y se muestra en la
+        // card OLT en modo solo lectura.
+            if (esTrasladoOCambioDomicilio() &&
+                findViewById<android.widget.LinearLayout>(R.id.layoutPaso4)
+                    ?.findViewWithTag<View>("card_pon_manual") == null) {
                 val layoutPaso4 = findViewById<android.widget.LinearLayout>(R.id.layoutPaso4)
                 val cardMateriales = layoutPaso4?.findViewById<android.view.View>(R.id.cardMateriales)
                 val indexMateriales = layoutPaso4?.indexOfChild(cardMateriales) ?: -1
 
                 val dp = resources.displayMetrics.density
-                val cardPon = com.google.android.material.card.MaterialCardView(this).apply {
-                    id = View.generateViewId()
-                    radius = (14 * dp)
+                    val cardPon = com.google.android.material.card.MaterialCardView(this).apply {
+                        id = View.generateViewId()
+                        tag = "card_pon_manual"
+                        radius = (14 * dp)
                     strokeWidth = 1
                     strokeColor = android.graphics.Color.parseColor("#C7D2FE")
                     cardElevation = 0f
@@ -2949,15 +3209,22 @@ class InstalacionActivity : AppCompatActivity() {
                 }
             }
 
-// 3b. Registrar retiro de equipos (solo órdenes de retiro) — INDEPENDIENTE del if anterior
-            if (ordenActual != null && (esRetiro(ordenActual.tipoOrden) || esCambioEquipo(ordenActual.tipoOrden))) {
-                android.util.Log.d("InstalacionAct", "Registrando retiro: ${equiposRetirados.size} equipos, ordenId=$ordenId")
-                equiposRetirados.forEach { i ->
+// 3b. Registrar retiro de equipos (retiro, cambio de equipo, o reconexion con ONU averiada)
+            val esReconexionConAveriada = ordenActual != null &&
+                    esReconexion(ordenActual.tipoOrden) && onuClienteAveriadaEnReconexion &&
+                    equipoOnuAveriadaRetirado != null
+
+            if (ordenActual != null && (esRetiro(ordenActual.tipoOrden) || esCambioEquipo(ordenActual.tipoOrden) || esReconexionConAveriada)) {
+                val itemsARetirar = equiposRetirados.toMutableList()
+                equipoOnuAveriadaRetirado?.let { itemsARetirar.add(it) }
+
+                android.util.Log.d("InstalacionAct", "Registrando retiro: ${itemsARetirar.size} equipos, ordenId=$ordenId")
+                itemsARetirar.forEach { i ->
                     android.util.Log.d("InstalacionAct", "  equipo: productoId=${i.productoId} tipo=${i.tipoEquipo} pon=${i.codigoPon}")
                 }
-                if (equiposRetirados.isNotEmpty()) {
+                if (itemsARetirar.isNotEmpty()) {
                     val resultadoRetiro = inventarioVm.registrarRetiroSuspend(
-                        items   = equiposRetirados.toList(),
+                        items   = itemsARetirar.toList(),
                         ordenId = ordenId,
                     )
                     if (resultadoRetiro is Resultado.Error) {
