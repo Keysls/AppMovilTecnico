@@ -119,10 +119,15 @@ class Repository @Inject constructor(
 
     suspend fun logout() {
         try { api.logout() } catch (_: Exception) {}
-        consumoDao.deleteAll() // ← limpiar consumos locales al cerrar sesión
+        // Limpiar TODAS las tablas cacheadas — sin esto, las órdenes/inventario
+        // del técnico anterior persisten en Room y aparecen al loguear otro usuario
+        ordenDao.deleteAll()
+        consumoDao.deleteAll()
         retiroDao.deleteAll()
         inventarioDao.clearItems()
         inventarioDao.clearOnus()
+        catalogoDao.clearAll()
+        configTipoOrdenDao.clearAll()
         session.cerrarSesion()
     }
 
