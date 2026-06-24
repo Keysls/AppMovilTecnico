@@ -134,7 +134,10 @@ class Repository @Inject constructor(
 
     suspend fun sincronizarOrdenes(): Resultado<Unit> {
         return try {
-            val res = api.getOrdenes(limit = 100)
+            // FIX: sin límite propio, una red lenta deja esto esperando hasta
+            // los 60s del timeout global de OkHttp.
+            val res = kotlinx.coroutines.withTimeoutOrNull(12_000) { api.getOrdenes(limit = 100) }
+                ?: return Resultado.Error("Red lenta — mostrando datos locales")
             if (res.isSuccessful) {
                 val lista = res.body()?.data ?: emptyList()
                 val idsRemotos = lista.map { it.id }
@@ -170,6 +173,27 @@ class Repository @Inject constructor(
     }
 
     suspend fun getOrden(id: String): Resultado<OrdenDto> {
+        // FIX: red lenta (pero no caída) hacía que la app se quedara esperando
+        // hasta 60s en pantalla de carga, ignorando que ya tenía estos mismos
+        // datos en caché desde la última sincronización. Ahora: si hay caché,
+        // se intenta la red con un timeout corto (8s) solo para refrescar —
+        // si tarda más que eso, se devuelve la caché igual y la red sigue
+        // actualizando en segundo plano para la próxima vez que se entre.
+        val cache = ordenDao.getById(id)
+
+        if (cache != null) {
+            try {
+                val res = kotlinx.coroutines.withTimeoutOrNull(8_000) { api.getOrden(id) }
+                if (res != null && res.isSuccessful) {
+                    val orden = res.body()!!
+                    ordenDao.insert(orden.toEntity())
+                    return Resultado.Exito(orden)
+                }
+            } catch (_: Exception) { /* red lenta o caída — usamos la caché */ }
+            return Resultado.Exito(cache.toDto())
+        }
+
+        // Sin caché: sí hay que esperar la red completa, no hay nada más que mostrar.
         return try {
             val res = api.getOrden(id)
             if (res.isSuccessful) {
@@ -178,9 +202,7 @@ class Repository @Inject constructor(
                 Resultado.Exito(orden)
             } else Resultado.Error("Orden no encontrada")
         } catch (e: Exception) {
-            val cache = ordenDao.getById(id)
-            if (cache != null) Resultado.Exito(cache.toDto())
-            else Resultado.Error("Sin conexión")
+            Resultado.Error("Sin conexión")
         }
     }
 
@@ -442,7 +464,10 @@ class Repository @Inject constructor(
         // Sincronizar catálogo en paralelo
         try { sincronizarCatalogo() } catch (_: Exception) {}
         return try {
-            val res = api.getMiInventario()
+            // FIX: mismo problema — sin límite propio, red lenta deja el indicador
+            // de "sincronizando" encendido hasta 60s aunque Room ya muestra datos.
+            val res = kotlinx.coroutines.withTimeoutOrNull(12_000) { api.getMiInventario() }
+                ?: return Resultado.Error("Red lenta — mostrando datos locales")
             if (res.isSuccessful) {
                 val body = res.body()!!
                 inventarioDao.reemplazarItems(body.items.map { it.toEntity() })
@@ -499,7 +524,10 @@ class Repository @Inject constructor(
     suspend fun sincronizarCatalogo(): Resultado<Unit> {
         if (!isOnline()) return Resultado.Error("Sin internet")
         return try {
-            val res = api.getCatalogoTecnico()
+            // FIX: mismo límite — se ejecuta encadenada con sincronizarInventario
+            // y podía duplicar la espera en redes lentas.
+            val res = kotlinx.coroutines.withTimeoutOrNull(12_000) { api.getCatalogoTecnico() }
+                ?: return Resultado.Error("Red lenta")
             if (res.isSuccessful) {
                 val items = (res.body() ?: emptyList()).map {
                     CatalogoProductoEntity(
