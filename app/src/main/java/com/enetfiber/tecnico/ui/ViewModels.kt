@@ -645,8 +645,40 @@ class InstalacionViewModel @Inject constructor(
                     }
                 }
                 is Resultado.Error -> {
-                    // 422 del backend = quedó PENDIENTE_OLT — entra en espera activa
-                    iniciarPollingPendiente(id)
+                    if (!repo.isOnline()) {
+                        // Sin internet: reintentar el request cuando vuelva la conexión
+                        _estadoOlt.value = EstadoOltUi.Pendiente
+                        pollingJob = viewModelScope.launch {
+                            while (true) {
+                                kotlinx.coroutines.delay(10_000)
+                                if (!repo.isOnline()) continue
+                                // Reintentar la autorización real
+                                when (val retry = repo.autorizarOlt(id, serialNumber)) {
+                                    is Resultado.Exito -> {
+                                        val b = retry.data
+                                        if (b.ok) {
+                                            _estadoOlt.value = EstadoOltUi.Autorizada(
+                                                oltNombre = b.oltNombre,
+                                                puertoCompleto = b.puertoCompleto,
+                                                onuId = b.onuId
+                                            )
+                                        } else {
+                                            iniciarPollingPendiente(id)
+                                        }
+                                        return@launch
+                                    }
+                                    is Resultado.Error -> {
+                                        // 422 = quedó pendiente en el backend
+                                        iniciarPollingPendiente(id)
+                                        return@launch
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // 422 del backend = quedó PENDIENTE_OLT — espera activa
+                        iniciarPollingPendiente(id)
+                    }
                 }
             }
         }
