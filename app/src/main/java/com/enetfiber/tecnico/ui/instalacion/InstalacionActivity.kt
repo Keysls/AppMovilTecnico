@@ -2071,16 +2071,24 @@ class InstalacionActivity : AppCompatActivity() {
                 // cada chip individual (ver poblarChips) porque puede haber códigos
                 // reciclados y nuevos mezclados bajo el mismo producto.
                 val tvReciclado = rowView.findViewById<android.widget.TextView>(R.id.tvReciclado)
-                if (tvReciclado != null) {
-                    val esReciclado = !esOnuProducto && inventarioVm.recojos.value?.any {
+                if (tvReciclado != null && !esOnuProducto) {
+                    val cantReciclados = inventarioVm.recojos.value?.count {
                         it.productoId == item.productoId && it.estado == "en_mano"
-                    } == true
-                    if (esReciclado) {
+                    } ?: 0
+                    if (cantReciclados > 0) {
                         tvReciclado.visibility = android.view.View.VISIBLE
-                        tvReciclado.text = "♻ Reciclado"
+                        // Muestra cuántas de las unidades disponibles son recicladas
+                        // vs. el total — ej. "♻ 2 de 3 reciclados"
+                        tvReciclado.text = if (cantReciclados >= item.disponible.toInt()) {
+                            "♻ Reciclado"
+                        } else {
+                            "♻ $cantReciclados de ${item.disponible.toInt()} son reciclados"
+                        }
                     } else {
                         tvReciclado.visibility = android.view.View.GONE
                     }
+                } else if (tvReciclado != null) {
+                    tvReciclado.visibility = android.view.View.GONE
                 }
                 // Validar y sincronizar cuando cambia la cantidad
                 etCant.addTextChangedListener(object : android.text.TextWatcher {
