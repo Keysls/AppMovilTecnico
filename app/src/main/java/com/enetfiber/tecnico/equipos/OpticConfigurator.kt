@@ -428,7 +428,7 @@ class OpticConfigurator(
                 "SGIEnabled_bt"             to "on",
                 "BeaconPeriod"              to "100",
                 "transmitpower"             to "100",
-                "DTIMPeriod"                to "1",
+                "DTIMPeriod"                to "3",
                 "wlan_twt"                  to "1",
                 "external_idx_sel"          to idx,
                 "Enable_bt"                 to "on",

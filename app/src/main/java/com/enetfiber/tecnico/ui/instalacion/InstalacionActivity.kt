@@ -2373,7 +2373,7 @@ class InstalacionActivity : AppCompatActivity() {
     private fun observar() {
         vm.orden.observe(this) { orden ->
             if (orden == null) return@observe
-            supportActionBar?.title = "Servicio — ${orden.abonado}"
+            supportActionBar?.title = "${orden.abonado}"
             cargarUbicacionDesdeOrden()
             setupCardPrecinto()
             // Mostrar WAN del NOC
