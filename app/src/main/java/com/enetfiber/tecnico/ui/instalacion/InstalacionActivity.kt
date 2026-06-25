@@ -286,6 +286,7 @@ class InstalacionActivity : AppCompatActivity() {
             val chipsRow = row.findViewWithTag<android.widget.LinearLayout>("chips_row") ?: continue
             val onuSection = row.findViewWithTag<android.widget.LinearLayout>("onu_section") ?: continue
             if (onuSection.visibility != android.view.View.VISIBLE) continue
+
             chipsRow.removeAllViews()
             val filtradas = onus.filter { it.productoId == productoId }
             if (filtradas.isEmpty()) {
@@ -295,9 +296,24 @@ class InstalacionActivity : AppCompatActivity() {
                 })
             } else {
                 val dp = resources.displayMetrics.density
+                val codigosReciclados = inventarioVm.recojos.value
+                    ?.filter { it.productoId == productoId && it.estado == "en_mano" }
+                    ?.mapNotNull { it.codigoPon }
+                    ?.toSet() ?: emptySet()
+
                 filtradas.forEach { onu ->
                     val yaBloqueado = vm.estadoOlt.value is EstadoOltUi.Autorizada
                     val esElSeleccionado = onusSeleccionadas[productoId] == onu.codigoPon
+                    val esReciclado = onu.codigoPon != null && codigosReciclados.contains(onu.codigoPon)
+
+                    val chipContainer = android.widget.LinearLayout(this).apply {
+                        orientation = android.widget.LinearLayout.VERTICAL
+                        layoutParams = android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                        ).apply { marginEnd = (8*dp).toInt() }
+                    }
+
                     val chip = android.widget.TextView(this).apply {
                         text = onu.codigoPon ?: "SIN CÓDIGO"; textSize = 12f
                         typeface = android.graphics.Typeface.MONOSPACE
@@ -311,12 +327,26 @@ class InstalacionActivity : AppCompatActivity() {
                         alpha = if (yaBloqueado && !esElSeleccionado) 0.4f else 1f
                         setPadding((10*dp).toInt(),(6*dp).toInt(),(10*dp).toInt(),(6*dp).toInt())
                         isClickable = true; isFocusable = true
-                        layoutParams = android.widget.LinearLayout.LayoutParams(
-                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-                        ).apply { marginEnd = (8*dp).toInt() }
                     }
+
+                    chipContainer.addView(chip)
+
+                    if (esReciclado) {
+                        chipContainer.addView(android.widget.TextView(this).apply {
+                            text = "♻ Reciclado"; textSize = 9f
+                            typeface = android.graphics.Typeface.DEFAULT_BOLD
+                            setTextColor(android.graphics.Color.parseColor("#15803D"))
+                            gravity = android.view.Gravity.CENTER
+                            layoutParams = android.widget.LinearLayout.LayoutParams(
+                                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                            ).apply { topMargin = (2*dp).toInt() }
+                        })
+                    }
+
                     chip.setOnClickListener {
+
+
                         if (vm.estadoOlt.value is EstadoOltUi.Autorizada) {
                             Toast.makeText(
                                 this,
@@ -340,7 +370,7 @@ class InstalacionActivity : AppCompatActivity() {
                         actualizarContadorMateriales()
                         actualizarCardOltInactiva()
                     }
-                    chipsRow.addView(chip)
+                    chipsRow.addView(chipContainer)
                 }
             }
         }
@@ -1909,6 +1939,15 @@ class InstalacionActivity : AppCompatActivity() {
                         val onusDelProducto = onusList.filter { it.productoId == item.productoId }
                         chipsRow.removeAllViews()
 
+                        // Códigos PON reciclados (en_mano) para este producto — para distinguir
+                        // visualmente en el chip cuál ONU viene de un retiro/devolución vs.
+                        // una entregada nueva desde almacén. Sin esto, dos chips idénticos
+                        // (uno reciclado, otro nuevo) son indistinguibles para el técnico.
+                        val codigosReciclados = inventarioVm.recojos.value
+                            ?.filter { it.productoId == item.productoId && it.estado == "en_mano" }
+                            ?.mapNotNull { it.codigoPon }
+                            ?.toSet() ?: emptySet()
+
                         if (onusDelProducto.isEmpty()) {
                             val tvVacio = android.widget.TextView(this@InstalacionActivity).apply {
                                 text = "Sin ONUs disponibles"
@@ -1920,6 +1959,16 @@ class InstalacionActivity : AppCompatActivity() {
                             onusDelProducto.forEach { onu ->
                                 val yaBloqueado = vm.estadoOlt.value is EstadoOltUi.Autorizada
                                 val esElSeleccionado = onusSeleccionadas[item.productoId] == onu.codigoPon
+                                val esReciclado = onu.codigoPon != null && codigosReciclados.contains(onu.codigoPon)
+
+                                val chipContainer = android.widget.LinearLayout(this@InstalacionActivity).apply {
+                                    orientation = android.widget.LinearLayout.VERTICAL
+                                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                                    ).apply { marginEnd = (8 * dp).toInt() }
+                                }
+
                                 val chip = android.widget.TextView(this@InstalacionActivity).apply {
                                     text = onu.codigoPon ?: "SIN CÓDIGO"
                                     textSize = 12f
@@ -1937,11 +1986,25 @@ class InstalacionActivity : AppCompatActivity() {
                                         (10 * dp).toInt(), (6 * dp).toInt()
                                     )
                                     isClickable = true; isFocusable = true
-                                    layoutParams = android.widget.LinearLayout.LayoutParams(
-                                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-                                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
-                                    ).apply { marginEnd = (8 * dp).toInt() }
                                 }
+
+                                chipContainer.addView(chip)
+
+                                if (esReciclado) {
+                                    val tvBadge = android.widget.TextView(this@InstalacionActivity).apply {
+                                        text = "♻ Reciclado"
+                                        textSize = 9f
+                                        typeface = android.graphics.Typeface.DEFAULT_BOLD
+                                        setTextColor(android.graphics.Color.parseColor("#15803D"))
+                                        gravity = android.view.Gravity.CENTER
+                                        layoutParams = android.widget.LinearLayout.LayoutParams(
+                                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                                        ).apply { topMargin = (2 * dp).toInt() }
+                                    }
+                                    chipContainer.addView(tvBadge)
+                                }
+
                                 chip.setOnClickListener {
                                     // Si ya se autenticó con OLT, no se puede cambiar el código PON
                                     // libremente — hay que usar "Cambiar equipo" en la card de OLT.
@@ -1972,7 +2035,7 @@ class InstalacionActivity : AppCompatActivity() {
                                     actualizarContadorMateriales()
                                     actualizarCardOltInactiva()
                                 }
-                                chipsRow.addView(chip)
+                                chipsRow.addView(chipContainer)
                             }
                         }
                     }
