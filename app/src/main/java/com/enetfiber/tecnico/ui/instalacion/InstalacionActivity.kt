@@ -2066,12 +2066,15 @@ class InstalacionActivity : AppCompatActivity() {
                     item.disponible.toInt()
                 }
                 tvHint.visibility = android.view.View.VISIBLE
-                // ── Badge ♻ si es un equipo reciclado ───────────────────
+                // Badge ♻ a nivel de fila: solo tiene sentido para productos NO-ONU
+                // (cantidad simple, sin chips). Para ONUs, el badge correcto vive en
+                // cada chip individual (ver poblarChips) porque puede haber códigos
+                // reciclados y nuevos mezclados bajo el mismo producto.
                 val tvReciclado = rowView.findViewById<android.widget.TextView>(R.id.tvReciclado)
-                val esReciclado = inventarioVm.recojos.value?.any {
-                    it.productoId == item.productoId && it.estado == "en_mano"
-                } == true
                 if (tvReciclado != null) {
+                    val esReciclado = !esOnuProducto && inventarioVm.recojos.value?.any {
+                        it.productoId == item.productoId && it.estado == "en_mano"
+                    } == true
                     if (esReciclado) {
                         tvReciclado.visibility = android.view.View.VISIBLE
                         tvReciclado.text = "♻ Reciclado"
