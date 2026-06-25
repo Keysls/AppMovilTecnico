@@ -290,7 +290,8 @@ data class ConsumoItemRequest(
     val productoId: Int,
     val cantidad:   Double,
     val recojoId:   Int? = null,
-    val codigoPon:  String? = null
+    val codigoPon:  String? = null,
+    val unidadesRecicladas: Int = 0   // cuántas de "cantidad" son recicladas
 )
 
 data class DevolucionRecojoRequest(

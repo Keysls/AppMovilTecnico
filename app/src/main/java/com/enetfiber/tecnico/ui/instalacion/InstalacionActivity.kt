@@ -1473,6 +1473,8 @@ class InstalacionActivity : AppCompatActivity() {
     private val materialesGastados = mutableListOf<Pair<Int, Double>>()
     // Mapa productoId → codigoPon seleccionado (para ONUs)
     private val onusSeleccionadas = mutableMapOf<Int, String>()
+    // Mapa productoId → true si el técnico eligió usar equipo reciclado (no-ONU)
+    private val usarRecicladoPorProducto = mutableMapOf<Int, Boolean>()
     // Mapa id→nombre para mostrar offline
     private val nombresProductos   = mutableMapOf<Int, String>()
 
@@ -2071,24 +2073,42 @@ class InstalacionActivity : AppCompatActivity() {
                 // cada chip individual (ver poblarChips) porque puede haber códigos
                 // reciclados y nuevos mezclados bajo el mismo producto.
                 val tvReciclado = rowView.findViewById<android.widget.TextView>(R.id.tvReciclado)
-                if (tvReciclado != null && !esOnuProducto) {
-                    val cantReciclados = inventarioVm.recojos.value?.count {
+                // Checkbox "usar reciclado" — se crea dinámicamente debajo del badge.
+                // Buscar o crear con tag fijo para no duplicar al repintar la fila.
+                var cbReciclado = rowView.findViewWithTag<android.widget.CheckBox>("cb_usar_reciclado")
+                val cantReciclados = if (!esOnuProducto) {
+                    inventarioVm.recojos.value?.count {
                         it.productoId == item.productoId && it.estado == "en_mano"
                     } ?: 0
+                } else 0
+
+                if (tvReciclado != null) {
                     if (cantReciclados > 0) {
                         tvReciclado.visibility = android.view.View.VISIBLE
-                        // Muestra cuántas de las unidades disponibles son recicladas
-                        // vs. el total — ej. "♻ 2 de 3 reciclados"
                         tvReciclado.text = if (cantReciclados >= item.disponible.toInt()) {
                             "♻ Reciclado"
                         } else {
                             "♻ $cantReciclados de ${item.disponible.toInt()} son reciclados"
                         }
+
+                        // Crear el checkbox si no existe, justo después del badge
+                        if (cbReciclado == null) {
+                            cbReciclado = android.widget.CheckBox(this@InstalacionActivity).apply {
+                                tag = "cb_usar_reciclado"
+                                text = "Usar equipo reciclado"
+                                textSize = 12f
+                                setTextColor(android.graphics.Color.parseColor("#15803D"))
+                                isChecked = true   // por defecto prioriza gastar lo reciclado
+                            }
+                            (tvReciclado.parent as? android.widget.LinearLayout)?.addView(
+                                cbReciclado, (tvReciclado.parent as android.widget.LinearLayout).indexOfChild(tvReciclado) + 1
+                            )
+                        }
+                        cbReciclado?.visibility = android.view.View.VISIBLE
                     } else {
                         tvReciclado.visibility = android.view.View.GONE
+                        cbReciclado?.visibility = android.view.View.GONE
                     }
-                } else if (tvReciclado != null) {
-                    tvReciclado.visibility = android.view.View.GONE
                 }
                 // Validar y sincronizar cuando cambia la cantidad
                 etCant.addTextChangedListener(object : android.text.TextWatcher {
@@ -2159,6 +2179,9 @@ class InstalacionActivity : AppCompatActivity() {
 
             val cant = etCant.text.toString().toDoubleOrNull() ?: 0.0
             if (cant <= 0) continue
+
+            val cbReciclado = row.findViewWithTag<android.widget.CheckBox>("cb_usar_reciclado")
+            usarRecicladoPorProducto[productoId] = cbReciclado?.isChecked == true
 
             val cantFinal = if (item.esMedible && item.metrosPorUnidad != null && item.metrosPorUnidad > 0) {
                 val maxMetros = item.disponibleMetros ?: item.disponible * item.metrosPorUnidad
@@ -2364,7 +2387,10 @@ class InstalacionActivity : AppCompatActivity() {
                     ConsumoItemRequest(
                         productoId = productoId,
                         cantidad   = cantidad,
-                        codigoPon  = onusSeleccionadas[productoId]
+                        codigoPon  = onusSeleccionadas[productoId],
+                        // Solo aplica a productos normales con checkbox marcado —
+                        // 1 unidad reciclada por fila, ya que el checkbox es booleano
+                        unidadesRecicladas = if (usarRecicladoPorProducto[productoId] == true) 1 else 0
                     )
                 }
                 val resultadoConsumo = inventarioVm.registrarConsumoSuspend(
