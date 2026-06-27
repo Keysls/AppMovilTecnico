@@ -2098,7 +2098,7 @@ class InstalacionActivity : AppCompatActivity() {
                                 text = "Usar equipo reciclado"
                                 textSize = 12f
                                 setTextColor(android.graphics.Color.parseColor("#15803D"))
-                                isChecked = true   // por defecto prioriza gastar lo reciclado
+                                isChecked = false   // por defecto prioriza gastar lo normal (asignado por admin); el backend completa con reciclado solo si no alcanza
                             }
                             (tvReciclado.parent as? android.widget.LinearLayout)?.addView(
                                 cbReciclado, (tvReciclado.parent as android.widget.LinearLayout).indexOfChild(tvReciclado) + 1
