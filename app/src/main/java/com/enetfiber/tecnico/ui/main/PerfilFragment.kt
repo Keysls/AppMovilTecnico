@@ -107,6 +107,42 @@ class PerfilFragment : Fragment() {
         val etNueva   = dialogView.findViewById<TextInputEditText>(R.id.etPasswordNueva)
         val etConfirm = dialogView.findViewById<TextInputEditText>(R.id.etPasswordConfirmar)
 
+        val ivReqLongitud  = dialogView.findViewById<android.widget.TextView>(R.id.ivReqLongitud)
+        val tvReqLongitud  = dialogView.findViewById<android.widget.TextView>(R.id.tvReqLongitud)
+        val ivReqMayuscula = dialogView.findViewById<android.widget.TextView>(R.id.ivReqMayuscula)
+        val tvReqMayuscula = dialogView.findViewById<android.widget.TextView>(R.id.tvReqMayuscula)
+        val ivReqNumero    = dialogView.findViewById<android.widget.TextView>(R.id.ivReqNumero)
+        val tvReqNumero    = dialogView.findViewById<android.widget.TextView>(R.id.tvReqNumero)
+
+        val colorOk      = android.graphics.Color.parseColor("#16A34A")
+        val colorPendiente = android.graphics.Color.parseColor("#94A3B8")
+        val colorTxtOk   = android.graphics.Color.parseColor("#15803D")
+        val colorTxtPend = android.graphics.Color.parseColor("#64748B")
+
+        fun pintarRequisito(icono: android.widget.TextView, texto: android.widget.TextView, cumple: Boolean) {
+            icono.text = if (cumple) "✓" else "○"
+            icono.setTextColor(if (cumple) colorOk else colorPendiente)
+            texto.setTextColor(if (cumple) colorTxtOk else colorTxtPend)
+        }
+
+        fun validarRequisitos(pass: String): Boolean {
+            val cumpleLongitud  = pass.length >= 8
+            val cumpleMayuscula = pass.any { it.isUpperCase() }
+            val cumpleNumero    = pass.any { it.isDigit() }
+            pintarRequisito(ivReqLongitud, tvReqLongitud, cumpleLongitud)
+            pintarRequisito(ivReqMayuscula, tvReqMayuscula, cumpleMayuscula)
+            pintarRequisito(ivReqNumero, tvReqNumero, cumpleNumero)
+            return cumpleLongitud && cumpleMayuscula && cumpleNumero
+        }
+
+        etNueva.addTextChangedListener(object : android.text.TextWatcher {
+            override fun afterTextChanged(s: android.text.Editable?) {
+                validarRequisitos(s?.toString() ?: "")
+            }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
         AlertDialog.Builder(requireContext())
             .setTitle("Cambiar contraseña")
             .setView(dialogView)
@@ -118,8 +154,8 @@ class PerfilFragment : Fragment() {
                 when {
                     actual.isBlank() || nueva.isBlank() || confirm.isBlank() ->
                         Toast.makeText(requireContext(), "Completa todos los campos", Toast.LENGTH_SHORT).show()
-                    nueva.length < 6 ->
-                        Toast.makeText(requireContext(), "La nueva contraseña debe tener al menos 6 caracteres", Toast.LENGTH_SHORT).show()
+                    !validarRequisitos(nueva) ->
+                        Toast.makeText(requireContext(), "La contraseña no cumple los requisitos mínimos", Toast.LENGTH_SHORT).show()
                     nueva != confirm ->
                         Toast.makeText(requireContext(), "Las contraseñas no coinciden", Toast.LENGTH_SHORT).show()
                     else ->
@@ -131,6 +167,5 @@ class PerfilFragment : Fragment() {
             .setNegativeButton("Cancelar", null)
             .show()
     }
-
     override fun onDestroyView() { super.onDestroyView(); _binding = null }
 }

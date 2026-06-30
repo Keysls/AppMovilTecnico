@@ -149,6 +149,78 @@
 
         </LinearLayout>
 
+        <!-- ── Sección expandible: materiales + config (solo COMPLETADA) ── -->
+        <LinearLayout
+            android:id="@+id/layoutExpandible"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:background="#F8FAFC"
+            android:paddingHorizontal="14dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="10dp">
+
+            <ProgressBar
+                android:id="@+id/progressExpandible"
+                style="?android:attr/progressBarStyleSmall"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginVertical="8dp"
+                android:visibility="gone"/>
+
+            <!-- Materiales utilizados -->
+            <TextView
+                android:id="@+id/tvLabelMateriales"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="MATERIALES UTILIZADOS"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:textColor="#94A3B8"
+                android:letterSpacing="0.04"
+                android:layout_marginBottom="4dp"
+                android:visibility="gone"/>
+
+            <LinearLayout
+                android:id="@+id/layoutMateriales"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="10dp"/>
+
+            <TextView
+                android:id="@+id/tvSinMateriales"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sin materiales registrados"
+                android:textSize="11sp"
+                android:textColor="#94A3B8"
+                android:visibility="gone"
+                android:layout_marginBottom="10dp"/>
+
+            <!-- Configuración WAN/ONU -->
+            <TextView
+                android:id="@+id/tvLabelConfig"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CONFIGURACIÓN WAN / ONU"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:textColor="#94A3B8"
+                android:letterSpacing="0.04"
+                android:layout_marginBottom="4dp"
+                android:visibility="gone"/>
+
+            <LinearLayout
+                android:id="@+id/layoutConfig"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"/>
+
+        </LinearLayout>
+
         <!-- ── Divider ─────────────────────────────────────── -->
         <View
             android:layout_width="match_parent"

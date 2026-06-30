@@ -40,6 +40,8 @@ object MsgResultado {
     const val PENDIENTE_OFFLINE = "PENDIENTE_OFFLINE"
 }
 
+data class ErrorResponseSimple(val error: String?)
+
 @Singleton
 class Repository @Inject constructor(
     val api:              ApiService,
@@ -111,7 +113,15 @@ class Repository @Inject constructor(
             val res = api.cambiarPassword(CambiarPasswordRequest(actual, nueva))
             if (res.isSuccessful) Resultado.Exito(Unit)
             else if (res.code() == 401) Resultado.Error("Contraseña actual incorrecta")
-            else Resultado.Error("No se pudo cambiar la contraseña")
+            else {
+                // Leer el mensaje real del backend (ej. requisitos de contraseña)
+                // en vez de mostrar siempre el mismo texto genérico sin contexto.
+                val mensaje = try {
+                    val errorJson = res.errorBody()?.string()
+                    com.google.gson.Gson().fromJson(errorJson, ErrorResponseSimple::class.java)?.error
+                } catch (e: Exception) { null }
+                Resultado.Error(mensaje ?: "No se pudo cambiar la contraseña")
+            }
         } catch (e: Exception) {
             Resultado.Error("Sin conexión al servidor")
         }
@@ -516,6 +526,27 @@ class Repository @Inject constructor(
             Resultado.Error("Sin internet — mostrando datos locales")
         }
     }
+    /**
+     * Trae el historial de consumos directo de la API (sin tocar Room) — usado
+     * para mostrar "Materiales utilizados" de una orden completada específica,
+     * filtrando por nServicio en el cliente. Solo funciona online; las órdenes
+     * completadas son históricas, no necesitan estar disponibles offline.
+     */
+    suspend fun getHistorialConsumosPorOrden(nServicio: String): Resultado<List<ConsumoHistorialDto>> {
+        if (!isOnline()) return Resultado.Error("Sin conexión")
+        return try {
+            val res = kotlinx.coroutines.withTimeoutOrNull(10_000) { api.getMiInventario() }
+                ?: return Resultado.Error("Red lenta")
+            if (res.isSuccessful) {
+                val historial = res.body()?.historialConsumos.orEmpty()
+                    .filter { it.nServicio == nServicio }
+                Resultado.Exito(historial)
+            } else Resultado.Error("Error al obtener materiales")
+        } catch (e: Exception) {
+            Resultado.Error("Sin conexión: ${e.message}")
+        }
+    }
+
     /**
      * Registra material gastado.
      * Siempre guarda localmente primero; si hay internet también envía al servidor.

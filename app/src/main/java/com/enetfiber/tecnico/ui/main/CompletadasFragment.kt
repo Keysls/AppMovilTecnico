@@ -34,6 +34,7 @@ class CompletadasFragment : Fragment() {
     private val binding get() = _binding!!
     private val vm: OrdenesViewModel by viewModels()
     private val dashVm: DashboardViewModel by activityViewModels()
+    private val detalleVm: com.enetfiber.tecnico.ui.main.CompletadasDetalleViewModel by viewModels()
     private lateinit var adapter: OrdenAdapter
 
     private var fechaDesde: Long? = null
@@ -85,10 +86,17 @@ class CompletadasFragment : Fragment() {
                 } catch (_: Exception) {
                     Toast.makeText(requireContext(), "WhatsApp no instalado", Toast.LENGTH_SHORT).show()
                 }
-            }
+            },
+            onExpandir = { orden ->
+                detalleVm.cargarDetalle(orden.id, orden.instalacionId, orden.nServicio)
+            },
+            detallesProvider = { detalleVm.detalles.value ?: emptyMap() }
         )
-    }
 
+        detalleVm.detalles.observe(viewLifecycleOwner) { mapa ->
+            mapa.keys.forEach { ordenId -> adapter.notificarDetalleActualizado(ordenId) }
+        }
+    }
     private fun setupRecycler() {
         binding.recycler.layoutManager = LinearLayoutManager(requireContext())
         binding.recycler.adapter = adapter
