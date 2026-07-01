@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.enetfiber.tecnico.ForgotPasswordSheet
 import com.enetfiber.tecnico.databinding.ActivityLoginBinding
 import com.enetfiber.tecnico.ui.LoginState
 import com.enetfiber.tecnico.ui.LoginViewModel
@@ -16,7 +17,6 @@ import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class LoginActivity : AppCompatActivity() {
-
     private lateinit var binding: ActivityLoginBinding
     private val vm: LoginViewModel by viewModels()
 
@@ -33,6 +33,11 @@ class LoginActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
             vm.login(email, pass)
+        }
+
+        // ── ¿Olvidaste tu contraseña? ──
+        binding.tvOlvidaste.setOnClickListener {
+            ForgotPasswordSheet().show(supportFragmentManager, "forgot_password")
         }
 
         lifecycleScope.launch {
@@ -55,8 +60,8 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun setLoading(loading: Boolean) {
-        binding.btnIngresar.isEnabled    = !loading
-        binding.progress.visibility      = if (loading) View.VISIBLE else View.GONE
-        binding.tvError.visibility       = View.GONE
+        binding.btnIngresar.isEnabled = !loading
+        binding.progress.visibility   = if (loading) View.VISIBLE else View.GONE
+        binding.tvError.visibility    = View.GONE
     }
 }
