@@ -4,7 +4,6 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.*
-
 interface ApiService {
 
     @POST("auth/login")
@@ -106,5 +105,32 @@ interface ApiService {
 
     @GET("stock/mis-devoluciones")
     suspend fun getMisDevoluciones(): Response<List<DevolucionDto>>
+
+    @GET("planta-externa")
+    suspend fun getTrabajosPE(
+        @Query("tipo") tipo: String? = null,
+        @Query("estado") estado: String? = null
+    ): Response<List<TrabajoPEDto>>
+
+    @GET("planta-externa/{id}")
+    suspend fun getTrabajoPE(
+        @Path("id") id: String
+    ): Response<TrabajoPEDto>
+
+    @POST("planta-externa")
+    suspend fun crearTrabajoPE(
+        @Body request: CrearTrabajoPERequest
+    ): Response<TrabajoPEDto>
+
+    @POST("planta-externa/{id}/material")
+    suspend fun agregarMaterialPE(
+        @Path("id") trabajoId: String,
+        @Body request: AgregarMaterialPERequest
+    ): Response<Unit>
+
+    @POST("planta-externa/{id}/completar")
+    suspend fun completarTrabajoPE(
+        @Path("id") trabajoId: String
+    ): Response<Unit>
 
 }

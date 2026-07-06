@@ -19,6 +19,7 @@ import com.enetfiber.tecnico.data.local.SessionEvents
 import dagger.hilt.android.AndroidEntryPoint
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.enetfiber.tecnico.ui.plantaexterna.PlantaExternaFragment
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -113,7 +114,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.nav_pendientes  -> { cargarFragment(PendientesTabsFragment(),     "Pendientes"); true }
                 R.id.nav_inventario  -> { cargarFragment(InventarioFragment.newInstance(), "Mi Inventario"); true }
                 R.id.nav_completadas -> { cargarFragment(CompletadasFragment(),        "Historial");  true }
-                else -> false
+                R.id.nav_planta_externa -> { cargarFragment(PlantaExternaFragment.newInstance(), "Proyectos"); true }                    else -> false
             }
         }
     }

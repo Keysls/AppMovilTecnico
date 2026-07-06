@@ -1,5 +1,7 @@
 package com.enetfiber.tecnico.data.remote
 
+import com.google.gson.annotations.SerializedName
+
 data class LoginRequest(
     val email:       String,
     val password:    String,
@@ -424,4 +426,80 @@ data class TiposOrdenResponse(
     val tipos:  List<ConfigTipoOrdenDto>,
     val grupos: Map<String, List<String>>,
     val labels: Map<String, String>,
+)
+
+
+// ── DTOs de respuesta ─────────────────────────────────────────
+
+data class TrabajoPEDto(
+    val id: String,
+    val tipo: String,           // PROYECTO | AVERIA_MASIVA | MANTENIMIENTO
+    val nombre: String,
+    val descripcion: String?,
+    val ubicacion: String?,
+    val estado: String,         // EN_CURSO | COMPLETADO
+    val fechaInicio: String,
+    val fechaFin: String?,
+    val sedeId: String,
+    val tecnicos: List<TecnicoPEDto>,
+    val consumos: List<ConsumoPEDto>?
+)
+
+data class TecnicoPEDto(
+    val id: Int,
+    val tecnicoId: String,
+    val tecnico: TecnicoInfoPEDto
+)
+
+data class TecnicoInfoPEDto(
+    val usuario: UsuarioNombrePEDto
+)
+
+data class UsuarioNombrePEDto(
+    val nombre: String,
+    val apellido: String
+)
+
+data class ConsumoPEDto(
+    val id: Int,
+    val productoId: Int,
+    val cantidad: Double,
+    val descripcion: String?,
+    val fecha: String,
+    val producto: ProductoPEDto?
+)
+
+data class ProductoPEDto(
+    val nombre: String,
+    val unidad: String?,
+    @SerializedName("esMedible") val esMedible: Boolean = false,
+    @SerializedName("metrosPorUnidad") val metrosPorUnidad: Double?
+)
+
+// ── Requests ──────────────────────────────────────────────────
+
+data class CrearTrabajoPERequest(
+    val tipo: String,
+    val nombre: String,
+    val descripcion: String?,
+    val ubicacion: String?,
+    val fechaInicio: String?,
+    val tecnicoIds: List<String> = emptyList()
+)
+
+data class AgregarMaterialPERequest(
+    val items: List<MaterialPEItem>,
+    val comentario: String?
+)
+
+data class MaterialPEItem(
+    val productoId: Int,
+    val cantidad: Double
+)
+
+data class CrearTrabajoPEResponse(
+    val id: String,
+    val tipo: String,
+    val nombre: String,
+    val estado: String
 )

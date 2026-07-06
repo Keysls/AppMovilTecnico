@@ -66,7 +66,7 @@
         <activity
             android:name=".ui.instalacion.InstalacionActivity"
             android:exported="false"
-            android:windowSoftInputMode="adjustResize" /> <!-- FileProvider para CameraX -->
+            android:windowSoftInputMode="adjustResize"/> <!-- FileProvider para CameraX -->
         <activity
             android:name=".ui.instalacion.ConfigOnuActivity"
             android:exported="false"

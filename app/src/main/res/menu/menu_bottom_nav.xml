@@ -21,4 +21,9 @@
         android:icon="@drawable/ic_nav_completadas"
         android:title="Historial"/>
 
+    <item
+        android:id="@+id/nav_planta_externa"
+        android:icon="@drawable/ic_nav_planta_externa"
+        android:title="Proyectos"/>
+
 </menu>
