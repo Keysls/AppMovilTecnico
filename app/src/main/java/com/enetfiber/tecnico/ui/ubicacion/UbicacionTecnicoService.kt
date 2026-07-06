@@ -13,7 +13,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.enetfiber.tecnico.R
 import com.enetfiber.tecnico.data.remote.ApiService
-import com.enetfiber.tecnico.data.remote.UbicacionRequest
+import com.enetfiber.tecnico.data.remote.UbicacionTecnicoRequest
 import com.google.android.gms.location.*
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -107,7 +107,7 @@ class UbicacionTecnicoService : Service() {
     private fun enviarUbicacion(lat: Double, lng: Double) {
         scope.launch {
             try {
-                api.reportarUbicacion(UbicacionRequest(lat = lat, lng = lng))
+                api.reportarUbicacion(UbicacionTecnicoRequest(lat = lat, lng = lng))
             } catch (_: Exception) {
                 // Falla silenciosa — se reintentará en el próximo ciclo.
                 // No es crítico perder un reporte puntual de ubicación.

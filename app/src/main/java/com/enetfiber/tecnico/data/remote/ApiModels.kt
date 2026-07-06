@@ -504,7 +504,7 @@ data class CrearTrabajoPEResponse(
     val estado: String
 )
 
-data class UbicacionRequest(
+data class UbicacionTecnicoRequest(
     val lat: Double,
     val lng: Double
 )

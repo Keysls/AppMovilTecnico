@@ -134,5 +134,5 @@ interface ApiService {
     ): Response<Unit>
 
     @PATCH("tecnicos/mi-ubicacion")
-    suspend fun reportarUbicacion(@Body request: UbicacionRequest): Response<Unit>
+    suspend fun reportarUbicacion(@Body request: UbicacionTecnicoRequest): Response<Unit>
 }
