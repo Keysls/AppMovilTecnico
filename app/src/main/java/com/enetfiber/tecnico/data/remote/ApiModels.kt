@@ -503,3 +503,8 @@ data class CrearTrabajoPEResponse(
     val nombre: String,
     val estado: String
 )
+
+data class UbicacionRequest(
+    val lat: Double,
+    val lng: Double
+)

@@ -22,6 +22,13 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.enetfiber.tecnico.ui.plantaexterna.PlantaExternaFragment
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.enetfiber.tecnico.ui.ubicacion.UbicacionTecnicoService
+
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -45,6 +52,37 @@ class MainActivity : AppCompatActivity() {
             logout()
         }
     }
+
+    private val permisoUbicacionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permisos ->
+        val concedido = permisos[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permisos[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (concedido) {
+            // En Android 10+ (API 29+), el permiso de segundo plano se pide
+            // en un paso SEPARADO — el sistema no permite pedirlo junto al
+            // de primer plano (lo ignoraría silenciosamente).
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                pedirPermisoSegundoPlano()
+            } else {
+                iniciarServicioUbicacion()
+            }
+        }
+        // Si no concedió, simplemente no se inicia el tracking — no bloqueamos
+        // el uso normal de la app por esto.
+    }
+
+    private val permisoSegundoPlanoLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ ->
+        // Concedido o no, igual iniciamos el servicio — funcionará al menos
+        // mientras la app esté en primer plano si rechazó el de background.
+        iniciarServicioUbicacion()
+    }
+
+    private val permisoNotificacionesLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* no-op — solo para que la notificación del servicio sea visible */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,6 +110,8 @@ class MainActivity : AppCompatActivity() {
             cargarFragment(DashboardFragment(), "Inicio")
             binding.bottomNav.selectedItemId = R.id.nav_dashboard
         }
+
+        pedirPermisosYArrancarUbicacion()
     }
 
     @SuppressLint("SetTextI18n")
@@ -144,12 +184,53 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun logout() {
+        UbicacionTecnicoService.detener(this)
         vm.logout()
         startActivity(Intent(this, LoginActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         })
         finish()
     }
+
+    private fun tienePermisoUbicacion(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun tienePermisoSegundoPlano(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return true
+        return ContextCompat.checkSelfPermission(
+            this, Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun pedirPermisoSegundoPlano() {
+        permisoSegundoPlanoLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+    }
+
+    private fun pedirPermisosYArrancarUbicacion() {
+        // Notificaciones (Android 13+) — para que se vea la notificación del servicio
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                permisoNotificacionesLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        when {
+            tienePermisoUbicacion() && tienePermisoSegundoPlano() -> iniciarServicioUbicacion()
+            tienePermisoUbicacion() -> pedirPermisoSegundoPlano()
+            else -> permisoUbicacionLauncher.launch(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+            )
+        }
+    }
+
+    private fun iniciarServicioUbicacion() {
+        UbicacionTecnicoService.iniciar(this)
+    }
+
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {

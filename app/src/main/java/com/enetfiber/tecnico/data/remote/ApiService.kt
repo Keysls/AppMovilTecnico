@@ -133,4 +133,6 @@ interface ApiService {
         @Path("id") trabajoId: String
     ): Response<Unit>
 
+    @PATCH("tecnicos/mi-ubicacion")
+    suspend fun reportarUbicacion(@Body request: UbicacionRequest): Response<Unit>
 }
