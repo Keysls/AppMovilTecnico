@@ -222,6 +222,7 @@ class Repository @Inject constructor(
     }
 
     suspend fun aceptarOrden(id: String): Resultado<Unit> {
+        val estadoAnterior = ordenDao.getById(id)?.estado ?: "PENDIENTE_TECNICO"
         ordenDao.updateEstado(id, "ACEPTADA")
         val ahoraIso = System.currentTimeMillis().aIso8601()
 
@@ -229,10 +230,20 @@ class Repository @Inject constructor(
             val res = api.aceptarOrden(id, AceptarRequest(ahoraIso))
             if (res.isSuccessful) {
                 Resultado.Exito(Unit)
+            } else if (res.code() == 409) {
+                ordenDao.updateEstado(id, estadoAnterior)
+                val mensaje = try {
+                    val errorJson = res.errorBody()?.string()
+                    com.google.gson.Gson().fromJson(errorJson, ErrorResponseSimple::class.java)?.error
+                } catch (_: Exception) { null }
+                Resultado.Error(mensaje ?: "Esta orden ya fue tomada por otro técnico")
             } else {
-                aceptarDao.insert(AceptarPendienteEntity(ordenId = id))
-                programarSync()
-                Resultado.Exito(Unit)
+                ordenDao.updateEstado(id, estadoAnterior)
+                val mensaje = try {
+                    val errorJson = res.errorBody()?.string()
+                    com.google.gson.Gson().fromJson(errorJson, ErrorResponseSimple::class.java)?.error
+                } catch (_: Exception) { null }
+                Resultado.Error(mensaje ?: "No se pudo aceptar la orden")
             }
         } catch (e: Exception) {
             aceptarDao.insert(AceptarPendienteEntity(ordenId = id))
