@@ -11,22 +11,27 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.work.*
 import com.enetfiber.tecnico.R
 import com.enetfiber.tecnico.data.remote.ApiService
 import com.enetfiber.tecnico.data.remote.UbicacionTecnicoRequest
-import com.google.android.gms.location.*
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import com.google.android.gms.location.*
 
 /**
- * Servicio en primer plano que reporta la ubicación del técnico mientras
- * tiene sesión iniciada — tanto con la app abierta (30s) como minimizada (3min).
- *
- * Se inicia en MainActivity al abrir sesión, y se detiene en el logout().
+ * Servicio en primer plano que reporta la ubicación del técnico.
+ * Solo activo dentro de la jornada laboral:
+ *   - 8:00 am – 1:00 pm
+ *   - 3:00 pm – 6:00 pm
+ * No opera los domingos. Fuera de ese rango el servicio se detiene por
+ * completo (sin notificación, sin GPS). Se reactiva automáticamente
+ * cada mañana vía WorkManager (excepto domingo).
  */
 @AndroidEntryPoint
 class UbicacionTecnicoService : Service() {
@@ -41,14 +46,8 @@ class UbicacionTecnicoService : Service() {
 
     private val lifecycleObserver = LifecycleEventObserver { _, event ->
         when (event) {
-            Lifecycle.Event.ON_START -> {
-                appEnPrimerPlano = true
-                reiniciarActualizaciones()
-            }
-            Lifecycle.Event.ON_STOP -> {
-                appEnPrimerPlano = false
-                reiniciarActualizaciones()
-            }
+            Lifecycle.Event.ON_START -> { appEnPrimerPlano = true; reiniciarActualizaciones() }
+            Lifecycle.Event.ON_STOP  -> { appEnPrimerPlano = false; reiniciarActualizaciones() }
             else -> {}
         }
     }
@@ -60,8 +59,16 @@ class UbicacionTecnicoService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Si ya terminó la jornada del día, ni siquiera arrancar
+        if (!estaDentroDeJornada()) {
+            programarReinicioManana()
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         startForeground(NOTIF_ID, crearNotificacion())
         iniciarActualizaciones()
+        programarReinicioManana()
         return START_STICKY
     }
 
@@ -72,10 +79,7 @@ class UbicacionTecnicoService : Service() {
     }
 
     private fun iniciarActualizaciones() {
-        if (!tienePermisoUbicacion()) {
-            stopSelf()
-            return
-        }
+        if (!tienePermisoUbicacion()) { stopSelf(); return }
 
         val intervaloMs = if (appEnPrimerPlano) INTERVALO_PRIMER_PLANO_MS else INTERVALO_SEGUNDO_PLANO_MS
 
@@ -86,6 +90,15 @@ class UbicacionTecnicoService : Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 val loc = result.lastLocation ?: return
+
+                // Revisar en cada ciclo si ya terminó la jornada — si es así,
+                // detener el servicio por completo (oculta la notificación).
+                if (!estaDentroDeJornada()) {
+                    detenerPorFinDeJornada()
+                    return
+                }
+
+                if (!estaEnHorarioLaboral()) return // hueco de almuerzo: pausa sin detener
                 enviarUbicacion(loc.latitude, loc.longitude)
             }
         }
@@ -93,44 +106,94 @@ class UbicacionTecnicoService : Service() {
         try {
             fusedClient.requestLocationUpdates(request, locationCallback!!, Looper.getMainLooper())
         } catch (e: SecurityException) {
-            // El usuario revocó el permiso justo en este instante (carrera rara,
-            // pero posible) — detenemos el servicio en vez de crashear.
             stopSelf()
         }
     }
 
     private fun reiniciarActualizaciones() {
         locationCallback?.let { fusedClient.removeLocationUpdates(it) }
-        iniciarActualizaciones()
+        if (estaDentroDeJornada()) iniciarActualizaciones()
     }
 
     private fun enviarUbicacion(lat: Double, lng: Double) {
         scope.launch {
             try {
                 api.reportarUbicacion(UbicacionTecnicoRequest(lat = lat, lng = lng))
-            } catch (_: Exception) {
-                // Falla silenciosa — se reintentará en el próximo ciclo.
-                // No es crítico perder un reporte puntual de ubicación.
+            } catch (_: Exception) { /* falla silenciosa */ }
+        }
+    }
+
+    // ── Horarios ──────────────────────────────────────────────
+    private fun minutosDelDia(): Int {
+        val cal = java.util.Calendar.getInstance()
+        return cal.get(java.util.Calendar.HOUR_OF_DAY) * 60 + cal.get(java.util.Calendar.MINUTE)
+    }
+
+    private fun esDomingo(): Boolean {
+        val cal = java.util.Calendar.getInstance()
+        return cal.get(java.util.Calendar.DAY_OF_WEEK) == java.util.Calendar.SUNDAY
+    }
+
+    /** true si está dentro del día laboral completo (8:00am – 6:00pm), incluyendo el almuerzo. Falso siempre en domingo. */
+    private fun estaDentroDeJornada(): Boolean {
+        if (esDomingo()) return false
+        val m = minutosDelDia()
+        return m in (8 * 60)..(18 * 60)
+    }
+
+    /** true si está en uno de los 2 tramos activos (excluye el hueco de almuerzo) */
+    private fun estaEnHorarioLaboral(): Boolean {
+        if (esDomingo()) return false
+        val m = minutosDelDia()
+        val turnoManana = m in (8 * 60)..(13 * 60)   // 8:00 am – 1:00 pm
+        val turnoTarde  = m in (15 * 60)..(18 * 60)  // 3:00 pm – 6:00 pm
+
+        return turnoManana || turnoTarde
+    }
+
+    private fun detenerPorFinDeJornada() {
+        locationCallback?.let { fusedClient.removeLocationUpdates(it) }
+        stopForeground(STOP_FOREGROUND_REMOVE) // quita la notificación
+        stopSelf()
+    }
+
+    // ── Reinicio automático al día siguiente ─────────────────
+    private fun programarReinicioManana() {
+        val cal = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 8)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            if (before(java.util.Calendar.getInstance())) {
+                add(java.util.Calendar.DAY_OF_YEAR, 1)
+            }
+            // Si cae domingo, saltar directo al lunes
+            if (get(java.util.Calendar.DAY_OF_WEEK) == java.util.Calendar.SUNDAY) {
+                add(java.util.Calendar.DAY_OF_YEAR, 1)
             }
         }
+        val delay = cal.timeInMillis - System.currentTimeMillis()
+        val work = OneTimeWorkRequestBuilder<ReinicioUbicacionWorker>()
+            .setInitialDelay(delay, TimeUnit.MILLISECONDS)
+            .build()
+
+        WorkManager.getInstance(applicationContext)
+            .enqueueUniqueWork("reinicio_ubicacion", ExistingWorkPolicy.REPLACE, work)
     }
 
     private fun crearNotificacion(): Notification {
         val channelId = "ubicacion_tecnico"
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = getSystemService(NotificationManager::class.java)
             val channel = NotificationChannel(
                 channelId, "Ubicación en tiempo real", NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Se usa para que el NOC pueda ubicarte mientras trabajas"
-            }
+            ).apply { description = "Se usa para que el NOC pueda ubicarte mientras trabajas" }
             manager.createNotificationChannel(channel)
         }
 
+        val enHorario = estaEnHorarioLaboral()
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Compartiendo tu ubicación")
-            .setContentText("Enet Fiber Técnico está activo")
+            .setContentTitle(if (enHorario) "Compartiendo tu ubicación" else "Ubicación en pausa")
+            .setContentText(if (enHorario) "Enet Fiber Técnico está activo" else "Fuera de horario — retoma pronto")
             .setSmallIcon(R.drawable.icon_logo_e)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -147,8 +210,8 @@ class UbicacionTecnicoService : Service() {
 
     companion object {
         private const val NOTIF_ID = 5001
-        private const val INTERVALO_PRIMER_PLANO_MS  = 30_000L   // 30 segundos
-        private const val INTERVALO_SEGUNDO_PLANO_MS = 180_000L  // 3 minutos
+        private const val INTERVALO_PRIMER_PLANO_MS  = 30_000L
+        private const val INTERVALO_SEGUNDO_PLANO_MS = 180_000L
 
         fun iniciar(context: android.content.Context) {
             val intent = Intent(context, UbicacionTecnicoService::class.java)
@@ -161,6 +224,21 @@ class UbicacionTecnicoService : Service() {
 
         fun detener(context: android.content.Context) {
             context.stopService(Intent(context, UbicacionTecnicoService::class.java))
+            WorkManager.getInstance(context).cancelUniqueWork("reinicio_ubicacion")
         }
+    }
+}
+
+/**
+ * Worker que reinicia el servicio de ubicación cada mañana a las 8:00 am,
+ * sin necesidad de que el técnico abra la app manualmente.
+ */
+class ReinicioUbicacionWorker(
+    context: android.content.Context,
+    params: WorkerParameters
+) : Worker(context, params) {
+    override fun doWork(): Result {
+        UbicacionTecnicoService.iniciar(applicationContext)
+        return Result.success()
     }
 }

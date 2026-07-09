@@ -162,6 +162,7 @@ class MainActivity : AppCompatActivity() {
     private fun observarSesion() {
         lifecycleScope.launch {
             SessionEvents.unauthorized.collect {
+                UbicacionTecnicoService.detener(this@MainActivity)
                 Toast.makeText(
                     this@MainActivity,
                     "Tu sesión expiró, vuelve a iniciar sesión",
