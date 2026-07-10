@@ -59,14 +59,18 @@ class UbicacionTecnicoService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Si ya terminó la jornada del día, ni siquiera arrancar
+        // SIEMPRE se debe llamar startForeground() primero — es obligatorio en
+        // Android cuando se inicia con startForegroundService(), incluso si
+        // luego decidimos detener el servicio de inmediato.
+        startForeground(NOTIF_ID, crearNotificacion())
+
         if (!estaDentroDeJornada()) {
             programarReinicioManana()
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
         }
 
-        startForeground(NOTIF_ID, crearNotificacion())
         iniciarActualizaciones()
         programarReinicioManana()
         return START_STICKY
@@ -138,15 +142,14 @@ class UbicacionTecnicoService : Service() {
     private fun estaDentroDeJornada(): Boolean {
         if (esDomingo()) return false
         val m = minutosDelDia()
-        return m in (8 * 60)..(18 * 60)
+        return m in (8 * 60 + 10)..(18 * 60)
     }
 
-    /** true si está en uno de los 2 tramos activos (excluye el hueco de almuerzo) */
     private fun estaEnHorarioLaboral(): Boolean {
         if (esDomingo()) return false
         val m = minutosDelDia()
-        val turnoManana = m in (8 * 60)..(13 * 60)   // 8:00 am – 1:00 pm
-        val turnoTarde  = m in (15 * 60)..(18 * 60)  // 3:00 pm – 6:00 pm
+        val turnoManana = m in (8 * 60 + 10)..(13 * 60)   // 8:10 am – 1:00 pm
+        val turnoTarde  = m in (15 * 60)..(18 * 60)        // 3:00 pm – 6:00 pm
 
         return turnoManana || turnoTarde
     }
