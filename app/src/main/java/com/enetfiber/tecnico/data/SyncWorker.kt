@@ -13,7 +13,9 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
-
+import com.enetfiber.tecnico.util.ImageUtils
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
     @Assisted ctx: Context,
@@ -128,7 +130,7 @@ class SyncWorker @AssistedInject constructor(
                     if (res?.isSuccessful == true) configDao.marcarSincronizado(instId)
                     else { instalacionOk = false; huboFallo = true }
                 }
-
+/*
                 // Fotos
                 for (foto in fotoDao.getTodasPendientes().filter { f -> f.instalacionId == instId }) {
                     val file = File(foto.rutaLocal)
@@ -137,6 +139,28 @@ class SyncWorker @AssistedInject constructor(
                     }
                     val part = MultipartBody.Part.createFormData(
                         "fotos", file.name, file.asRequestBody("image/jpeg".toMediaType())
+                    )
+                    val tipoPart = foto.tipo.toRequestBody("text/plain".toMediaType())
+                    val res = runCatching { api.subirFoto(instId, part, tipoPart) }.getOrNull()
+                    if (res?.isSuccessful == true) fotoDao.marcarSincronizado(foto.id)
+                    else { instalacionOk = false; huboFallo = true }
+                }
+
+         */
+
+                // Fotos
+                for (foto in fotoDao.getTodasPendientes().filter { f -> f.instalacionId == instId }) {
+                    val original = File(foto.rutaLocal)
+                    if (!original.exists() || original.length() == 0L) {
+                        fotoDao.marcarSincronizado(foto.id); continue
+                    }
+                    val file = if (original.extension.equals("webp", ignoreCase = true)) {
+                        original // ya viene comprimida (falló la subida en Repository.subirFoto)
+                    } else {
+                        withContext(Dispatchers.IO) { ImageUtils.comprimirAWebP(original) }
+                    }
+                    val part = MultipartBody.Part.createFormData(
+                        "fotos", file.name, file.asRequestBody("image/webp".toMediaType())
                     )
                     val tipoPart = foto.tipo.toRequestBody("text/plain".toMediaType())
                     val res = runCatching { api.subirFoto(instId, part, tipoPart) }.getOrNull()

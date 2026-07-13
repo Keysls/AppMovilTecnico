@@ -14,12 +14,16 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.enetfiber.tecnico.util.ImageUtils
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.work.*
 import com.enetfiber.tecnico.data.local.CompletarPendienteDao
 import com.enetfiber.tecnico.data.local.CompletarPendienteEntity
 import java.util.concurrent.TimeUnit
 import java.util.UUID
 import kotlinx.coroutines.flow.firstOrNull
+
 
 sealed class Resultado<out T> {
     data class Exito<T>(val data: T) : Resultado<T>()
@@ -293,7 +297,7 @@ class Repository @Inject constructor(
             Resultado.Exito(instId)
         }
     }
-
+/*
     suspend fun subirFoto(instalacionId: String, ruta: String, tipo: String): Resultado<Unit> {
         return try {
             val file = File(ruta)
@@ -317,7 +321,32 @@ class Repository @Inject constructor(
             Resultado.Error("Sin conexión — foto guardada offline")
         }
     }
+*/
 
+    suspend fun subirFoto(instalacionId: String, ruta: String, tipo: String): Resultado<Unit> {
+        return try {
+            val original = File(ruta)
+            if (!original.exists() || original.length() == 0L) {
+                return Resultado.Error("Archivo no encontrado o vacío")
+            }
+            val file = withContext(Dispatchers.IO) { ImageUtils.comprimirAWebP(original) }
+            val part = MultipartBody.Part.createFormData(
+                "fotos", file.name,
+                file.asRequestBody("image/webp".toMediaType())
+            )
+            val tipoPart = tipo.toRequestBody("text/plain".toMediaType())
+            val res = api.subirFoto(instalacionId, part, tipoPart)
+            if (res.isSuccessful) Resultado.Exito(Unit)
+            else {
+                val error = res.errorBody()?.string() ?: "Error desconocido"
+                fotoDao.insert(FotoPendienteEntity(instalacionId = instalacionId, tipo = tipo, rutaLocal = file.absolutePath))
+                Resultado.Error("Foto guardada offline: $error")
+            }
+        } catch (e: Exception) {
+            fotoDao.insert(FotoPendienteEntity(instalacionId = instalacionId, tipo = tipo, rutaLocal = ruta))
+            Resultado.Error("Sin conexión — foto guardada offline")
+        }
+    }
     suspend fun guardarConfigOnu(instalacionId: String, config: ConfigOnuRequest): Resultado<Unit> {
         if (!isOnline()) {
             configDao.insert(ConfigOfflineEntity(
