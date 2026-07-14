@@ -151,16 +151,17 @@
                 </LinearLayout>
 
                 <!-- Botón limpiar fechas -->
-                <TextView
+                <ImageView
                     android:id="@+id/btnLimpiarFechas"
-                    android:layout_width="wrap_content"
+                    android:layout_width="32dp"
                     android:layout_height="40dp"
-                    android:gravity="center"
-                    android:text="✕"
-                    android:textSize="14sp"
-                    android:textColor="#94A3B8"
+                    android:src="@drawable/ic_close"
+                    android:contentDescription="@null"
+                    app:tint="#94A3B8"
                     android:paddingStart="10dp"
                     android:paddingEnd="4dp"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:visibility="gone"/>
 
             </LinearLayout>
@@ -187,10 +188,13 @@
                         android:button="@null"
                         android:checked="true"
                         android:gravity="center"
-                        android:paddingHorizontal="16dp"
+                        android:paddingHorizontal="14dp"
                         android:text="Todos"
                         android:textColor="@drawable/txt_chip_selector"
                         android:textSize="12sp"
+                        android:drawableStart="@drawable/ic_view_list"
+                        android:drawableTint="@drawable/txt_chip_selector"
+                        android:drawablePadding="6dp"
                         tools:ignore="TouchTargetSizeCheck"/>
 
                     <RadioButton
@@ -201,10 +205,13 @@
                         android:background="@drawable/bg_chip_selector"
                         android:button="@null"
                         android:gravity="center"
-                        android:paddingHorizontal="16dp"
-                        android:text="📡 Internet"
+                        android:paddingHorizontal="14dp"
+                        android:text="Internet"
                         android:textColor="@drawable/txt_chip_selector"
                         android:textSize="12sp"
+                        android:drawableStart="@drawable/ic_wifi"
+                        android:drawableTint="@drawable/txt_chip_selector"
+                        android:drawablePadding="6dp"
                         tools:ignore="TouchTargetSizeCheck"/>
 
                     <RadioButton
@@ -215,10 +222,13 @@
                         android:background="@drawable/bg_chip_selector"
                         android:button="@null"
                         android:gravity="center"
-                        android:paddingHorizontal="16dp"
-                        android:text="📺 Cable"
+                        android:paddingHorizontal="14dp"
+                        android:text="Cable"
                         android:textColor="@drawable/txt_chip_selector"
                         android:textSize="12sp"
+                        android:drawableStart="@drawable/ic_tv"
+                        android:drawableTint="@drawable/txt_chip_selector"
+                        android:drawablePadding="6dp"
                         tools:ignore="TouchTargetSizeCheck"/>
 
                     <RadioButton
@@ -228,10 +238,13 @@
                         android:background="@drawable/bg_chip_selector"
                         android:button="@null"
                         android:gravity="center"
-                        android:paddingHorizontal="16dp"
-                        android:text="📡📺 Dúo"
+                        android:paddingHorizontal="14dp"
+                        android:text="Dúo"
                         android:textColor="@drawable/txt_chip_selector"
                         android:textSize="12sp"
+                        android:drawableStart="@drawable/ic_shuffle"
+                        android:drawableTint="@drawable/txt_chip_selector"
+                        android:drawablePadding="6dp"
                         tools:ignore="TouchTargetSizeCheck"/>
 
                 </RadioGroup>
@@ -261,11 +274,14 @@
                 android:gravity="center"
                 android:visibility="gone">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="✅"
-                    android:textSize="48sp"
+                <ImageView
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:background="@drawable/bg_icon_circle"
+                    android:backgroundTint="@color/verde_bg"
+                    android:padding="18dp"
+                    android:src="@drawable/ic_check_circle"
+                    app:tint="@color/verde"
                     android:layout_marginBottom="12dp"/>
 
                 <TextView
@@ -279,7 +295,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Las instalaciones completadas aparecerán aquí"
+                    android:text="Los servicios completados aparecerán aquí"
                     android:textSize="13sp"
                     android:textColor="#94A3B8"
                     android:layout_marginTop="6dp"/>

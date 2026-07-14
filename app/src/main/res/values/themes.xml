@@ -80,4 +80,18 @@
         <item name="android:textAllCaps">false</item>
     </style>
 
+
+
+    <style name="BottomNavTextActive" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">0.01</item>
+    </style>
+
+    <style name="BottomNavTextInactive" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="android:textSize">11sp</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:letterSpacing">0.01</item>
+    </style>
+
 </resources>

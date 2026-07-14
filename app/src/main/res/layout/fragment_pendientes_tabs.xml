@@ -97,10 +97,13 @@
                     android:button="@null"
                     android:checked="true"
                     android:gravity="center"
-                    android:paddingHorizontal="16dp"
+                    android:paddingHorizontal="14dp"
                     android:text="Todos"
                     android:textColor="@drawable/txt_chip_selector"
                     android:textSize="12sp"
+                    android:drawableStart="@drawable/ic_view_list"
+                    android:drawableTint="@drawable/txt_chip_selector"
+                    android:drawablePadding="6dp"
                     tools:ignore="TouchTargetSizeCheck" />
 
                 <RadioButton
@@ -111,10 +114,13 @@
                     android:background="@drawable/bg_chip_selector"
                     android:button="@null"
                     android:gravity="center"
-                    android:paddingHorizontal="16dp"
-                    android:text="📡 Internet"
+                    android:paddingHorizontal="14dp"
+                    android:text="Internet"
                     android:textColor="@drawable/txt_chip_selector"
                     android:textSize="12sp"
+                    android:drawableStart="@drawable/ic_wifi"
+                    android:drawableTint="@drawable/txt_chip_selector"
+                    android:drawablePadding="6dp"
                     tools:ignore="TouchTargetSizeCheck" />
 
                 <RadioButton
@@ -125,10 +131,13 @@
                     android:background="@drawable/bg_chip_selector"
                     android:button="@null"
                     android:gravity="center"
-                    android:paddingHorizontal="16dp"
-                    android:text="📺 Cable"
+                    android:paddingHorizontal="14dp"
+                    android:text="Cable"
                     android:textColor="@drawable/txt_chip_selector"
                     android:textSize="12sp"
+                    android:drawableStart="@drawable/ic_tv"
+                    android:drawableTint="@drawable/txt_chip_selector"
+                    android:drawablePadding="6dp"
                     tools:ignore="TouchTargetSizeCheck" />
 
                 <RadioButton
@@ -138,10 +147,13 @@
                     android:background="@drawable/bg_chip_selector"
                     android:button="@null"
                     android:gravity="center"
-                    android:paddingHorizontal="16dp"
-                    android:text="📡📺 Dúo"
+                    android:paddingHorizontal="14dp"
+                    android:text="Dúo"
                     android:textColor="@drawable/txt_chip_selector"
                     android:textSize="12sp"
+                    android:drawableStart="@drawable/ic_shuffle"
+                    android:drawableTint="@drawable/txt_chip_selector"
+                    android:drawablePadding="6dp"
                     tools:ignore="TouchTargetSizeCheck" />
 
             </RadioGroup>
@@ -176,12 +188,15 @@
                 android:gravity="center"
                 android:visibility="gone">
 
-                <TextView
+                <ImageView
                     android:id="@+id/tvEmptyIcon"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="📋"
-                    android:textSize="40sp"
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:background="@drawable/bg_icon_circle"
+                    android:backgroundTint="#F1F5F9"
+                    android:padding="16dp"
+                    android:src="@drawable/ic_nav_pendientes"
+                    app:tint="#94A3B8"
                     android:layout_marginBottom="12dp"/>
 
                 <TextView

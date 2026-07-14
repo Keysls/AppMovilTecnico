@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="220dp"
+    android:layout_height="wrap_content"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:orientation="vertical"
+    android:background="@drawable/bg_popup_menu"
+    android:clipToOutline="true"
+    android:elevation="8dp">
+
+    <!-- Ver mi perfil -->
+    <LinearLayout
+        android:id="@+id/itemVerPerfil"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:background="@drawable/bg_popup_item_top"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/ic_perfil"
+            app:tint="#1E3A8A" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="14dp"
+            android:text="Ver mi perfil"
+            android:textSize="14sp"
+            android:textColor="#1F2937" />
+    </LinearLayout>
+
+    <!-- Separador -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:background="#E5E7EB" />
+
+    <!-- Cerrar sesión -->
+    <LinearLayout
+        android:id="@+id/itemCerrarSesion"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:background="@drawable/bg_popup_item_bottom"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/ic_logout"
+            app:tint="#DC2626" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="14dp"
+            android:text="Cerrar sesión"
+            android:textSize="14sp"
+            android:textColor="#DC2626" />
+    </LinearLayout>
+
+</LinearLayout>

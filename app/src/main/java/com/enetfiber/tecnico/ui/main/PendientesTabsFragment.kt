@@ -147,12 +147,14 @@ class PendientesTabsFragment : Fragment() {
 
         // Ícono y texto del estado vacío
         if (isEmpty) {
-            binding.tvEmptyIcon.text = when (filtroActual) {
-                "internet" -> "📡"
-                "cable"    -> "📺"
-                "duo"      -> "📡📺"
-                else       -> "📋"
-            }
+            binding.tvEmptyIcon.setImageResource(
+                when (filtroActual) {
+                    "internet" -> com.enetfiber.tecnico.R.drawable.ic_wifi
+                    "cable"    -> com.enetfiber.tecnico.R.drawable.ic_tv
+                    "duo"      -> com.enetfiber.tecnico.R.drawable.ic_shuffle
+                    else       -> com.enetfiber.tecnico.R.drawable.ic_nav_pendientes
+                }
+            )
             binding.tvEmptyText.text = when {
                 busquedaActual.isNotEmpty() -> "Sin resultados para \"$busquedaActual\""
                 filtroActual == "internet"  -> "Sin órdenes de Internet"

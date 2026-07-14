@@ -17,8 +17,8 @@ android {
         versionName   = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // ⚠️ Cambia esta IP por la de tu PC
-        //buildConfigField("String", "BASE_URL", "\"https://api-enetfiber.evelynsac.com/api/\"")
-        buildConfigField("String", "BASE_URL", "\"http://192.168.100.2:3000/api/\"")
+        buildConfigField("String", "BASE_URL", "\"https://api-enetfiber.evelynsac.com/api/\"")
+        //buildConfigField("String", "BASE_URL", "\"http://192.168.100.2:3000/api/\"")
 
     }
 

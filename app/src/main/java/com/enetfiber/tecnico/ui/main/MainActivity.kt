@@ -3,9 +3,12 @@ package com.enetfiber.tecnico.ui.main
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
-import android.view.Gravity
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
-import android.widget.PopupMenu
+import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
@@ -130,22 +133,42 @@ class MainActivity : AppCompatActivity() {
         }
 
         tvAvatar.setOnClickListener { view ->
-            val popup = PopupMenu(this, view, Gravity.END)
-            popup.menu.add(0, 1, 0, "👤  Ver mi perfil")
-            popup.menu.add(0, 2, 1, "🚪  Cerrar sesión")
-            popup.setOnMenuItemClickListener { item ->
-                when (item.itemId) {
-                    1 -> {
-                        cargarFragment(PerfilFragment(), "Mi Perfil")
-                        // No cambiar el bottom nav seleccionado
-                    }
-                    2 -> logout()
-                }
-                true
-            }
-            popup.show()
+            mostrarMenuAvatar(view)
         }
     }
+
+    private fun mostrarMenuAvatar(anchor: android.view.View) {
+        val popupView = LayoutInflater.from(this)
+            .inflate(R.layout.popup_menu_avatar, null)
+
+        val popupWindow = PopupWindow(
+            popupView,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        ).apply {
+            elevation = 8f
+            isOutsideTouchable = true
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        }
+
+        popupView.findViewById<LinearLayout>(R.id.itemVerPerfil).setOnClickListener { itemView ->
+            itemView.postDelayed({
+                popupWindow.dismiss()
+                cargarFragment(PerfilFragment(), "Mi Perfil")
+            }, 150)
+        }
+
+        popupView.findViewById<LinearLayout>(R.id.itemCerrarSesion).setOnClickListener { itemView ->
+            itemView.postDelayed({
+                popupWindow.dismiss()
+                logout()
+            }, 150)
+        }
+
+        popupWindow.showAsDropDown(anchor, -160, 8)
+    }
+
 
     private fun setupBottomNav() {
         binding.bottomNav.setOnItemSelectedListener { item ->
