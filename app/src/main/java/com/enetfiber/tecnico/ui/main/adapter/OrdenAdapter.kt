@@ -146,9 +146,11 @@ class OrdenAdapter(
                 b.tvLabelMateriales.visibility = if (materiales.isNotEmpty()) View.VISIBLE else View.GONE
                 b.tvSinMateriales.visibility   = if (materiales.isEmpty())    View.VISIBLE else View.GONE
                 materiales.forEach { m ->
+                    val cantidadTexto = if (m.cantidad % 1.0 == 0.0) m.cantidad.toInt().toString() else m.cantidad.toString()
                     val tv = android.widget.TextView(ctx).apply {
-                        text = "• ${m.nombre} — ${if (m.cantidad % 1.0 == 0.0) m.cantidad.toInt().toString() else m.cantidad.toString()}"
+                        text = "• ${m.nombre} — $cantidadTexto${m.unidad?.let { " $it" } ?: ""}"
                         textSize = 12f
+
                         setTextColor(android.graphics.Color.parseColor("#334155"))
                         setPadding(0, 2, 0, 2)
                     }

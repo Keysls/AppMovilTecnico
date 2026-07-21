@@ -572,7 +572,8 @@ class Repository @Inject constructor(
      * filtrando por nServicio en el cliente. Solo funciona online; las órdenes
      * completadas son históricas, no necesitan estar disponibles offline.
      */
-    suspend fun getHistorialConsumosPorOrden(nServicio: String): Resultado<List<ConsumoHistorialDto>> {
+
+   /* suspend fun getHistorialConsumosPorOrden(nServicio: String): Resultado<List<ConsumoHistorialDto>> {
         if (!isOnline()) return Resultado.Error("Sin conexión")
         return try {
             val res = kotlinx.coroutines.withTimeoutOrNull(10_000) { api.getMiInventario() }
@@ -586,7 +587,43 @@ class Repository @Inject constructor(
             Resultado.Error("Sin conexión: ${e.message}")
         }
     }
+*/
 
+    suspend fun getHistorialConsumosPorOrden(nServicio: String): Resultado<List<ConsumoHistorialDto>> {
+        if (!isOnline()) return Resultado.Error("Sin conexión")
+        return try {
+            val res = kotlinx.coroutines.withTimeoutOrNull(10_000) { api.getMiInventario() }
+                ?: return Resultado.Error("Red lenta")
+            if (res.isSuccessful) {
+                val body = res.body()
+
+                // El backend guarda consumoTecnico.cantidad en "unidades" para productos
+                // medibles (rollos) — igual que ya hace correctamente con "items" (asignado/
+                // utilizado/disponible en metros). "historialConsumos" en cambio devuelve la
+                // cantidad cruda sin convertir. Como los mismos productos ya vienen con
+                // esMedible/metrosPorUnidad dentro de "items" en ESTA misma respuesta,
+                // reconvertimos aquí sin necesidad de tocar el backend.
+                val metrosPorUnidadPorProducto = body?.items
+                    .orEmpty()
+                    .filter { it.esMedible && it.metrosPorUnidad != null }
+                    .associate { it.productoId to it.metrosPorUnidad!! }
+
+                val historial = body?.historialConsumos.orEmpty()
+                    .filter { it.nServicio == nServicio }
+                    .map { c ->
+                        // Si el backend YA manda unidad (ej. tras subir el fix de
+                        // stock.controller.js a producción), no reconvertir de nuevo.
+                        val metrosPorUnidad = metrosPorUnidadPorProducto[c.productoId]
+                        if (metrosPorUnidad != null && c.unidad == null) {
+                            c.copy(cantidad = c.cantidad * metrosPorUnidad, unidad = "m")
+                        } else c
+                    }
+                Resultado.Exito(historial)
+            } else Resultado.Error("Error al obtener materiales")
+        } catch (e: Exception) {
+            Resultado.Error("Sin conexión: ${e.message}")
+        }
+    }
     /**
      * Registra material gastado.
      * Siempre guarda localmente primero; si hay internet también envía al servidor.

@@ -1114,6 +1114,14 @@ class InstalacionActivity : AppCompatActivity() {
                 )
                 Toast.makeText(this, "Se registrará el retiro de $codigo", Toast.LENGTH_SHORT).show()
             }
+            .setNeutralButton("Sin ONU") { _, _ ->
+                equipoOnuAveriadaRetirado = null
+                Toast.makeText(
+                    this,
+                    "No se registrará el retiro de la ONU vieja",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
             .setNegativeButton("Cancelar") { _, _ ->
                 switch.isChecked = false
             }

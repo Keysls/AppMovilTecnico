@@ -261,6 +261,9 @@ data class ConsumoHistorialDto(
     val productoId:  Int,
     val nombre:      String,
     val cantidad:    Double,
+    // "m" para productos medibles (rollos) — el backend ya convierte cantidad a
+    // metros cuando corresponde; null para productos normales (unidades enteras).
+    val unidad:      String? = null,
     val motivo:      String?,
     val descripcion: String?,
     val fecha:       String?,
